@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hybrid-stereo-method"
+version = "0.1.0"
+description = "A project created using setuptools."
+authors = [
+    { name = "Gustavo Lelis", email = "g.lelis.silva@gmail.com" }
+]
+dependencies = []
+
+[tool.setuptools]
+packages = ["find:"]
+package-dir = { "" = "src" }

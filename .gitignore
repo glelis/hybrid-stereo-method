@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.ipynb_checkpoints/
+
+# Dados grandes
+data/
+data/raw/
+data/processed/
+
+# Ambiente virtual
+venv/
+src/hybrid_stereo_method.egg-info/
+
