@@ -36,12 +36,12 @@ def plotar_canais(imagem):
     # Informações estatísticas
     print("Informações estatísticas dos canais:")
     for i in range(3):
-        canal = imagem[:, :, i]
+        channel = imagem[:, :, i]
         print(f"Canal {i}:")
-        print(f"  Mínimo: {canal.min()}")
-        print(f"  Máximo: {canal.max()}")
-        print(f"  Média: {canal.mean()}")
-        print(f"  Desvio Padrão: {canal.std()}")
+        print(f"  Mínimo: {channel.min()}")
+        print(f"  Máximo: {channel.max()}")
+        print(f"  Média: {channel.mean()}")
+        print(f"  Desvio Padrão: {channel.std()}")
     plt.show()
 
 
@@ -102,3 +102,191 @@ def plotar_canais_3d(imagem):
     axs[2].set_zlabel('Altura')
 
     plt.show()
+
+
+
+
+
+
+def disp_channels(normal_in=None, height=None, width=None, delay=0, name=None, save_path=None):
+    """
+    Visualize normal as a normal map in a single window with all channels and save the image if a path is provided.
+    :param normal: array of surface normal (p \times 3)
+    :param height: height of the image (scalar)
+    :param width: width of the image (scalar)
+    :param delay: duration (ms) for visualizing normal map. 0 for displaying infinitely until a key is pressed.
+    :param name: display name
+    :param save_path: path to save the final image
+    :return: None
+    """
+    if normal_in is None:
+        raise ValueError("Surface normal `normal` is None")
+    
+    # Reshape para coordenadas de imagem
+    normal = np.reshape(normal_in, (height, width, 3))
+    
+    # Trocar canais RGB para BGR
+    normal[:, :, 0], normal[:, :, 2] = normal[:, :, 2], normal[:, :, 0].copy()  # Swap RGB <-> BGR
+    
+    # Redimensionar valores para o intervalo [0, 255] (formato de imagem)
+    normal = ((normal + 1.0) / 2.0 * 255).astype(np.uint8)
+
+    # Separar os canais
+    channel_0 = normal[:, :, 0]
+    channel_1 = normal[:, :, 1]
+    channel_2 = normal[:, :, 2]
+
+    # Combinar os canais horizontalmente
+    combined = cv2.hconcat([channel_0, channel_1, channel_2])
+
+    # Exibir a imagem em uma única janela
+    if name is None:
+        name = 'Channel Visualization'
+    cv2.imshow(name, combined)
+    cv2.waitKey(delay)
+    cv2.destroyWindow(name)
+    cv2.waitKey(1)    # to deal with frozen window...
+
+    # Salvar a imagem se um caminho for fornecido
+    if save_path is not None:
+        cv2.imwrite(save_path+"Channels.jpg", combined)
+
+
+def disp_channels_3d(normal_in=None, height=None, width=None, delay=0, name=None, save_path=None):
+    """
+    Visualize normal as a normal map in 3D with all channels and save the image if a path is provided.
+    :param normal: array of surface normal (p \times 3)
+    :param height: height of the image (scalar)
+    :param width: width of the image (scalar)
+    :param delay: duration (ms) for visualizing normal map. 0 for displaying infinitely until a key is pressed.
+    :param name: display name
+    :param save_path: path to save the final image
+    :return: None
+    """
+    if normal_in is None:
+        raise ValueError("Surface normal `normal` is None")
+    
+    # Reshape para coordenadas de imagem
+    normal = np.reshape(normal_in, (height, width, 3))
+    
+    # Trocar canais RGB para BGR
+    #normal[:, :, 0], normal[:, :, 2] = normal[:, :, 2], normal[:, :, 0].copy()  # Swap RGB <-> BGR
+    
+    # Redimensionar valores para o intervalo [0, 255] (formato de imagem)
+    normal = ((normal + 1.0) / 2.0 * 255).astype(np.uint8)
+
+    fig, axs = plt.subplots(1, 3, figsize=(15, 5), subplot_kw={'projection': '3d'})
+
+    x = np.arange(normal.shape[0])
+    y = np.arange(normal.shape[1])
+    x, y = np.meshgrid(x, y)
+
+    axs[0].plot_surface(x, y, normal[:, :, 0], cmap='viridis')
+    axs[0].set_title('X Axis')
+    #axs[0].set_xlabel('X')
+    #axs[0].set_ylabel('Y')
+    axs[0].set_zlabel('intensity')
+
+    axs[1].plot_surface(x, y, normal[:, :, 1], cmap='viridis')
+    axs[1].set_title('Y Axis')
+    #axs[1].set_xlabel('X')
+    #axs[1].set_ylabel('Y')
+    axs[1].set_zlabel('intensity')
+
+    axs[2].plot_surface(x, y, normal[:, :, 2], cmap='viridis')
+    axs[2].set_title('Z Axis')
+    #axs[2].set_xlabel('X')
+    #axs[2].set_ylabel('Y')
+    axs[2].set_zlabel('intensity')
+
+    # Salvar o gráfico como uma imagem em memória
+    buf = BytesIO()
+    plt.savefig(buf, format='png', bbox_inches='tight')
+    buf.seek(0)
+    plt.close(fig)  # Fecha a figura para liberar memória
+
+    # Converter a imagem para um array NumPy
+    img_array = np.array(Image.open(buf))
+    
+    # Exibir a imagem em uma única janela
+    if name is None:
+        name = 'Channel Visualization 3D'
+    cv2.imshow(name, img_array)
+    cv2.waitKey(delay)
+    cv2.destroyWindow(name)
+    cv2.waitKey(1)    # to deal with frozen window...
+
+    # Salvar a imagem se um caminho for fornecido
+    if save_path is not None:
+        cv2.imwrite(save_path+"Channels_3D.jpg", img_array)
+    return img_array
+
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+from io import BytesIO
+from PIL import Image
+
+#def disp_channels_3d(normal_in=None, height=None, width=None, delay=0, name=None):
+#    """
+#    Plota os canais de uma imagem em 3D e retorna o gráfico como um array NumPy.
+#    :param imagem: Imagem 3D (altura x largura x 3).
+#    :return: Array NumPy representando o gráfico gerado.
+#    """
+#
+#    if normal_in is None:
+#        raise ValueError("Surface normal `normal` is None")
+#    
+#    # Reshape para coordenadas de imagem
+#    normal = np.reshape(normal_in, (height, width, 3))
+#    
+#    # Trocar canais RGB para BGR
+#    normal[:, :, 0], normal[:, :, 2] = normal[:, :, 2], normal[:, :, 0].copy()  # Swap RGB <-> BGR
+#    
+#    # Redimensionar valores para o intervalo [0, 255] (formato de imagem)
+#    normal = ((normal + 1.0) / 2.0 * 255).astype(np.uint8)
+#
+#    fig, axs = plt.subplots(1, 3, figsize=(15, 5), subplot_kw={'projection': '3d'})
+#
+#    x = np.arange(normal.shape[1])
+#    y = np.arange(normal.shape[0])
+#    x, y = np.meshgrid(x, y)
+#
+#    axs[0].plot_surface(x, y, normal[:, :, 0], cmap='viridis')
+#    axs[0].set_title('Canal 0')
+#    axs[0].set_xlabel('X')
+#    axs[0].set_ylabel('Y')
+#    axs[0].set_zlabel('Altura')
+#
+#    axs[1].plot_surface(x, y, normal[:, :, 1], cmap='viridis')
+#    axs[1].set_title('Canal 1')
+#    axs[1].set_xlabel('X')
+#    axs[1].set_ylabel('Y')
+#    axs[1].set_zlabel('Altura')
+#
+#    axs[2].plot_surface(x, y, normal[:, :, 2], cmap='viridis')
+#    axs[2].set_title('Canal 2')
+#    axs[2].set_xlabel('X')
+#    axs[2].set_ylabel('Y')
+#    axs[2].set_zlabel('Altura')
+#
+#    # Salvar o gráfico como uma imagem em memória
+#    buf = BytesIO()
+#    plt.savefig(buf, format='png', bbox_inches='tight')
+#    buf.seek(0)
+#    plt.close(fig)  # Fecha a figura para liberar memória
+#
+#    # Converter a imagem para um array NumPy
+#    img_array = np.array(Image.open(buf))
+#
+#    # Exibir a imagem em uma única janela
+#    if name is None:
+#        name = 'Channel Visualization'
+#    cv2.imshow(name, img_array)
+#    cv2.waitKey(delay)
+#    cv2.destroyWindow(name)
+#    cv2.waitKey(1)    # to deal with frozen window...
+#
+#
+#    return img_array

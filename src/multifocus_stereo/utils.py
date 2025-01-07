@@ -249,31 +249,30 @@ def negativo_imagem(imagem):
     return negativo_np
 
 
+import numpy as np
+from PIL import Image
+from rembg import remove
 
-##import numpy as np
-##from PIL import Image
-##from rembg import remove
-#
-#def aplicar_mascara(imagem, img_referencia):
-#    """
-#    Aplica uma máscara a uma imagem.
-#
-#    :param imagem: numpy.ndarray, imagem original
-#    :param referencia: numpy.ndarray, da imagem referencia que ira fornecer a mascara (mesma forma que a imagem)
-#    :return: numpy.ndarray, imagem resultante após aplicação da máscara
-#    """
-#    #retira a mascara
-#    mascara = remove(img_referencia, only_mask=True)
-#    mascara = np.where(mascara <10, 0, 1)
-#
-#    # Verifica se a máscara e a imagem têm a mesma forma
-#    if imagem.shape != mascara.shape:
-#        raise ValueError("A máscara deve ter a mesma forma que a imagem.")
-#
-#    # Aplica a máscara: mantém os pixels onde a máscara é diferente de zero
-#    imagem_resultante = np.where(mascara != 0, imagem, 0)  # Substitua 0 por outra cor se necessário
-#
-#    return imagem_resultante
+def aplicar_mascara(imagem, img_referencia):
+    """
+    Aplica uma máscara a uma imagem.
+
+    :param imagem: numpy.ndarray, imagem original
+    :param referencia: numpy.ndarray, da imagem referencia que ira fornecer a mascara (mesma forma que a imagem)
+    :return: numpy.ndarray, imagem resultante após aplicação da máscara
+    """
+    #retira a mascara
+    mascara = remove(img_referencia, only_mask=True)
+    mascara = np.where(mascara <10, 0, 1)
+
+    # Verifica se a máscara e a imagem têm a mesma forma
+    if imagem.shape != mascara.shape:
+        raise ValueError("A máscara deve ter a mesma forma que a imagem.")
+
+    # Aplica a máscara: mantém os pixels onde a máscara é diferente de zero
+    imagem_resultante = np.where(mascara != 0, imagem, 0)  # Substitua 0 por outra cor se necessário
+
+    return imagem_resultante
 
 
 def calculate_error_image(reference_image, depth_map):

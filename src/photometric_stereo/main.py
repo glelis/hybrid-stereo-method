@@ -7,10 +7,10 @@ from datetime import datetime
 import numpy as np
 from photometric_stereo.rps import RPS
 import photometric_stereo.psutil as psutil
+import photometric_stereo.psvizualization as psutilvis
 import argparse
 
 def main(parameters):
-
 
 
     input_path = parameters['input_path']
@@ -100,6 +100,15 @@ def main(parameters):
 
     # **Display the Normal Map**
     psutil.disp_normalmap(normal=rps.N, height=rps.height, width=rps.width)
+    
+    
+    psutilvis.disp_channels(normal_in=rps.N, height=rps.height, width=rps.width, delay=0, name='channels', save_path=output_path)
+    #psutilvis.disp_channels(normal_in=rps.N, height=rps.height, width=rps.width)
+
+    psutilvis.disp_channels_3d(normal_in=rps.N, height=rps.height, width=rps.width, delay=0, name='channels_3D', save_path=output_path)
+    #psutilvis.disp_channels_3d(normal_in=rps.N, height=rps.height, width=rps.width)
+
+
 
     # **Finish Execution**
     logging.info("Process completed successfully.")
