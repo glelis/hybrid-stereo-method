@@ -10,4 +10,4 @@ parameters= {'input_path': '/home/lelis/Documents/Projetos/hybrid-stereo-method/
              'debug': False,
              }
 
-ps_main(parameters)
+ps_main(parameters)     
