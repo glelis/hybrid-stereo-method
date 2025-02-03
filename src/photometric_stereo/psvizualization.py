@@ -16,7 +16,25 @@ def display_img(caminho_imagem):
 
 
 
-from mpl_toolkits.mplot3d import Axes3D
+
+def plot_circle(image, center, radius):
+    # Create a copy of the image to draw the circle on
+    output_image = image.copy()
+    
+    # Draw the circle
+    cv2.circle(output_image, center, radius, (255, 0, 0), 2)
+    
+    # Draw the center of the circle
+    cv2.circle(output_image, center, 2, (0, 255, 0), 3)
+    
+    # Display the image with the circle
+    plt.imshow(output_image, cmap='gray')
+    plt.title('Detected Circle')
+    plt.show()
+
+
+
+#from mpl_toolkits.mplot3d import Axes3D
 
 
 def plotar_canais(imagem):
@@ -173,7 +191,7 @@ def disp_channels_3d(normal_in=None, height=None, width=None, delay=0, name=None
     #normal[:, :, 0], normal[:, :, 2] = normal[:, :, 2], normal[:, :, 0].copy()  # Swap RGB <-> BGR
     
     # Redimensionar valores para o intervalo [0, 255] (formato de imagem)
-    normal = ((normal + 1.0) / 2.0 * 255).astype(np.uint8)
+    #normal = ((normal + 1.0) / 2.0 * 255).astype(np.uint8)
 
     fig, axs = plt.subplots(1, 3, figsize=(15, 5), subplot_kw={'projection': '3d'})
 
@@ -223,8 +241,8 @@ def disp_channels_3d(normal_in=None, height=None, width=None, delay=0, name=None
 
 
 
-import numpy as np
-import matplotlib.pyplot as plt
+#import numpy as np
+#import matplotlib.pyplot as plt
 from io import BytesIO
 from PIL import Image
 
