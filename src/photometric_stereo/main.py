@@ -41,7 +41,7 @@ def main(parameters):
 
     # **Logging Configuration**
     logging.basicConfig(
-        level=logging.DEBUG,  # Minimum log level
+        level=logging.INFO,  # Minimum log level
         format="%(asctime)s - %(levelname)s - %(message)s",  # Log format
         handlers=[
             logging.StreamHandler(),  # Output to console
@@ -50,7 +50,8 @@ def main(parameters):
     )
     logging.info(
         f"Starting photometric stereo experiment with parameters: "
-        f"DATA_FOLDERNAME={data_foldername}, DATA_SCALE={data_scale}, "
+        f"INPUT_PATH={input_path}, DATA_FOLDERNAME={data_foldername}"
+        f" OUTPUT_PATH={output_path}, DATA_SCALE={data_scale}"
         f"IMAGE_TYPE={image_type}, METHOD={method_name}, DEBUG={debug}"
     )
 
