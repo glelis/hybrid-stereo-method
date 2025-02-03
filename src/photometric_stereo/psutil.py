@@ -253,6 +253,23 @@ def light_direction(A,B,C,A1,B1,D):
     return lx, ly, lz, R, M
 
 
+def find_white_sphere(image):
+    # Apply a Gaussian blur to the image to reduce noise
+    blurred = cv2.GaussianBlur(image, (9, 9), 2)
+    
+    # Use HoughCircles to detect circles in the image
+    circles = cv2.HoughCircles(blurred, cv2.HOUGH_GRADIENT, dp=1.2, minDist=30, param1=50, param2=30, minRadius=0, maxRadius=0)
+    
+    if circles is not None:
+        # Convert the (x, y) coordinates and radius of the circles to integers
+        circles = np.round(circles[0, :]).astype("int")
+        
+        # Assuming the first detected circle is the white sphere
+        x, y, r = circles[0]
+        return (x, y), r
+    else:
+        return None, None
+
 
 def criar_mascara_circulo_com_parametros(centro, raio, tamanho_imagem):
     """
