@@ -34,7 +34,7 @@ def plot_circle(image, center, radius):
 
 
 
-#from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d import Axes3D
 
 
 def plotar_canais(imagem):
@@ -186,6 +186,7 @@ def disp_channels_3d(normal_in=None, height=None, width=None, delay=0, name=None
     
     # Reshape para coordenadas de imagem
     normal = np.reshape(normal_in, (height, width, 3))
+    #normal = np.reshape(normal_in, (width, height, 3))
     
     # Trocar canais RGB para BGR
     #normal[:, :, 0], normal[:, :, 2] = normal[:, :, 2], normal[:, :, 0].copy()  # Swap RGB <-> BGR
@@ -195,8 +196,8 @@ def disp_channels_3d(normal_in=None, height=None, width=None, delay=0, name=None
 
     fig, axs = plt.subplots(1, 3, figsize=(15, 5), subplot_kw={'projection': '3d'})
 
-    x = np.arange(normal.shape[0])
-    y = np.arange(normal.shape[1])
+    x = np.arange(normal.shape[1])
+    y = np.arange(normal.shape[0])
     x, y = np.meshgrid(x, y)
 
     axs[0].plot_surface(x, y, normal[:, :, 0], cmap='viridis')
