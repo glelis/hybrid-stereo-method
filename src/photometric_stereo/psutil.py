@@ -110,27 +110,7 @@ def load_npyimages(foldername=None, scale=1.0):
     return M, height, width
 
 
-def disp_normalmap(normal=None, height=None, width=None, delay=0, name=None):
-    """
-    Visualize normal as a normal map
-    :param normal: array of surface normal (p \times 3)
-    :param height: height of the image (scalar)
-    :param width: width of the image (scalar)
-    :param delay: duration (ms) for visualizing normal map. 0 for displaying infinitely until a key is pressed.
-    :param name: display name
-    :return: None
-    """
-    if normal is None:
-        raise ValueError("Surface normal `normal` is None")
-    N = np.reshape(normal, (height, width, 3))  # Reshape to image coordinates
-    N[:, :, 0], N[:, :, 2] = N[:, :, 2], N[:, :, 0].copy()  # Swap RGB <-> BGR
-    N = (N + 1.0) / 2.0  # Rescale
-    if name is None:
-        name = 'normal map'
-    cv2.imshow(name, N)
-    cv2.waitKey(delay)
-    cv2.destroyWindow(name)
-    cv2.waitKey(1)    # to deal with frozen window...
+
 
 
 def save_normalmap_as_npy(filename=None, normal=None, height=None, width=None):

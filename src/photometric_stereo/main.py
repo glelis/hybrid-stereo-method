@@ -6,8 +6,8 @@ from datetime import datetime
 
 import numpy as np
 from photometric_stereo.rps import RPS
-import photometric_stereo.psutil as psutil
-import photometric_stereo.psvizualization as psutilvis
+from photometric_stereo.psutil import load_normalmap_from_npy, evaluate_angular_error
+from photometric_stereo.psvizualization import disp_normalmap, disp_channels, disp_channels_3d
 import argparse
 
 def main(parameters):
@@ -92,22 +92,20 @@ def main(parameters):
 
     # **Evaluate the Result**
     if os.path.exists(gt_normal_path):  # Check if ground truth normal map exists
-        N_gt = psutil.load_normalmap_from_npy(filename=gt_normal_path)
+        N_gt = load_normalmap_from_npy(filename=gt_normal_path)
         N_gt = np.reshape(N_gt, (rps.height * rps.width, 3))  # Reshape for evaluation
-        angular_error = psutil.evaluate_angular_error(N_gt, rps.N, rps.background_ind)  # Calculate angular error
+        angular_error = evaluate_angular_error(N_gt, rps.N, rps.background_ind)  # Calculate angular error
         mean_error = np.mean(angular_error[:])
         logging.info(f"Mean angular error [degrees]: {mean_error:.2f}")
         print(f"Mean angular error [degrees]: {mean_error:.2f}")
 
     # **Display the Normal Map**
-    psutil.disp_normalmap(normal=rps.N, height=rps.height, width=rps.width)
+    disp_normalmap(normal=rps.N, height=rps.height, width=rps.width)
     
-    
-    psutilvis.disp_channels(normal_in=rps.N, height=rps.height, width=rps.width, delay=0, name='channels', save_path=output_path)
-    #psutilvis.disp_channels(normal_in=rps.N, height=rps.height, width=rps.width)
+    disp_channels(normal_in=rps.N, height=rps.height, width=rps.width, delay=0, name='channels', save_path=output_path)
 
-    psutilvis.disp_channels_3d(normal_in=rps.N, height=rps.height, width=rps.width, delay=0, name='channels_3D', save_path=output_path)
-    #psutilvis.disp_channels_3d(normal_in=rps.N, height=rps.height, width=rps.width)
+    disp_channels_3d(normal_in=rps.N, height=rps.height, width=rps.width, delay=0, name='channels_3D', save_path=output_path)
+
 
 
 
