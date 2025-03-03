@@ -1,11 +1,9 @@
 import numpy as np
-from multifocus_stereo.utils import *
+from multifocus_stereo.utils import save_image, linear_interpolation, quadratic_interpolation
 from math import floor, sqrt, comb, exp, log, sin, cos, pi
 from datetime import datetime
 import logging
 
-#from focus_indicator_laplacian import focus_indicator_laplacian
-#from focus_indicator_fourier import focus_indicator_fourier
 
 from multifocus_stereo.weighted_filter import *
 from multifocus_stereo.argmax_fuzzy import *

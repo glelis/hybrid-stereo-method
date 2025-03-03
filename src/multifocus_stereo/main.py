@@ -1,6 +1,13 @@
 import os
 import numpy as np
-from multifocus_stereo.utils import *
+from multifocus_stereo.utils import (
+    read_images_from_path,
+    save_image,
+    print_img_statistics,
+    calculate_error_image,
+    normalize
+)
+
 from multifocus_stereo.depth_from_focus import all_in_focus
 from multifocus_stereo.focus_indicator_laplacian import focus_indicator_laplacian
 from multifocus_stereo.focus_indicator_fourier import focus_indicator_fourier

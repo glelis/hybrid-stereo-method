@@ -4,6 +4,8 @@ import numpy as np
 from natsort import natsorted
 
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
 # General
 WEIGHTS = np.array(
         [[0, 0, 1, 2, 1, 0, 0],
@@ -19,7 +21,7 @@ def convert_img_to_grayscale(img):
     imGray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     return imGray
 
-def convert_stack_to_grayscale(image_stack: np.array) -> np.array:
+def convert_stack_to_grayscale(image_stack: np.ndarray) -> np.ndarray:
     """
     Converte uma stack de imagens coloridas para escala de cinza.
 
@@ -34,16 +36,13 @@ def convert_stack_to_grayscale(image_stack: np.array) -> np.array:
     return grayscale_stack
 
 
-
+#colocada e melhorada no common utils   
 def read_image(image_path):
     img = cv2.imread(image_path, cv2.IMREAD_COLOR)
     return img
 
 
-def print_img_stats(name, img):
-    print("\n %s Minimo e Maximo\n" %name, np.min(img), np.max(img))
-
-
+#colocada no common utils
 def print_img_statistics(nome, img):
     shape = img.shape
     v_max = np.max(img)
@@ -56,6 +55,7 @@ def print_img_statistics(nome, img):
 
 
 def save_image(save_path, save_as, img, v_min, v_max):
+
     if not os.path.exists(save_path):
         os.makedirs(save_path)
         
@@ -89,14 +89,23 @@ def find_all_files(path):
     return all_files
 
 def read_images_from_path(img_path):
+    """
+    Reads and returns a list of images from the specified directory path.
+    This function traverses the directory tree rooted at `img_path`, reads all image files
+    in a natural sorted order, and returns them as a list.
+    Args:
+        img_path (str): The path to the directory containing the images.
+    Returns:
+        list: A list of images read from the specified directory.
+    """
     img_list = []
     
     for root, dirs, files in os.walk(img_path):
         for file in natsorted(files):
-        #for file in sorted(files):
+
             img_list.append(read_image(root + "/" + file))
             print(root + "/" + file)
-    #print(img_list)
+
     return img_list
 
 
@@ -157,9 +166,8 @@ def exibir_imagem(imagem_np_array):
 
 
 
-import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+
+
 
 def plot_3d(depth_map, z_scale=1):
     
