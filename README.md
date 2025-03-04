@@ -1,6 +1,6 @@
 # Hybrid Stereo Method (project under development)
 
-A comprehensive framework for 3D reconstruction combining multiple stereo vision techniques including multi-focus stereo and photometric stereo.
+A comprehensive framework for 3D reconstruction combining multi-focus stereo and photometric stereo techniques, creating a synergetic effect between these two methods
 
 ## Project Overview
 
