@@ -3,13 +3,20 @@ __pycache__/
 *.pyc
 *.pyo
 *.ipynb_checkpoints/
+*.ipynb
 
-# Dados grandes
+# Jupyter Notebooks
+notebooks/
+notebooks/multifocus_stereo/
+notebooks/photometric_stereo/
+
+
+# Large data files
 data/
 data/raw/
 data/processed/
 
-# Ambiente virtual
+# Virtualenv
 venv/
 src/hybrid_stereo_method.egg-info/
 
