@@ -2,6 +2,54 @@ import cv2
 import numpy as np
 
 from common.utils import print_img_statistics
+import os
+from natsort import natsorted
+import yaml
+
+
+
+def read_yaml_parameters(yaml_file_path):
+    """Read parameters from a YAML file.
+    
+    Args:
+        yaml_file_path (str): Path to the YAML parameter file
+        
+    Returns:
+        dict: Dictionary containing parameters
+    """
+
+    with open(yaml_file_path, 'r') as file:
+        parameters = yaml.safe_load(file)
+    
+    return parameters
+
+
+
+def find_all_files(path:str) -> list:
+    """
+    Recursively find all files in a directory path.
+    
+    Args:
+        path (str): Directory path to search for files
+        
+    Returns:
+        list: List of filenames found in the directory and its subdirectories
+    
+    Example:
+        >>> files = find_all_files('/path/to/directory')
+    """
+    all_files = []
+    
+    # Walk through directory tree recursively
+    for root, _, files in os.walk(path):
+        # Add each file to the results list
+        for file in natsorted(files):
+            # Join root and filename to get full path
+            file_path = os.path.join(root, file)
+            all_files.append(file_path)
+    
+    return all_files
+
 
 
 def read_image(image_path: str, info=False) -> np.ndarray:
@@ -22,10 +70,27 @@ def read_image(image_path: str, info=False) -> np.ndarray:
     if img is None:
         raise FileNotFoundError(f"Image not found at path: {image_path}")
     if info:
-        print_img_statistics("Loaded Image", img)
-        
+        print_img_statistics(os.path.basename(image_path), img)
+
     return img
 
+
+def read_images(image_paths: list, info=False) -> list:
+    """
+    Read multiple images from the given paths using OpenCV.
+    Args:
+        image_paths (list): List of paths to the image files.
+        info (bool, optional): If True, print statistics about the loaded images. Defaults to False.
+    Returns:
+        list: List of loaded images as NumPy arrays.
+    Raises:
+        FileNotFoundError: If any image cannot be found at the specified path.
+    Example:
+        >>> imgs = read_images(['path/to/image1.png', 'path/to/image2.png'])
+        >>> imgs_with_stats = read_images(['path/to/image1.png', 'path/to/image2.png'], info=True)
+    """
+    images = [read_image(path, info) for path in image_paths]
+    return images
 
 
 
@@ -53,10 +118,10 @@ def convert_image_array_to_fni(image_array: np.ndarray, output_file: str):
     if len(image_array.shape) == 2:
         ny, nx = image_array.shape
         nc = 1
-    elif len(image_array.shape) == 3 and image_array.shape[2] == 3:
+    elif len(image_array.shape) == 3 and image_array.shape[2] in [2, 3]:
         ny, nx, nc = image_array.shape
     else:
-        raise ValueError("image_array must have shape (height, width) or (height, width, channels=3)")
+        raise ValueError("image_array must have shape (height, width) or (height, width, channels<4)")
 
     # Write output in float_image_array_t format
     with open(output_file, 'w') as f:
@@ -73,6 +138,10 @@ def convert_image_array_to_fni(image_array: np.ndarray, output_file: str):
                     # For nc =1, write single component per pixel
                     value = image_array[y, x]
                     f.write(f"{x:5d} {y:5d} {value:+.7e}\n")
+                elif len(image_array.shape) == 3 and image_array.shape[2] == 2:
+                    # For nc=2, write two components per pixel
+                    v = image_array[y, x]
+                    f.write(f"{x:5d} {y:5d} {v[0]:+.7e} {v[1]:+.7e}\n")
                 else:
                     # For nc=3, write three components per pixel
                     v = image_array[y, x]
