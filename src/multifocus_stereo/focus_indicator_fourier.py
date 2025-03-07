@@ -35,9 +35,6 @@ def focus_indicator_fourier(aligned_img_stack:np.array):
         # 4. Cria um filtro passa-alta para manter apenas frequências altas
         linhas, colunas = img_gray.shape
         # raio = min(linhas, colunas) // 10  # Ajusta o raio para capturar alta frequência
-        
-        #mascara = np.ones((linhas, colunas), dtype=np.uint8)
-        #cv2.circle(mascara, (colunas // 2, linhas // 2), raio, 0, -1)
         raio = 0.1
         mascara = mascara_eliptica_gaussiana(linhas, colunas, raio)
         #mascara = mascara_eliptica_binaria(linhas, colunas, raio)
