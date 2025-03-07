@@ -5,6 +5,7 @@ import numpy as np
 
 
 def estimate_normals_argmax(images, light_sources):
+    images = np.stack(images, axis=-1) # Convert list of images to a 3D array
     images = images + 1e-6  # Adiciona um pequeno valor para evitar divisão por zero
     
     h, w, num_images = images.shape
