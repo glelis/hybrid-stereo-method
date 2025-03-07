@@ -9,37 +9,32 @@ from photometric_stereo.rps import RPS
 from photometric_stereo.psutil import load_normalmap_from_npy, evaluate_angular_error
 from photometric_stereo.psvizualization import disp_normalmap, disp_channels, disp_channels_3d
 import argparse
+from common.io import read_yaml_parameters
 
 def main(parameters):
 
 
-    input_path = parameters['input_path']
-    output_path = parameters['output_path']
-    data_foldername = parameters['data_foldername']
-    data_scale = parameters['data_scale']
-    image_type = parameters['image_type']
-    method_name = parameters['method_name']
-    debug = parameters['debug']
+     # Define paths
+    current_time = datetime.now().strftime("%Y%m%d_%H%M")
+    data_path = os.path.join(parameters.get('input_path'), parameters.get('data_foldername'))
+    
+    # Input files
+    images_path = os.path.join(data_path, "images/")
+    light_path = os.path.join(data_path, "lights.npy")
+    mask_path = os.path.join(data_path, "mask.png")
+    gt_normal_path = os.path.join(data_path, "gt_normal.npy")
+    
+    # Output files
+    output_path = os.path.join(parameters.get('output_path'), f'{current_time}_{parameters.get("data_foldername")}/')
+    normal_map_path = os.path.join(output_path, "normal_map.npy")
+    
 
 
-
-
-    # **Path Definitions**
-    current_time = datetime.now().strftime("%Y%m%d_%H%M")  # Timestamp for unique output folders
-
-    data_path = os.path.join(input_path, data_foldername)  # Data directory
-    images_path = os.path.join(data_path, "images/")  # Input images directory
-    light_path = os.path.join(data_path, "lights.npy")  # Light source information
-    mask_path = os.path.join(data_path, "mask.png")  # Mask file path
-    gt_normal_path = os.path.join(data_path, "gt_normal.npy")  # Ground truth normal map
-    output_path = os.path.join(output_path, f'{data_foldername}_{current_time}/')
-    normal_map_path = os.path.join(output_path, "normal_map.npy")  # Output normal map file path
-    print('lelis')
-    # **Ensure Output Directory Exists**
+    # Ensure Output Directory Exists
     if not os.path.exists(output_path):
         os.makedirs(output_path)
 
-    # **Logging Configuration**
+    # Logging Configuration
     logging.basicConfig(
         level=logging.INFO,  # Minimum log level
         format="%(asctime)s - %(levelname)s - %(message)s",  # Log format
@@ -48,11 +43,16 @@ def main(parameters):
             logging.FileHandler(os.path.join(output_path, "depth_from_focus.log")),  # Output to file
         ],
     )
+    
     logging.info(
-        f"Starting photometric stereo experiment with parameters: "
-        f"INPUT_PATH={input_path}, DATA_FOLDERNAME={data_foldername}"
-        f" OUTPUT_PATH={output_path}, DATA_SCALE={data_scale}"
-        f"IMAGE_TYPE={image_type}, METHOD={method_name}, DEBUG={debug}"
+        f"Starting photometric stereo experiment with parameters:\n"
+        f"INPUT_PATH: '{parameters.get('input_path')}'\n"
+        f"DATA_FOLDERNAME: '{parameters.get('data_foldername')}'\n"
+        f"OUTPUT_PATH: '{output_path}'\n"
+        f"DATA_SCALE: {parameters.get('data_scale')}\n"
+        f"IMAGE_TYPE: {parameters.get('image_type')}\n"
+        f"METHOD: wodham_implementation_argmax\n"
+        f"DEBUG: {parameters.get('debug')}\n"
     )
 
     # **Initialize the RPS Model**
@@ -63,22 +63,22 @@ def main(parameters):
     rps.load_lightnpy(filename=light_path)  # Load the light source coordinates
 
     # Load images based on the specified type
-    if image_type == "npy":
-        rps.load_npyimages(foldername=images_path, scale=data_scale)
+    if parameters.get('image_type') == "npy":
+        rps.load_npyimages(foldername=images_path, scale=parameters.get('data_scale'))
     else:
-        rps.load_images(foldername=images_path, ext=image_type, scale=data_scale)
+        rps.load_images(foldername=images_path, ext=parameters.get('image_type'), scale=parameters.get('data_scale'))
 
     # **Select Solver Method**
-    if method_name == "L2":
+    if parameters.get('method_name') == "L2":
         method = RPS.L2_SOLVER
-    elif method_name == "L1":
+    elif parameters.get('method_name') == "L1":
         method = RPS.L1_SOLVER_MULTICORE
-    elif method_name == "SBL":
+    elif parameters.get('method_name') == "SBL": 
         method = RPS.SBL_SOLVER_MULTICORE
-    elif method_name == "RPCA":
+    elif parameters.get('method_name') == "RPCA":  
         method = RPS.RPCA_SOLVER
     else:
-        raise ValueError(f"Unsupported method: {method_name}")
+        raise ValueError(f"Unsupported method: {parameters.get('method_name')}")
 
     # **Run the Solver**
     start_time = time.time()
@@ -100,7 +100,7 @@ def main(parameters):
         print(f"Mean angular error [degrees]: {mean_error:.2f}")
 
     # **Display the Normal Map**
-    disp_normalmap(normal=rps.N, height=rps.height, width=rps.width)
+    disp_normalmap(normal=rps.N, height=rps.height, width=rps.width, save_path=output_path)
     
     disp_channels(normal_in=rps.N, height=rps.height, width=rps.width, delay=0, name='channels', save_path=output_path)
 
@@ -116,29 +116,19 @@ def main(parameters):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run photometric stereo method.')
-    parser.add_argument('--param_file', type=str, required=True, help='Path to the parameter file.')
+    parser.add_argument('--param_file', type=str, required=True, 
+                       help='Path to the YAML parameter file.')
 
     args = parser.parse_args()
 
-    # Read parameters from the file
-    parameters = {}
-    with open(args.param_file, 'r') as file:
-        for line in file:
-            key, value = line.strip().split('=')
-            if value.lower() == 'true':
-                value = True
-            elif value.lower() == 'false':
-                value = False
-            elif value.isdigit():
-                value = int(value)
-            else:
-                try:
-                    value = float(value)
-                except ValueError:
-                    pass
-            parameters[key] = value
+    # Read parameters from the YAML file
+    parameters = read_yaml_parameters(args.param_file)
+    
+    main(parameters)
 
-    depth_map, all_in_focus_img, img_conf = main(parameters)
+
+
+
 
 
 
