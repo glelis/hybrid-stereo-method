@@ -1,4 +1,5 @@
 import numpy as np
+import cv2
 
 def print_img_statistics(nome, img):
     """
@@ -37,43 +38,70 @@ def print_img_statistics(nome, img):
 
 
 
+def normalize_normals(normal_map:np.ndarray) -> np.ndarray:
+    """
+    Normalize a normal map so that each normal vector has unit length.
+    
+    Parameters
+    ----------
+    normal_map : numpy.ndarray
+        The normal map to be normalized. Expected shape is (H, W, 3) where
+        the last dimension represents the XYZ components of the normal vectors.
+        
+    Returns
+    -------
+    numpy.ndarray
+        Normalized normal map with the same shape as the input.
+        
+    Examples
+    --------
+    >>> import numpy as np
+    >>> normals = np.array([[[1, 1, 1], [2, 0, 0]], [[0, 2, 0], [0, 0, 2]]])
+    >>> normalized = normalize_normals(normals)
+    >>> print(np.allclose(np.linalg.norm(normalized, axis=2), 1.0))
+    True
+    """
+    # Check if the input is a valid normal map
+    if normal_map.shape[2] != 3:
+        raise ValueError("Normal map must have shape (H, W, 3)")
+    
+    # Calculate the magnitude of each normal vector
+    norm = np.sqrt(np.sum(normal_map**2, axis=2, keepdims=True))
+    
+    # Avoid division by zero
+    norm = np.maximum(norm, 1e-10)
+    
+    # Normalize the normal vectors
+    normalized_map = normal_map / norm
+    
+    return normalized_map
 
 
 
-    def normalize_normals(normal_map:np.ndarray) -> np.ndarray:
-        """
-        Normalize a normal map so that each normal vector has unit length.
+def convert_to_grayscale(img:np.ndarray) -> np.ndarray:
+    """
+    Convert an RGB/BGR image to grayscale.
+    
+    Parameters
+    ----------
+    img : numpy.ndarray
+        The input color image in BGR format (as used by OpenCV)
         
-        Parameters
-        ----------
-        normal_map : numpy.ndarray
-            The normal map to be normalized. Expected shape is (H, W, 3) where
-            the last dimension represents the XYZ components of the normal vectors.
-            
-        Returns
-        -------
-        numpy.ndarray
-            Normalized normal map with the same shape as the input.
-            
-        Examples
-        --------
-        >>> import numpy as np
-        >>> normals = np.array([[[1, 1, 1], [2, 0, 0]], [[0, 2, 0], [0, 0, 2]]])
-        >>> normalized = normalize_normals(normals)
-        >>> print(np.allclose(np.linalg.norm(normalized, axis=2), 1.0))
-        True
-        """
-        # Check if the input is a valid normal map
-        if normal_map.shape[2] != 3:
-            raise ValueError("Normal map must have shape (H, W, 3)")
+    Returns
+    -------
+    numpy.ndarray
+        Grayscale version of the input image
         
-        # Calculate the magnitude of each normal vector
-        norm = np.sqrt(np.sum(normal_map**2, axis=2, keepdims=True))
-        
-        # Avoid division by zero
-        norm = np.maximum(norm, 1e-10)
-        
-        # Normalize the normal vectors
-        normalized_map = normal_map / norm
-        
-        return normalized_map
+    Examples
+    --------
+    >>> import cv2
+    >>> import numpy as np
+    >>> color_img = np.random.randint(0, 256, (10, 10, 3), dtype=np.uint8)
+    >>> gray_img = convert_to_grayscale(color_img)
+    >>> gray_img.shape == (10, 10)
+    True
+    """
+    
+    # Convert the BGR image to grayscale
+    imGray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    return imGray
