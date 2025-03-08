@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2
+import os
 
 
 
@@ -122,7 +123,7 @@ def plotar_canais_3d(imagem):
     plt.show()
 
 
-def disp_normalmap(normal=None, height=None, width=None, delay=0, name=None):
+def disp_normalmap(normal=None, height=None, width=None, delay=0, name=None, save_path=None):
     """
     Visualize normal as a normal map
     :param normal: array of surface normal (p \times 3)
@@ -136,13 +137,16 @@ def disp_normalmap(normal=None, height=None, width=None, delay=0, name=None):
         raise ValueError("Surface normal `normal` is None")
     N = np.reshape(normal, (height, width, 3))  # Reshape to image coordinates
     N[:, :, 0], N[:, :, 2] = N[:, :, 2], N[:, :, 0].copy()  # Swap RGB <-> BGR
-    N = (N + 1.0) / 2.0  # Rescale
+    N = ((N + 1.0) / 2.0)  # Rescale
     if name is None:
         name = 'normal map'
     cv2.imshow(name, N)
     cv2.waitKey(delay)
     cv2.destroyWindow(name)
     cv2.waitKey(1)    # to deal with frozen window...
+        # Salvar a imagem se um caminho for fornecido
+    if save_path is not None:
+        cv2.imwrite(os.path.join(save_path, "normal_map.png"), N*255)
 
 
 
@@ -187,7 +191,7 @@ def disp_channels(normal_in=None, height=None, width=None, delay=0, name=None, s
 
     # Salvar a imagem se um caminho for fornecido
     if save_path is not None:
-        cv2.imwrite(save_path+"Channels.jpg", combined)
+        cv2.imwrite(os.path.join(save_path,"Channels.png"), combined)
 
 
 def disp_channels_3d(normal_in=None, height=None, width=None, delay=0, name=None, save_path=None):
@@ -257,7 +261,7 @@ def disp_channels_3d(normal_in=None, height=None, width=None, delay=0, name=None
 
     # Salvar a imagem se um caminho for fornecido
     if save_path is not None:
-        cv2.imwrite(save_path+"Channels_3D.jpg", img_array)
+        cv2.imwrite(os.path.join(save_path,"Channels_3D.png"), img_array)
     return img_array
 
 
