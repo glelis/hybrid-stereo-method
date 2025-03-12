@@ -6,7 +6,7 @@ import numpy as np
 
 
 
-def focus_indicator(aligned_img_stack: np.ndarray, focus_indicator: str, laplacian_kernel_size=None, square=False, smooth=False, zero_border=False) -> np.ndarray:
+def focus_indicator(aligned_img_stack: np.ndarray, focus_indicator: str, laplacian_kernel_size=None, radius=None, square=False, smooth=False, zero_border=False) -> np.ndarray:
 
 
     fi_stack = []
@@ -15,7 +15,7 @@ def focus_indicator(aligned_img_stack: np.ndarray, focus_indicator: str, laplaci
     for i, img in enumerate(aligned_img_stack):
 
         if focus_indicator == 'fourier':
-            focus_map = calculate_fourier_focus_indicator(img)
+            focus_map = calculate_fourier_focus_indicator(img, radius)
 
         elif focus_indicator =='laplacian':
             focus_map = calculate_laplacian_focus_indicator(img, laplacian_kernel_size)

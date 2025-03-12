@@ -79,7 +79,7 @@ def main(parameters):
 
     # Calcula o indicador de foco para cada imagem
     logging.info("Calculating focus indicator ...")
-    focus_indicator_stack = focus_indicator(gray_image_stack, parameters.get('focal_descriptor'), parameters.get('laplacian_kernel_size'), True, True, True)
+    focus_indicator_stack = focus_indicator(gray_image_stack, parameters['focal_descriptor_paramiters']['focal_descriptor'], parameters['focal_descriptor_paramiters']['laplacian_kernel_size'], parameters['focal_descriptor_paramiters']['fourier_radius'], parameters['focal_descriptor_paramiters']['square'], parameters['focal_descriptor_paramiters']['smooth'], parameters['focal_descriptor_paramiters']['zero_border'])
 
 
     logging.info("Extracting focus from each image ...")
