@@ -10,7 +10,7 @@ from photometric_stereo.psutil import load_normalmap_from_npy, evaluate_angular_
 from photometric_stereo.psvizualization import disp_normalmap, disp_channels, disp_channels_3d
 import argparse
 
-from common.io import read_image, read_images, find_all_files, read_yaml_parameters
+from common.io import read_image, read_images, find_all_files, read_yaml_parameters, convert_image_array_to_fni
 from photometric_stereo.wps import estimate_normals_argmax
 from common.utils import convert_to_grayscale
 
@@ -70,7 +70,7 @@ def main(parameters):
     light_sources = np.load(light_path)
 
     # Load mask
-    mask = read_image(mask_path, info=True)
+    #mask = read_image(mask_path, info=True)
 
 
     # Estimate normals
@@ -81,6 +81,7 @@ def main(parameters):
 
     # Save normal map
     np.save(normal_map_path, normals)
+    convert_image_array_to_fni(normals, os.path.join(output_path, "normal_map.fni"))
     logging.info(f"Normal map saved at: {normal_map_path}")
 
 

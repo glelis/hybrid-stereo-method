@@ -2,7 +2,7 @@ import os
 import numpy as np
 from multifocus_stereo.utils import read_images_from_path, save_image, calculate_error_image, normalize
 
-from common.io import read_yaml_parameters, find_all_files, read_images
+from common.io import read_yaml_parameters, find_all_files, read_images, convert_image_array_to_fni
 from common.utils import print_img_statistics, convert_to_grayscale
 
 from multifocus_stereo.depth_from_focus import all_in_focus
@@ -60,8 +60,8 @@ def main(parameters):
     logging.info(f"Parameter - data_foldername: {parameters.get('data_foldername')}")
     logging.info(f"Parameter - focal_descriptor: {parameters.get('focal_descriptor')}")
     logging.info(f"Parameter - laplacian_kernel_size: {parameters.get('laplacian_kernel_size')}")
-    logging.info(f"Parameter - focus_measure_kernel_size: {parameters.get('focus_measure_kernel_size')}")
-    logging.info(f"Parameter - gaussian_size: {parameters.get('gaussian_size')}")
+    #logging.info(f"Parameter - focus_measure_kernel_size: {parameters.get('focus_measure_kernel_size')}")
+    #logging.info(f"Parameter - gaussian_size: {parameters.get('gaussian_size')}")
     logging.info(f"Parameter - focal_step: {parameters.get('focal_step')}")
     logging.info(f"Parameter - gabaritos: {parameters.get('gabaritos')}")
     logging.info(f"Parameter - interpolation_type: {parameters.get('interpolation_type')}")
@@ -71,7 +71,7 @@ def main(parameters):
     # Load images
     logging.info("Reading images ...")
     images_paths = find_all_files(images_path)
-    image_list = read_images(images_paths)
+    image_list = read_images(images_paths, info=True)
 
     image_stack = np.asarray(image_list)
     gray_image_stack = np.asarray([convert_to_grayscale(img) for img in image_stack])
@@ -103,6 +103,7 @@ def main(parameters):
 
     logging.info("Saving depth-from-focus image")
     save_image(depth_save_path, output_filename, normalize(depth_map), 0, 1)
+    convert_image_array_to_fni(normalize(depth_map), os.path.join(depth_save_path, "depth_map.fni"))
 
     logging.info("Saving all-in-focus image")
     save_image(all_focus_save_path, output_filename, all_in_focus_img, 0, 255)
