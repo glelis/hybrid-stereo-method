@@ -5,7 +5,7 @@ from common.utils import print_img_statistics
 import os
 from natsort import natsorted
 import yaml
-
+import logging
 
 
 def read_yaml_parameters(yaml_file_path):
@@ -23,6 +23,33 @@ def read_yaml_parameters(yaml_file_path):
     
     return parameters
 
+
+def log_parameters(params:dict, prefix=''):
+    """
+    Recursively logs parameters from a nested dictionary or list structure.
+    
+    This function iterates through the provided parameter dictionary or list and logs each key-value pair.
+    For nested dictionaries or lists, it recursively calls itself with an updated path prefix.
+    
+    Args:
+        params (dict): The parameter dictionary to be logged
+        prefix (str, optional): The prefix to prepend to parameter keys for hierarchical logging.
+                               Defaults to an empty string.
+    
+    Example:
+        >>> config = {'model': {'layers': 3, 'activation': 'relu'}, 'batch_size': 64}
+        >>> log_parameters(config)
+        # This will log:
+        # Parameter - model.layers: 3
+        # Parameter - model.activation: relu
+        # Parameter - batch_size: 64
+    """
+    for key, value in params.items():
+        current_path = f"{prefix}.{key}" if prefix else key
+        if isinstance(value, (dict, list)):
+            log_parameters(value, current_path)
+        else:
+            logging.info(f"Parameter - {current_path}: {value}")
 
 
 def find_all_files(path:str) -> list:
