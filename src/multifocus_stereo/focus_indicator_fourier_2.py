@@ -29,6 +29,7 @@ def calculate_fourier_focus_indicator(image: np.ndarray, radius: float) -> np.nd
     height, width = image.shape
     mask = create_gaussian_elliptical_mask(height, width, radius) #radius = 0.1
     
+    
     # Apply mask in frequency domain
     f_filtered = f_centered * mask
     

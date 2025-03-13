@@ -45,8 +45,7 @@ def all_in_focus( aligned_img_stack:np.array, focus_indicator_stack:np.array, fo
     select_img_stack = [np.zeros_like(aligned_img_stack[0]) for _ in aligned_img_stack]
 
 
-    print(f"height: {height}, width: {width}, n_frames: {n_frames}")
-    logging.info(f"height: {height}, width: {width}, n_frames: {n_frames}")
+    logging.debug(f"height: {height}, width: {width}, n_frames: {n_frames}")
 
 
     # Calcula o argmax fuzzy para a pilha de indicadores de foco
@@ -90,6 +89,78 @@ def all_in_focus( aligned_img_stack:np.array, focus_indicator_stack:np.array, fo
 
 
     return depth_map, all_in_focus_img, select_img_stack, focus_measure_img, img_conf
+
+
+
+def mosaic(iSel, aligned_img_stack:np.array, zFoc:list, interpolation_type:str):
+    
+    n_frames, height, width, chanels = aligned_img_stack.shape
+
+    
+    sMos = np.zeros_like(aligned_img_stack[0])
+    zMos = np.zeros((height, width))
+    #focus_measure_img = np.zeros_like(sMos)
+
+    #cria uma lista de imagens com as partes selecionadas
+    #select_img_stack = [np.zeros_like(aligned_img_stack[0]) for _ in aligned_img_stack]
+
+
+    logging.debug(f"Mosaic      height: {height}, width: {width}, n_frames: {n_frames}, chanels: {chanels}")
+
+
+    # Calcula o argmax fuzzy para a pilha de indicadores de foco
+    #img_arg, img_conf = argmax_fuzzy(focus_indicator_stack, debug, debug_data_path)
+
+    # Calcula a profundidade a partir do argmax fuzzy
+    #depth_map = img_arg * focal_step
+    
+    #verificar codigo para retirar ou otimizar
+    #img_arg_filtered = filter_img_arg_mediana_2(depth_map, img_conf)
+    #depth_map_filtered = img_arg_filtered * focal_step
+    #save_image(debug_data_path, 'depth_map_filtered.png', depth_map_filtered, np.min(depth_map_filtered),np.max(depth_map_filtered))
+
+    #Calculo da imagem all_in_focus
+    for i in range(height): #linha
+        for j in range(width): #coluna
+            K_indice  = int(iSel[i, j])
+            k_fuzzy = iSel[i, j]
+
+            if interpolation_type == 'crop':
+                 
+                zMos[i, j] = zFoc[K_indice]
+
+                sMos[i, j, :] = aligned_img_stack[K_indice , i, j, :]
+                #select_img_stack[K_indice ][i, j] = 1
+
+            elif interpolation_type == 'quadratic_interpolation':
+
+                zMos[i, j] = quadratic_interpolation(zFoc, k_fuzzy)
+
+                for c in range(3):
+                    sMos[i, j, c] = quadratic_interpolation(aligned_img_stack[:, i, j, c], k_fuzzy) #pode ser otimizado pois não precisa ser calculado para cada canal
+
+
+            elif interpolation_type == 'linear_interpolation':
+                i0 = int(np.floor(k_fuzzy))
+                i1 = i0 + 1
+
+                if i0 < 0:
+                    zMos[i, j] = zFoc[0]
+                    sMos[i, j, :] = aligned_img_stack[0, i, j, :] 
+ 
+                elif i1 >= n_frames:
+                    zMos[i, j] = zFoc[n_frames - 1]
+                    sMos[i, j, :] = aligned_img_stack[n_frames - 1, i, j, :]
+
+                else:
+                    zMos[i, j] = linear_interpolation(zFoc, k_fuzzy)
+                    for c in range(3):
+                        sMos[i, j, c] = linear_interpolation(aligned_img_stack[:, i, j, c], k_fuzzy)
+        
+
+
+
+    return sMos, zMos
 
 
 

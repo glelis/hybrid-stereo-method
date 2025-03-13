@@ -2,11 +2,11 @@ import numpy as np
 import os
 import csv
 from multifocus_stereo.utils import normalize
+import logging
 
 
 
-
-def argmax_fuzzy(focus_indicator_stack:np.array, debug:bool, debug_data_path:str)-> tuple:
+def argmax_fuzzy(focus_indicator_stack:np.ndarray, debug:bool, debug_data_path:str)-> tuple:
     """
     Calcula o argmax difuso (fuzzy) para uma pilha de indicadores de foco e confiança.
 
@@ -27,10 +27,12 @@ def argmax_fuzzy(focus_indicator_stack:np.array, debug:bool, debug_data_path:str
             csvwriter = csv.writer(csvfile)
             csvwriter.writerow(['pixel_i', 'pixel_j', 'focus_values','x_list', 'y_list', 'w_list', 'k_fuzzy', 'conf', 'fnoc', 'A', 'B', 'C', ])
 
+    logging.debug(f"Calculating argmax fuzzy for array {focus_indicator_stack.shape}, min_all: {np.min(focus_indicator_stack)}, max_all: {np.max(focus_indicator_stack)}")
+
 
     # Dimensões da pilha de foco
-    n_frames = len(focus_indicator_stack)
-    height, width = focus_indicator_stack[0].shape
+    #n_frames = len(focus_indicator_stack)
+    _, height, width = focus_indicator_stack.shape
 
     # Inicializa as imagens de resultado e confiança com zeros (tipo float64)
     img_arg = np.zeros((height, width), dtype=np.float64)

@@ -3,12 +3,14 @@ from multifocus_stereo.focus_indicator_fourier_2 import calculate_fourier_focus_
 from multifocus_stereo.utils import zero_borders
 import cv2
 import numpy as np
+import logging
 
 
 
 def focus_indicator(aligned_img_stack: np.ndarray, focus_indicator: str, laplacian_kernel_size=None, radius=None, square=False, smooth=False, zero_border=False) -> np.ndarray:
 
-
+    logging.debug(f'Calculating focus indicator ({focus_indicator}) shape: {aligned_img_stack.shape}, min_all: {np.min(aligned_img_stack)}, max_all: {np.max(aligned_img_stack)}')
+    
     fi_stack = []
     
     # Process each image individually
@@ -41,20 +43,23 @@ def focus_indicator(aligned_img_stack: np.ndarray, focus_indicator: str, laplaci
     # Statistics before normalization
     min_val = np.min(fi_stack)
     max_val = np.max(fi_stack)
-    print(f'Focus indicator before normalization (fourier) max_val: {max_val}, min_val: {min_val}')
+    
+    logging.debug(f'Focus indicator before normalization ({focus_indicator}) min_val: {min_val}, max_val: {max_val}')
+
     
     # Remove outliers by clipping values
-    p1, p99 = np.percentile(fi_stack, [1, 99])
-    fi_stack = np.clip(fi_stack, p1, p99)
+    #p1, p99 = np.percentile(fi_stack, [1, 99])
+    #fi_stack = np.clip(fi_stack, p1, p99)
     
     # Normalize to [0,1] range
+    if min_val < 0:
+        fi_stack = fi_stack - min_val
     max_val = np.max(fi_stack)
     if max_val > 0:
         fi_stack = fi_stack / max_val
     
-    # Statistics after normalization
-    min_val = np.min(fi_stack)
-    max_val = np.max(fi_stack)
-    print(f'Focus indicator after normalization (fourier) max_val: {max_val}, min_val: {min_val}')
+    
+    logging.debug(f'Focus indicator after normalization ({focus_indicator}) min_val: {np.min(fi_stack)}, max_val: {np.max(fi_stack)}')
+    
     
     return fi_stack
