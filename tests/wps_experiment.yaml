@@ -1,9 +1,9 @@
 # Photometric Stereo Configuration
 
 # Paths
-input_path: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/raw/hybrid_stereo/'
+input_path: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/raw/hybrid_stereo/2025-03-08-stQ-melon24-amb0.00-glo0.50/'
 output_path: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/hybrid_stereo/'
-data_foldername: '2025-02-09-stF-melon24-amb0-glo0'
+data_foldername: 'images_ps'
 
 # Processing Parameters
 data_scale: 1.0

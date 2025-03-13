@@ -1,7 +1,7 @@
 # Multifocus Stereo Configuration
 
 # Paths
-input_path: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/raw/hybrid_stereo/2025-02-09-stF-melon24-amb0-glo0/'
+input_path: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/raw/hybrid_stereo/2025-03-08-stQ-melon24-amb0.00-glo0.50/'
 output_path: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/hybrid_stereo/'
 data_foldername: 'media_iluminacao'
 
@@ -9,10 +9,26 @@ data_foldername: 'media_iluminacao'
 # Processing Parameters
 interpolation_type: 'linear_interpolation' # quadratic_interpolation, linear_interpolation, crop
 focal_step: 1
-focal_descriptor: 'laplacian' # fourier, laplacian
-laplacian_kernel_size: 7
-gaussian_size: 9
-focus_measure_kernel_size: 0
+
+# Multifocus Parameters
+focal_descriptor_paramiters:
+  focal_descriptor: 'laplacian' # fourier, laplacian
+
+  #laplacian_param:
+  laplacian_kernel_size: 7 
+
+  #fourier_param:
+  fourier_radius: 0.1
+
+  #general_param:
+  square: False
+  smooth: False
+  zero_border: False
+
+
+#gaussian_size: 9
+#ocus_measure_kernel_size: 0
+
 gabaritos: False
 debug: False
 
