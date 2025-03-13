@@ -55,6 +55,7 @@ def display_image(image_path=None, image=None, window_name="Image", size=None,
             # Convert BGR to RGB for matplotlib
             img_display = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             plt.imshow(img_display)
+            #plt.imshow(img)
         else:
             # For grayscale images, use the specified colormap
             plt.imshow(img, cmap=cmap)

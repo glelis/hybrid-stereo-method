@@ -353,7 +353,7 @@ def compute_fuzzynes(img_fuzzy):
 
 from math import floor, pi, cos
 
-def quadratic_interpolation(val, k_fuzzy):
+def quadratic_interpolation(val, k_fuzzy): #possui problemas, imagem  estoura em alguns pontos.
     nframes = len(val)
     
     # Passo 1: Calcular o índice inteiro mais próximo de k_fuzzy
