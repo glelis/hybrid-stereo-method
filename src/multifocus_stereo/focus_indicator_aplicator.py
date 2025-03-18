@@ -1,5 +1,6 @@
 from multifocus_stereo.focus_indicator_laplacian_2 import calculate_laplacian_focus_indicator
 from multifocus_stereo.focus_indicator_fourier_2 import calculate_fourier_focus_indicator
+from multifocus_stereo.focus_indicator_wavelet import calculate_wavelet_focus_indicator
 from multifocus_stereo.utils import zero_borders
 import cv2
 import numpy as np
@@ -21,6 +22,9 @@ def focus_indicator(aligned_img_stack: np.ndarray, focus_indicator: str, laplaci
 
         elif focus_indicator =='laplacian':
             focus_map = calculate_laplacian_focus_indicator(img, laplacian_kernel_size)
+
+        elif focus_indicator == 'wavelet':
+            focus_map = calculate_wavelet_focus_indicator(img)
 
         if square:
             # Square the reconstructed image (enhances differences)
