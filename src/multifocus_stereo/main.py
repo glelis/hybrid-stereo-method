@@ -110,10 +110,9 @@ def main(parameters):
         save_image(error_image_path, 'error_image.png', error_image, -1, 1)
         logging.info("Done!")
 
-    logging.info("All operations complete and exiting main function.")
+    logging.info("... All operations complete and exiting main function ...")
 
     return iSel, wSel, sMos, zMos
-
 
 
 
