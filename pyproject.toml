@@ -12,5 +12,5 @@ authors = [
 dependencies = []
 
 [tool.setuptools]
-packages = ["find:"]
+packages = { find = { where = ["src"], include = ["*"]} }
 package-dir = { "" = "src" }
