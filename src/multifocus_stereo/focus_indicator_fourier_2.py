@@ -36,6 +36,8 @@ def calculate_fourier_focus_indicator(image: np.ndarray, radius: float) -> np.nd
     # Inverse shift and transform
     f_inverse = np.fft.ifftshift(f_filtered)
     focus_map = np.real(np.fft.ifft2(f_inverse))
+
+    focus_map = np.abs(focus_map)
     
 
     return focus_map
