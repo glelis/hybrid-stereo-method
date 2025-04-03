@@ -5,7 +5,7 @@ from multifocus_stereo.utils import read_images_from_path, save_image, calculate
 from common.io import read_yaml_parameters, find_all_files, read_images, convert_image_array_to_fni, log_parameters
 from common.utils import convert_to_grayscale
 
-from multifocus_stereo.depth_from_focus import mosaic
+from multifocus_stereo.mosaic import mosaic
 from multifocus_stereo.focus_indicator_aplicator import focus_indicator
 from multifocus_stereo.argmax_fuzzy import argmax_fuzzy
 from datetime import datetime
@@ -24,7 +24,7 @@ def main(parameters):
 
     # Input files
     images_path = os.path.join(data_path, 'images')
-    reference_images_path = os.path.join(parameters.get('input_path'), parameters.get('data_foldername'), 'references')
+    reference_images_path = os.path.join(data_path, 'references')
 
     # Output files
     output_path = os.path.join(parameters.get('output_path'), f'{current_time}_{parameters.get("data_foldername")}')
@@ -75,6 +75,8 @@ def main(parameters):
     logging.info("... Calculating mosaic ...")
     # Calcula o mosaico
     zFoc = [15.000, 25.000, 35.000, 45.000, 55.000, 65.000, 75.000, 85.000, 95.000, 105.000, 115.000, 125.000]
+    #zFoc = [i for i in range(image_stack.shape[0])]
+    print(zFoc)
     sMos, zMos = mosaic(iSel, image_stack, zFoc, parameters['interpolation_type'])
 
 
