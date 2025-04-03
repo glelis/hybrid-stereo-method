@@ -8,7 +8,7 @@ import logging
 
 
 
-def focus_indicator(aligned_img_stack: np.ndarray, focus_indicator: str, laplacian_kernel_size=None, radius=None, square=False, smooth=False, zero_border=False) -> np.ndarray:
+def focus_indicator(aligned_img_stack: np.ndarray, focus_indicator: str, laplacian_kernel_size=None, radius=None, square=False, smooth=False, zero_border=False, mask=False, mask_img=None) -> np.ndarray:
 
     logging.debug(f'Calculating focus indicator ({focus_indicator}) shape: {aligned_img_stack.shape}, min_all: {np.min(aligned_img_stack)}, max_all: {np.max(aligned_img_stack)}')
     
@@ -36,6 +36,8 @@ def focus_indicator(aligned_img_stack: np.ndarray, focus_indicator: str, laplaci
         if zero_border:
             # Zero out borders (remove edge artifacts)
             focus_map = zero_borders(focus_map, 10)
+        if mask:
+            focus_map = focus_map * mask_img
 
 
         #print_img_statistics(f'{focus_indicator}: img_final {i}', focus_map)
@@ -44,23 +46,32 @@ def focus_indicator(aligned_img_stack: np.ndarray, focus_indicator: str, laplaci
     # Convert to numpy array for vectorized operations
     fi_stack = np.array(fi_stack)
     
+    assert np.max(fi_stack) >= 0, "Focus indicator max values should be non-negative."
+
     # Statistics before normalization
     min_val = np.min(fi_stack)
     max_val = np.max(fi_stack)
+    percentile = np.percentile(fi_stack, 90)
     
-    logging.debug(f'Focus indicator before normalization ({focus_indicator}) min_val: {min_val}, max_val: {max_val}')
+    logging.debug(f'Focus indicator before normalization ({focus_indicator}) min_val: {min_val}, max_val: {max_val}, percentil_90: {percentile}.')
 
     
     # Remove outliers by clipping values
-    #p1, p99 = np.percentile(fi_stack, [1, 99])
-    #fi_stack = np.clip(fi_stack, p1, p99)
+    p1, p90 = np.percentile(fi_stack, [1, 90])
+    fi_stack = np.clip(fi_stack, p1, p90)
+
+    min_val = np.min(fi_stack)
+    max_val = np.max(fi_stack)
     
     # Normalize to [0,1] range
     if min_val < 0:
         fi_stack = fi_stack - min_val
-    max_val = np.max(fi_stack)
     if max_val > 0:
         fi_stack = fi_stack / max_val
+
+
+        
+    
     
     
     logging.debug(f'Focus indicator after normalization ({focus_indicator}) min_val: {np.min(fi_stack)}, max_val: {np.max(fi_stack)}')
