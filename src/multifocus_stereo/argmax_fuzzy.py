@@ -139,6 +139,10 @@ def argmax_fuzzy_1d_v2(focus_values, pixel_location, debug, debug_data_path):
         k0 = k0 - (k1 -n+1)
         k1 =n-1
 
+    # considera todas as imagens
+    #k0 = 0
+    #k1 = n -1
+
     # aproxima uma funcao de segundo grau nos valores focus_values[k0..k1]
     x_list = [i for i in range(k0,k1+1)] #posicao dos pontos
     y_list = [(focus_values[i]) for i in range(k0,k1+1)]
@@ -148,6 +152,7 @@ def argmax_fuzzy_1d_v2(focus_values, pixel_location, debug, debug_data_path):
 
     if A > 0 or abs(A) < 1.0e-6: #se a funcao for convexa ou muito proxima de zero
         k_fuzzy = k_max
+        #k_fuzzy = 0
         conf = 0
         fnoc = 0
 
@@ -158,15 +163,29 @@ def argmax_fuzzy_1d_v2(focus_values, pixel_location, debug, debug_data_path):
         #conf = conf/(3*(rlap**2)) #normaliza a confianca
         if fnoc <0:
             conf = 0
+            #k_fuzzy = 0
         else:
             #conf = 1/(fnoc) #confianca do ponto de minimo
-            conf = abs(A) 
+            conf = abs(A)/fnoc #confianca do ponto de maximo 
 
     if debug:
         # Save debug information to a CSV file
         with open(os.path.join(debug_data_path, 'debug.csv'), 'a', newline='') as csvfile:
             csvwriter = csv.writer(csvfile)
-            csvwriter.writerow([pixel_location[0], pixel_location[1], [focus_values[i] for i in range(len(focus_values))], x_list, y_list, w_list, k_fuzzy, conf, fnoc, A, B, C,])
+            csvwriter.writerow([
+            pixel_location[0], 
+            pixel_location[1], 
+            [float(focus_values[i]) for i in range(len(focus_values))], 
+            [int(x) for x in x_list], 
+            [float(y) for y in y_list], 
+            [float(w) for w in w_list], 
+            float(k_fuzzy), 
+            float(conf), 
+            float(fnoc), 
+            float(A), 
+            float(B), 
+            float(C)
+            ])
 
     return k_fuzzy, conf 
 
