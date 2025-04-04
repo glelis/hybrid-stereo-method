@@ -6,7 +6,7 @@ import logging
 
 
 
-def argmax_fuzzy(focus_indicator_stack:np.ndarray, debug:bool, debug_data_path:str)-> tuple:
+def compute_argmax_fuzzy(focus_indicator_stack:np.ndarray, debug:bool, debug_data_path:str)-> tuple:
     """
     Calcula o argmax difuso (fuzzy) para uma pilha de indicadores de foco e confiança.
 
@@ -14,7 +14,7 @@ def argmax_fuzzy(focus_indicator_stack:np.ndarray, debug:bool, debug_data_path:s
         focus_indicator_stack (list[np.ndarray]): Pilha de imagens com medidas de foco.
 
     Returns:
-        tuple: Duas imagens, img_arg e img_conf(normalizada) contendo, respectivamente, 
+        tuple: Duas imagens, iSel e wSel(normalizada) contendo, respectivamente, 
                os valores de argmax fuzzy e as confiabilidades associadas.
     """
 
@@ -31,12 +31,11 @@ def argmax_fuzzy(focus_indicator_stack:np.ndarray, debug:bool, debug_data_path:s
 
 
     # Dimensões da pilha de foco
-    #n_frames = len(focus_indicator_stack)
     _, height, width = focus_indicator_stack.shape
 
     # Inicializa as imagens de resultado e confiança com zeros (tipo float64)
-    img_arg = np.zeros((height, width), dtype=np.float64)
-    img_conf = np.zeros((height, width), dtype=np.float64)
+    iSel = np.zeros((height, width), dtype=np.float64)
+    wSel = np.zeros((height, width), dtype=np.float64)
 
     # Itera sobre cada pixel das imagens
     for i in range(height):
@@ -45,8 +44,9 @@ def argmax_fuzzy(focus_indicator_stack:np.ndarray, debug:bool, debug_data_path:s
             
             # Extrai as medidas de foco para o pixel atual ao longo dos frames
             focus_values = np.array([frame[i, j] for frame in focus_indicator_stack])
+            
             # Calcula o argmax fuzzy e a confiança para o pixel atual
-            img_arg[i, j], img_conf[i, j] = argmax_fuzzy_1d_v2(focus_values,[i,j], debug, debug_data_path)
+            iSel[i, j], wSel[i, j] = compute_argmax_fuzzy_1d(focus_values,[i,j], debug, debug_data_path)
 
 
             #normaliza o indicador de foco pixel por pixel e salvando na pilha de indicadores de foco
@@ -58,9 +58,9 @@ def argmax_fuzzy(focus_indicator_stack:np.ndarray, debug:bool, debug_data_path:s
 #            for k in range(n_frames):
 #                focus_indicator_stack[k, i, j] = focus_values_normalized[k]
 
-    img_conf = normalize(img_conf)
+    wSel = normalize(wSel)
 
-    return img_arg, img_conf
+    return iSel, wSel
 
 
 
@@ -103,7 +103,7 @@ def calculate_weights(focus_values:np.array)->np.array:
 
 
 
-def argmax_fuzzy_1d_v2(focus_values, pixel_location, debug, debug_data_path):
+def compute_argmax_fuzzy_1d(focus_values, pixel_location, debug, debug_data_path):
     
 
     n = len(focus_values)
@@ -150,15 +150,17 @@ def argmax_fuzzy_1d_v2(focus_values, pixel_location, debug, debug_data_path):
 
     A, B, C = tuple(np.polyfit(x_list, y_list, 2, w=w_list)) #coeficientes da funcao de segundo grau
 
-    if A > 0 or abs(A) < 1.0e-6: #se a funcao for convexa ou muito proxima de zero
-        k_fuzzy = k_max
-        #k_fuzzy = 0
+    if A > 0 or abs(A) < 1.0e-9: #se a funcao for convexa ou muito proxima de zero
+        #k_fuzzy = k_max
+        k_fuzzy = 0
         conf = 0
         fnoc = 0
 
     else: #calcula o ponto de maximo da funcao
         k_fuzzy = -B/(2*A) #ponto de maximo da funcao x
-        k_fuzzy = min(n-0.5, max(-0.5, k_fuzzy)) #garante que o ponto esta dentro do intervalo
+        #k_fuzzy = min(n-0.5, max(-0.5, k_fuzzy)) #garante que o ponto esta dentro do intervalo
+        k_fuzzy = max(0, min(n, k_fuzzy))
+
         fnoc = -(B**2)/(4*A) + C # valor do foco funcao no ponto maximo y(x) 
         #conf = conf/(3*(rlap**2)) #normaliza a confianca
         if fnoc <0:
