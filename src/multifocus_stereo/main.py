@@ -7,7 +7,7 @@ from common.utils import convert_to_grayscale
 
 from multifocus_stereo.mosaic import mosaic
 from multifocus_stereo.focus_indicator_aplicator import focus_indicator
-from multifocus_stereo.argmax_fuzzy import argmax_fuzzy
+from multifocus_stereo.argmax_fuzzy import compute_argmax_fuzzy
 from datetime import datetime
 import logging
 import argparse
@@ -70,7 +70,7 @@ def main(parameters):
 
     logging.info("... Calculating argmax fuzzy ...")
     # Calcula argmax fuzzy e confiança
-    iSel, wSel = argmax_fuzzy(focus_indicator_stack, parameters['debug'], debug_data_path)
+    iSel, wSel = compute_argmax_fuzzy(focus_indicator_stack, parameters['debug'], debug_data_path)
 
     logging.info("... Calculating mosaic ...")
     # Calcula o mosaico
