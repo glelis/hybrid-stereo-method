@@ -11,7 +11,7 @@ from photometric_stereo.psvizualization import disp_normalmap, disp_channels, di
 import argparse
 
 from common.io import read_image, read_images, find_all_files, read_yaml_parameters, convert_image_array_to_fni
-from photometric_stereo.wps import estimate_normals_argmax
+from photometric_stereo.wps import estimate_normals_argmax, estimate_normals_argmax_lstsq
 from common.utils import convert_to_grayscale
 
 
@@ -75,13 +75,20 @@ def main(parameters):
 
     # Estimate normals
     start_time = time.time()
-    normals, selected_areas = estimate_normals_argmax(images, light_sources)
+    #normals, selected_areas = estimate_normals_argmax(images, light_sources)
+    normals, residuals, confidence, selected_areas = estimate_normals_argmax_lstsq(images, light_sources)
+    confidence_extra_exp = np.expand_dims(confidence, axis=-1)
+    normals_with_confidence = np.concatenate((normals, confidence_extra_exp), axis=-1)
+
     elapsed_time = time.time() - start_time
     logging.info(f"Photometric stereo solved in {elapsed_time:.2f} seconds")
 
     # Save normal map
     np.save(normal_map_path, normals)
+
+    # Add residuals as a new channel to normals
     convert_image_array_to_fni(normals, os.path.join(output_path, "normal_map.fni"))
+    convert_image_array_to_fni(normals_with_confidence, os.path.join(output_path, "normal_map_with_residuals.fni"))
     logging.info(f"Normal map saved at: {normal_map_path}")
 
 
