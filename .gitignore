@@ -4,12 +4,16 @@ __pycache__/
 *.pyo
 *.ipynb_checkpoints/
 *.ipynb
+*.fni
+
+
 
 # Jupyter Notebooks
 notebooks/
 notebooks/multifocus_stereo/
 notebooks/photometric_stereo/
 
+src/hybrid_stereo_method/integrate_recursive/
 
 # Large data files
 data/
