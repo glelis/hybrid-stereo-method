@@ -1,171 +1,123 @@
 import cv2
 import numpy as np
-from multifocus_stereo.utils import *
+from multifocus_stereo.utils import convert_img_to_grayscale, zero_borders, print_img_statistics
 from scipy.ndimage import convolve
-from math import floor, sqrt, comb, exp, log, sin, cos, pi
+from math import exp
 
 
-def focus_indicator_fourier(aligned_img_stack:np.array):
+def calculate_fourier_focus_indicator(image: np.ndarray, radius: float) -> np.ndarray:
     """
-    Guive a stack overlap images, calculate the focus indicator for each image, using the square of the hight order of the fourier coeficients.
-
+    Compute the focus indicator for a single image using high frequency
+    Fourier coefficients.
+    
     Args:
-        aligned_img_stack: A stack of overlap images, as an array[kf,kx,ky], imagages maybe color or gray.
-    
-
-    Returns:
-        A stack a focus indicators images,as an array[kf,kx,ky], values: [0,1]
-    """
-    quadrado = True
-    
-    fi_stack = []
-
-    for i, aligned_img in enumerate(aligned_img_stack):
-
-        # 1. Converte a imagem para escala de cinza
-        img_gray =  convert_img_to_grayscale(aligned_img).astype(np.float64)
-        img_gray = img_gray/255
-
-        # 2. Aplica a Transformada de Fourier 2D
-        f_transformada = np.fft.fft2(img_gray)
-
-        # 3. Desloca o zero da frequência para o centro
-        f_centralizado = np.fft.fftshift(f_transformada)
-
-        # 4. Cria um filtro passa-alta para manter apenas frequências altas
-        linhas, colunas = img_gray.shape
-        # raio = min(linhas, colunas) // 10  # Ajusta o raio para capturar alta frequência
-        raio = 0.1
-        mascara = mascara_eliptica_gaussiana(linhas, colunas, raio)
-        #mascara = mascara_eliptica_binaria(linhas, colunas, raio)
-
-        # 5. Aplica a máscara no domínio da frequência
-        f_centralizado_filtrado = f_centralizado * mascara
-
-        # 6. Desfaz a centralização e aplica a Transformada Inversa
-        f_inversa = np.fft.ifftshift(f_centralizado_filtrado)
-        imagem_reconstruida = np.fft.ifft2(f_inversa)
-
-        imagem_reconstruida = np.real(imagem_reconstruida)
-
-        print_img_statistics('fourier: img_reconstruida', imagem_reconstruida)
-        #save_image('/home/lelis/Documents/Projetos/Stereo_Multifocus/depth_from_focus/data/synthetic/scene_3/organized_files/output/fourier/', f'fourier_img_reconstruida_{i}.png', imagem_reconstruida, np.min(imagem_reconstruida), np.max(imagem_reconstruida))
-
+        image: Input grayscale image
         
-        # 7. Calcula o módulo ao quadrado da imagem reconstruída
-        if quadrado:
-            imagem_final = imagem_reconstruida ** 2
-            
-        else:    
-            imagem_final = imagem_reconstruida
-
-        print_img_statistics('fourier: img_final', imagem_final)
-        #save_image('/home/lelis/Documents/Projetos/Stereo_Multifocus/depth_from_focus/data/synthetic/scene_3/organized_files/output/fourier/', f'fourier_img_final_{i}.png', imagem_reconstruida, 0, np.max(imagem_reconstruida))
-
-        # 8. Aplica um borramento de 3x3                
-        kernel = [[1,2,1], [2,4,2], [1,2,1]]
-        imagem_final = convolve(imagem_final, kernel)
-        # imagem_final = mediana_ponderada()
-
-        # Zera as bordas da imagem
-        imagem_final = zero_borders(imagem_final, 10)
-        print_img_statistics('fourier: img convolucionada', imagem_final)
-        #save_image('/home/lelis/Documents/Projetos/Stereo_Multifocus/depth_from_focus/data/synthetic/scene_3/organized_files/output/fourier/', f'fourier_img_final_convolucionada_{i}.png', imagem_reconstruida, 0, np.max(imagem_reconstruida))
-        fi_stack.append(imagem_final)
-
-    fi_stack = np.array(fi_stack)
+    Returns:
+        Focus indicator image with unnormalized values
+    """
+    # Normalize to [0,1]
+    image = image / 255.0
     
-    #fi_stack = abs(fi_stack)
-
-    min_val = np.min(fi_stack)
-    max_val = np.max(fi_stack)
-    print(f'focus indicator before normalization(fourier) max_val: {max_val}, min_val: {min_val}')
-
-    # Remove outliers by clipping the values to the 1st and 99th percentiles
-    p1, p99 = np.percentile(fi_stack, [1, 99])
-    fi_stack = np.clip(fi_stack, p1, p99)
-
-    # Normalize the focus indicator to the range [0, 1]
-    fi_stack = fi_stack/ max_val
+    # Apply 2D Fourier Transform
+    f_transform = np.fft.fft2(image)
     
-    min_val = np.min(fi_stack)
-    max_val = np.max(fi_stack)
-    print(f'focus indicator after normalization(fourier) max_val: {max_val}, min_val: {min_val}')
+    # Shift zero frequency to center
+    f_centered = np.fft.fftshift(f_transform)
+    
+    # Create high-pass filter
+    height, width = image.shape
+    mask = create_gaussian_elliptical_mask(height, width, radius) #radius = 0.1
+    
+    
+    # Apply mask in frequency domain
+    f_filtered = f_centered * mask
+    
+    # Inverse shift and transform
+    f_inverse = np.fft.ifftshift(f_filtered)
+    focus_map = np.real(np.fft.ifft2(f_inverse))
 
-    return fi_stack#, mascara, f_centralizado_filtrado, f_centralizado, f_transformada
+    focus_map = np.abs(focus_map)
+    
+
+    return focus_map
 
 
 
 
-def mascara_eliptica_gaussiana(linhas, colunas, raio):
+def create_gaussian_elliptical_mask(height: int, width: int, radius: float) -> np.ndarray:
     """
-    Cria uma máscara gaussiana elíptica de tamanho e raio especificado, ajustando para uma elipse de acordo com o número de linhas e colunas da imagem.
-
+    Create a Gaussian high-pass elliptical mask.
+    
     Args:
-        linhas: Número de linhas da máscara.
-        colunas: Número de colunas da máscara.
-        raio: Raio do círculo base.
-
+        height: Number of rows in the mask
+        width: Number of columns in the mask
+        radius: Base radius as a fraction of dimensions
+    
     Returns:
-        Máscara gaussiana elíptica.
+        Mask where center is 0 (low frequencies filtered) and edges approach 1 (high frequencies preserved)
     """
-    raio_j = raio * colunas
-    raio_i = raio * linhas
+    radius_y = radius * height
+    radius_x = radius * width
+    
+    center_y, center_x = height // 2, width // 2
+    
+    # Create coordinate grids - vectorized approach
+    y, x = np.ogrid[:height, :width]
+    
+    # Calculate normalized distances
+    dy = (y - center_y) / radius_y
+    dx = (x - center_x) / radius_x
+    
+    # Create Gaussian mask components
+    g_y = np.exp(-(dy ** 2) / 2)
+    g_x = np.exp(-(dx ** 2) / 2)
+    
+    # Combine components and invert (1 - mask)
+    mask = 1 - np.outer(g_y, g_x)
+    
+    return mask
 
-    mascara = np.zeros((linhas, colunas))
-    centro_i = linhas // 2
-    centro_j = colunas // 2
 
-    for i in range(linhas):
-        di = (i - centro_i)/raio_i
-        gi =  exp(-(di ** 2) / 2)
-        for j in range(colunas):
-            dj = (j - centro_j)/raio_j
-            gj = exp(-(dj ** 2) / 2)
-            mascara[i, j] = 1 - gi * gj
-
-    return mascara
-
-def mascara_eliptica_binaria(linhas, colunas, raio):
+def create_binary_elliptical_mask(height: int, width: int, radius: float) -> np.ndarray:
     """
-    Cria uma máscara elíptica binária de tamanho e raio especificado, ajustando para uma elipse de acordo com o número de linhas e colunas da imagem.
-
+    Create a binary elliptical mask of specified size and radius.
+    
     Args:
-        linhas: Número de linhas da máscara.
-        colunas: Número de colunas da máscara.
-        raio: Raio do círculo base.
-
+        height: Number of rows in the mask
+        width: Number of columns in the mask
+        radius: Base radius as a fraction of dimensions
+    
     Returns:
-        Máscara elíptica binária.
+        Binary mask where inside ellipse is 0 and outside is 1
     """
-    raio_j = raio * colunas
-    raio_i = raio * linhas
+    radius_y = radius * height
+    radius_x = radius * width
+    
+    center_y, center_x = height // 2, width // 2
+    
+    # Create coordinate grids - vectorized approach
+    y, x = np.ogrid[:height, :width]
+    
+    # Calculate normalized squared distances
+    dy2 = ((y - center_y) / radius_y) ** 2
+    dx2 = ((x - center_x) / radius_x) ** 2
+    
+    # Create mask: 1 outside ellipse, 0 inside
+    mask = (dy2 + dx2 > 1).astype(np.uint8)
+    
+    return mask
 
-    mascara = np.ones((linhas, colunas), dtype=np.uint8)
-    centro_i = linhas // 2
-    centro_j = colunas // 2
 
-    for i in range(linhas):
-        di = (i - centro_i) / raio_i
-        for j in range(colunas):
-            dj = (j - centro_j) / raio_j
-            if di**2 + dj**2 <= 1:
-                mascara[i, j] = 0
-
-    return mascara
-
-
-def filtro_de_media(imagem:np.array,kernel:np.array)->np.array:
+def apply_weighted_filter(image: np.ndarray, kernel: np.ndarray) -> np.ndarray:
     """
-    Aplica um filtro de média na imagem.
-
+    Apply a weighted filter to an image.
+    
     Args:
-        imagem: Imagem a ser filtrada.
+        image: Image to be filtered
+        kernel: Filter kernel
+        
     Returns:
-        Imagem filtrada.
+        Filtered image
     """
-    #kernel = [[1,2,1], [2,4,2], [1,2,1]]
-    #kernel = np.ones((tamanho, tamanho)) / (tamanho ** 2)
-    imagem_filtrada = cv2.filter2D(imagem, -1, kernel)
-
-    return imagem_filtrada
+    return cv2.filter2D(image, -1, kernel)

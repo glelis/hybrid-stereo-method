@@ -1,51 +1,44 @@
-import cv2
 import numpy as np
-from multifocus_stereo.utils import *
+import cv2
 
 
-def focus_indicator_laplacian(image_stack: np.ndarray, laplacian_kernel_size: int):
+# normalização deve ser feita no stack de imagens
+
+def calculate_laplacian_focus_indicator(image: np.ndarray, laplacian_kernel_size: int) -> np.ndarray:
     """
-    Given a stack of overlap images, calculate the focus indicator for each image 
-    using the square of the laplacian.
-
-    Args:
-        image_stack: A stack of overlap images, as an array[kf,kx,ky], gray images.
-        laplacian_kernel_size: Size of the kernel used for Laplacian operator (should be odd).
-
-    Returns:
-        A stack of focus indicators images, as an array[kf,kx,ky], values: [0,1]
-    """
+    Calculate focus indicator using Laplacian operator.
     
+    The Laplacian operator is used to measure the second derivative of an image,
+    which is sensitive to edges and textures. A high Laplacian response
+    typically indicates areas that are in focus.
+    
+    Args:
+        image: Input grayscale image
+        laplacian_kernel_size: Size of the Laplacian kernel
+        
+    Returns:
+        Normalized focus indicator map (8-bit)
+    """
+    # Normalize to [0,1]
+    image = image / 255.
+    0
     # Validate kernel size
     if laplacian_kernel_size % 2 == 0:
         raise ValueError("Laplacian kernel size must be odd")
     
-
-    num_images, h, w = image_stack.shape
+    # Compute Laplacian of the image
+    laplacian = cv2.Laplacian(image, cv2.CV_64F, ksize=laplacian_kernel_size)
     
-    fi_stacked = np.zeros((num_images, h, w), dtype=np.float64)
-
-    for i, aligned_img in enumerate(image_stack):
-        
-        aligned_img = aligned_img / 255
-        
-        laplacian_img = cv2.Laplacian(aligned_img, cv2.CV_64F, ksize=laplacian_kernel_size)
-        
-        laplacian_img = zero_borders(laplacian_img, 2 * laplacian_kernel_size + 1)
-        laplacian_img = laplacian_img ** 2
-        #laplacian_img = abs(laplacian_img)
-        fi_stacked[i] = laplacian_img
-
-    min_val = np.min(fi_stacked)
-    max_val = np.max(fi_stacked)
-    print(f'focus indicator before normalization (laplacian) max_val: {max_val}, min_val: {min_val}')
+    # Take absolute value to measure magnitude of edges
+    focus_map = laplacian
+    focus_map = np.abs(laplacian)
+    #focus_map = focus_map ** 2
     
-    # Avoid division by zero
-    if max_val > 0:
-        fi_stacked = fi_stacked / max_val
-    else:
-        print("Warning: Maximum value is zero, skipping normalization")
+    # normalização deve ser feita no stack de imagens
+    # Normalize to 0-255 range for visualization and further processing
+    #laplacian_norm = cv2.normalize(focus_map, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
 
-    return fi_stacked
+    return focus_map
+
 
 
