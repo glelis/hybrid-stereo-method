@@ -11,7 +11,8 @@ from photometric_stereo.psvizualization import disp_normalmap, disp_channels, di
 import argparse
 
 from common.io import read_image, read_images, find_all_files, read_yaml_parameters, convert_image_array_to_fni
-from photometric_stereo.wps import estimate_normals_argmax, estimate_normals_argmax_lstsq
+from multifocus_stereo.utils import save_image
+from photometric_stereo.wps import estimate_normals_argmax, estimate_normals_argmax_lstsq, estimate_normals_argmax_lstsq_robust
 from common.utils import convert_to_grayscale
 
 
@@ -30,6 +31,7 @@ def main(parameters):
     # Output files
     output_path = os.path.join(parameters.get('output_path'), f'{current_time}_{parameters.get("data_foldername")}')
     normal_map_path = os.path.join(output_path, "normal_map.npy")
+    selected_areas_path = os.path.join(output_path, "selected_areas")
     
 
 
@@ -76,7 +78,8 @@ def main(parameters):
     # Estimate normals
     start_time = time.time()
     #normals, selected_areas = estimate_normals_argmax(images, light_sources)
-    normals, residuals, confidence, selected_areas = estimate_normals_argmax_lstsq(images, light_sources)
+    #normals, residuals, confidence, selected_areas = estimate_normals_argmax_lstsq(images, light_sources)
+    normals, albedo, confidence, selected_areas = estimate_normals_argmax_lstsq_robust(images, light_sources)
     confidence_extra_exp = np.expand_dims(confidence, axis=-1)
     normals_with_confidence = np.concatenate((normals, confidence_extra_exp), axis=-1)
 
@@ -90,6 +93,14 @@ def main(parameters):
     convert_image_array_to_fni(normals, os.path.join(output_path, "normal_map.fni"))
     convert_image_array_to_fni(normals_with_confidence, os.path.join(output_path, "normal_map_with_residuals.fni"))
     logging.info(f"Normal map saved at: {normal_map_path}")
+
+
+    logging.info("... Saving images ...")
+    
+    logging.info("Saving Select indicator images")
+    for i in range(selected_areas.shape[-1]):
+        focus_indicator_img = selected_areas[:, :, i]
+        save_image(selected_areas_path, f"{i:03d}_select_indicator.png", focus_indicator_img, 0, 255)
 
 
     # Evaluate the Result
