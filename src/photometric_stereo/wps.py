@@ -76,7 +76,7 @@ def estimate_normals_argmax_lstsq_robust(images, light_sources):
     images = images + 1e-6  # Add a small value to avoid division by zero
     
     h, w, num_images = images.shape
-    print(f"Image shape: {h}, {w}, {num_images}")
+
     normals = np.zeros((h, w, 3), dtype=np.float32)
     albedo = np.zeros((h, w), dtype=np.float32)
     confidence = np.zeros((h, w), dtype=np.float32)
@@ -124,9 +124,14 @@ def estimate_normals_argmax_lstsq_robust(images, light_sources):
                 normal /= np.linalg.norm(normal)
                 normals[i, j, :] = normal
                 
-                # Compute albedo and assign confidence
+                # Compute albedo
                 albedo[i, j] = np.linalg.norm(np.dot(selected_lights, normal))
-                confidence[i, j] = 1  # Step (7): Assign confidence 1
+                
+                # Adjust confidence based on N, M, and residuals
+                N = len(selected_values)
+                M = num_images
+                residual_std = np.std(residuals)
+                confidence[i, j] = (N / M) * (1 / (1 + residual_std))  # Confidence decreases with fewer data and higher residuals
 
                 # Update selected_areas using original indices
                 selected_areas[i, j, original_indices] = 255
