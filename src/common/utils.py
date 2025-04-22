@@ -101,7 +101,45 @@ def convert_to_grayscale(img:np.ndarray) -> np.ndarray:
     >>> gray_img.shape == (10, 10)
     True
     """
-    
+    if img.dtype == np.float64:
+        img = img.astype(np.float32)
     # Convert the BGR image to grayscale
     imGray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     return imGray
+
+
+
+
+
+def calculate_avarage_of_images(imagens):
+    """
+    Calculate the average of a list of images, ensuring all images have the same dimensions and data type.
+
+    Parameters:
+    imagens (list of numpy.ndarray): List of images to be averaged. All images must have the same dimensions.
+
+    Returns:
+    numpy.ndarray: The averaged image with the same data type as the input images.
+
+    Raises:
+    ValueError: If the images do not have the same dimensions or if the data type is not supported.
+    """
+    # Ensure all images have the same dimensions
+    if not all(imagem.shape == imagens[0].shape for imagem in imagens):
+        raise ValueError("All images must have the same dimensions.")
+    
+    # Convert all images to float32 to avoid overflow issues during averaging
+    imagens_float = [imagem.astype(np.float32) for imagem in imagens]
+    
+    # Calculate the average of the images
+    media = np.mean(imagens_float, axis=0)
+    
+    # Convert the average back to the original data type of the images
+    if imagens[0].dtype == np.uint8:
+        media = media.astype(np.uint8)
+    elif imagens[0].dtype == np.uint16:
+        media = media.astype(np.uint16)
+    else:
+        raise ValueError("Unsupported data type.")
+    
+    return media
