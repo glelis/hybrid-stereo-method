@@ -94,6 +94,7 @@ def read_image(image_path: str, info=False) -> np.ndarray:
         >>> img_with_stats = read_image('path/to/image.png', info=True)
     """
     img = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+    #img = cv2.imread(image_path, cv2.IMREAD_COLOR)
     if img is None:
         raise FileNotFoundError(f"Image not found at path: {image_path}")
     if info:
@@ -118,6 +119,42 @@ def read_images(image_paths: list, info=False) -> list:
     """
     images = [read_image(path, info) for path in image_paths]
     return images
+
+
+def save_image(save_path: str, save_as: str, img: np.ndarray):
+    """
+    Save an image to the specified path after normalizing its pixel values.
+
+    This function normalizes the image pixel values to the range [0, 255] using OpenCV's
+    normalization method and saves the resulting image to the specified directory.
+
+    Args:
+        save_path (str): Directory where the image will be saved.
+        save_as (str): Name of the saved image file.
+        img (np.ndarray): Input image as a NumPy array.
+
+    Raises:
+        ValueError: If the input image is empty or invalid.
+    """
+    if img is None or img.size == 0:
+        raise ValueError("Input image is empty or invalid.")
+
+    # Ensure the save directory exists
+    os.makedirs(save_path, exist_ok=True)
+
+    # Normalize the image to the range [0, 255]
+    img_norm = cv2.normalize(img, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+
+    # Save the normalized image
+    save_full_path = os.path.join(save_path, save_as)
+    cv2.imwrite(save_full_path, img_norm)
+
+
+
+
+
+
+
 
 
 
