@@ -1,10 +1,10 @@
 import os
 import cv2
 import numpy as np
-from natsort import natsorted
+#from natsort import natsorted
 
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+#import matplotlib.pyplot as plt
+#from mpl_toolkits.mplot3d import Axes3D
 
 # General
 WEIGHTS = np.array(
@@ -36,33 +36,9 @@ def convert_stack_to_grayscale(image_stack: np.ndarray) -> np.ndarray:
     return grayscale_stack
 
 
-#colocada e melhorada no common utils   
-def read_image(image_path):
-    img = cv2.imread(image_path, cv2.IMREAD_COLOR)
-    return img
-
-
-#colocada no common utils
-def print_img_statistics(nome, img):
-    shape = img.shape
-    v_max = np.max(img)
-    v_min = np.min(img)
-    v_mean = np.average(img)
-    rms = np.sqrt(np.average(img**2))
-    v_dev = np.sqrt(np.average((img-v_mean)**2))
-    print(f'nome:{nome}, shape:{shape}, min:{v_min:.6f}, max:{v_max:.6f}, mean:{v_mean:.6f}, rms:{rms:.6f}, v_dev:{v_dev:.6f}')
 
 
 
-def save_image(save_path, save_as, img, v_min, v_max):
-
-    if not os.path.exists(save_path):
-        os.makedirs(save_path)
-        
-    # print_img_stats('Não normalizada: '+ save_as, img)
-    img_norm = ((img - v_min)/(v_max - v_min))*255
-    # print_img_stats('Normalizada: '+ save_as, img_norm)
-    cv2.imwrite(os.path.join(save_path, save_as), img_norm)
     
 def zero_borders(img, border_size):
     """
@@ -88,25 +64,25 @@ def find_all_files(path):
     
     return all_files
 
-def read_images_from_path(img_path):
-    """
-    Reads and returns a list of images from the specified directory path.
-    This function traverses the directory tree rooted at `img_path`, reads all image files
-    in a natural sorted order, and returns them as a list.
-    Args:
-        img_path (str): The path to the directory containing the images.
-    Returns:
-        list: A list of images read from the specified directory.
-    """
-    img_list = []
-    
-    for root, dirs, files in os.walk(img_path):
-        for file in natsorted(files):
-
-            img_list.append(read_image(root + "/" + file))
-            print(root + "/" + file)
-
-    return img_list
+#def read_images_from_path(img_path):
+#    """
+#    Reads and returns a list of images from the specified directory path.
+#    This function traverses the directory tree rooted at `img_path`, reads all image files
+#    in a natural sorted order, and returns them as a list.
+#    Args:
+#        img_path (str): The path to the directory containing the images.
+#    Returns:
+#        list: A list of images read from the specified directory.
+#    """
+#    img_list = []
+#    
+#    for root, dirs, files in os.walk(img_path):
+#        for file in natsorted(files):
+#
+#            img_list.append(read_image(root + "/" + file))
+#            print(root + "/" + file)
+#
+#    return img_list
 
 
 def normalize(x: np.array) -> np.array:
@@ -129,72 +105,72 @@ def normalize(x: np.array) -> np.array:
     normalized = (x - min_) / (max_ - min_)
     return normalized
 
-def normalize_max(x: np.array) -> np.array:
-    """
-    Normalizes the input array `x`from range [0, max] to range [0, 1]
-
-    Parameters:
-    x (numpy.ndarray): The input array to be normalized.
-
-    Returns:
-    numpy.ndarray: The normalized array with values scaled to the range [0, 1].
-    """
-    max_ = np.max(x)
-    normalized = x / max_
-    return normalized
-
-
-
-
-
-def exibir_imagem(imagem_np_array):
-  """
-  Exibe um np.array que representa uma imagem.
-
-  Args:
-      imagem_np_array: O np.array que contém os dados da imagem.
-  """
-
-  if len(imagem_np_array.shape) == 2:  # Verifica se a imagem é em escala de cinza
-    plt.imshow(imagem_np_array, cmap='gray')
-  else:
-    imagem_np_array = cv2.cvtColor(imagem_np_array, cv2.COLOR_BGR2RGB)
-    plt.imshow(imagem_np_array, cmap='viridis')
-
-  #plt.axis('off')  # Opcional: remove os eixos da imagem
-  plt.show()
+#def normalize_max(x: np.array) -> np.array:
+#    """
+#    Normalizes the input array `x`from range [0, max] to range [0, 1]
+#
+#    Parameters:
+#    x (numpy.ndarray): The input array to be normalized.
+#
+#    Returns:
+#    numpy.ndarray: The normalized array with values scaled to the range [0, 1].
+#    """
+#    max_ = np.max(x)
+#    normalized = x / max_
+#    return normalized
+#
 
 
 
 
+#def exibir_imagem(imagem_np_array):
+#  """
+#  Exibe um np.array que representa uma imagem.
+#
+#  Args:
+#      imagem_np_array: O np.array que contém os dados da imagem.
+#  """
+#
+#  if len(imagem_np_array.shape) == 2:  # Verifica se a imagem é em escala de cinza
+#    plt.imshow(imagem_np_array, cmap='gray')
+#  else:
+#    imagem_np_array = cv2.cvtColor(imagem_np_array, cv2.COLOR_BGR2RGB)
+#    plt.imshow(imagem_np_array, cmap='viridis')
+#
+#  #plt.axis('off')  # Opcional: remove os eixos da imagem
+#  plt.show()
 
 
-def plot_3d(depth_map, z_scale=1):
-    
-    #height_map = (255 - (depth_map))/255
-    height_map = depth_map
 
-    # Crie uma grade de coordenadas para os eixos X e Y
-    x = np.linspace(0, height_map.shape[1] - 1, height_map.shape[1])
-    y = np.linspace(0, height_map.shape[0] - 1, height_map.shape[0])
-    x, y = np.meshgrid(x, y)
 
-    # Criar a figura 3D
-    fig = plt.figure(figsize=(10, 7))
-    ax = fig.add_subplot(111, projection='3d')
 
-    # Plotar a superfície 3D
-    ax.plot_surface(x, y, height_map, cmap='viridis')
 
-    ax.set_zlim(np.min(height_map), np.max(height_map) * z_scale)
-
-    # Adicionar rótulos aos eixos
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
-    ax.set_zlabel('Altura (mm)')
-
-    # Exibir a imagem 3D
-    plt.show()
+#def plot_3d(depth_map, z_scale=1):
+#    
+#    #height_map = (255 - (depth_map))/255
+#    height_map = depth_map
+#
+#    # Crie uma grade de coordenadas para os eixos X e Y
+#    x = np.linspace(0, height_map.shape[1] - 1, height_map.shape[1])
+#    y = np.linspace(0, height_map.shape[0] - 1, height_map.shape[0])
+#    x, y = np.meshgrid(x, y)
+#
+#    # Criar a figura 3D
+#    fig = plt.figure(figsize=(10, 7))
+#    ax = fig.add_subplot(111, projection='3d')
+#
+#    # Plotar a superfície 3D
+#    ax.plot_surface(x, y, height_map, cmap='viridis')
+#
+#    ax.set_zlim(np.min(height_map), np.max(height_map) * z_scale)
+#
+#    # Adicionar rótulos aos eixos
+#    ax.set_xlabel('X')
+#    ax.set_ylabel('Y')
+#    ax.set_zlabel('Altura (mm)')
+#
+#    # Exibir a imagem 3D
+#    plt.show()
 
 
 
@@ -244,18 +220,18 @@ def create_stl_from_heightmap(height_map, scale=(1, 1, 1), output_file="output.s
 import numpy as np
 from PIL import Image
 
-def negativo_imagem(imagem):
-    # Converte a imagem de um array NumPy para uma imagem PIL
-    imagem_pil = Image.fromarray(imagem.astype('uint8'))
-
-    # Faz o negativo da imagem
-    negativo = Image.eval(imagem_pil, lambda x: 255 - x)
-
-    # Converte a imagem negativa de volta para um array NumPy
-    negativo_np = np.array(negativo)
-
-    return negativo_np
-
+#def negativo_imagem(imagem):
+#    # Converte a imagem de um array NumPy para uma imagem PIL
+#    imagem_pil = Image.fromarray(imagem.astype('uint8'))
+#
+#    # Faz o negativo da imagem
+#    negativo = Image.eval(imagem_pil, lambda x: 255 - x)
+#
+#    # Converte a imagem negativa de volta para um array NumPy
+#    negativo_np = np.array(negativo)
+#
+#    return negativo_np
+#
 
 import numpy as np
 from PIL import Image
@@ -338,22 +314,22 @@ def reorganize_repository(base_path, output_path):
 
 
 
-def compute_fuzzynes(img_fuzzy):
-    height, width = img_fuzzy.shape
-    s = 0
-    for i in range(height):
-        for j in range (width):
-            p = img_fuzzy[i, j]
-            d = p - floor(p+0.5)
-            s = s + abs(d)
-
-    return s/(height*width)
+#def compute_fuzzynes(img_fuzzy):
+#    height, width = img_fuzzy.shape
+#    s = 0
+#    for i in range(height):
+#        for j in range (width):
+#            p = img_fuzzy[i, j]
+#            d = p - floor(p+0.5)
+#            s = s + abs(d)
+#
+#    return s/(height*width)
 
 
 
 from math import floor, pi, cos
 
-def quadratic_interpolation(val, k_fuzzy): #possui problemas, imagem  estoura em alguns pontos.
+def quadratic_interpolation(val, k_fuzzy): 
     nframes = len(val)
     
     # Passo 1: Calcular o índice inteiro mais próximo de k_fuzzy
