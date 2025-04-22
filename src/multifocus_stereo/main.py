@@ -1,8 +1,8 @@
 import os
 import numpy as np
-from multifocus_stereo.utils import read_images_from_path, save_image, calculate_error_image, normalize
+from multifocus_stereo.utils import calculate_error_image, normalize
 
-from common.io import read_yaml_parameters, find_all_files, read_images, convert_image_array_to_fni, log_parameters
+from common.io import read_yaml_parameters, find_all_files, read_images, convert_image_array_to_fni, log_parameters, save_image, read_image
 from common.utils import convert_to_grayscale
 
 from multifocus_stereo.mosaic import mosaic
@@ -18,47 +18,73 @@ import argparse
 def main(parameters):
 
 
-    # Define paths
-    current_time = datetime.now().strftime("%Y%m%d_%H%M")
-    data_path = os.path.join(parameters.get('input_path'), parameters.get('data_foldername'))
+    if parameters.get('hybrid_method') == True:
+        # Define paths
+        data_path = os.path.join(parameters.get('input_path'))
 
-    # Input files
-    images_path = os.path.join(data_path, 'images')
-    reference_images_path = os.path.join(data_path, 'references')
+        # Input files
+        images_path = os.path.join(data_path, 'images')
+        reference_images_path = os.path.join(data_path, 'references')
 
-    # Output files
-    output_path = os.path.join(parameters.get('output_path'), f'{current_time}_{parameters.get("data_foldername")}')
-    focus_save_path = os.path.join(output_path, 'focus_indicator')
-    error_image_path = os.path.join(output_path, 'error_image')
-    debug_data_path = os.path.join(output_path, 'debug_data')
+        # Output files
+        output_path = parameters.get('output_path_multifocus')
+        focus_save_path = os.path.join(output_path, 'focus_indicator')
+        error_image_path = os.path.join(output_path, 'error_image')
+        debug_data_path = os.path.join(output_path, 'debug_data')
+
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
+
+        
+
+    else:
+        # Define paths
+        current_time = datetime.now().strftime("%Y%m%d_%H%M")
+        data_path = os.path.join(parameters.get('input_path'), parameters.get('data_foldername'))
+
+        # Input files
+        images_path = os.path.join(data_path, 'images')
+        reference_images_path = os.path.join(data_path, 'references')
+
+        # Output files
+        output_path = os.path.join(parameters.get('output_path'), f'{current_time}_{parameters.get("data_foldername")}')
+        focus_save_path = os.path.join(output_path, 'focus_indicator')
+        error_image_path = os.path.join(output_path, 'error_image')
+        debug_data_path = os.path.join(output_path, 'debug_data')
 
 
 
-    if not os.path.exists(output_path):
-        os.makedirs(output_path)
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
 
-    # **Logging Configuration**
-    logging.basicConfig(
-        level=logging.DEBUG,  # Minimum log level
-        format="%(asctime)s - %(levelname)s - %(message)s",  # Log format
-        handlers=[
-            logging.StreamHandler(),  # Output to console
-            logging.FileHandler(os.path.join(output_path, f'multifocus_stereo_{current_time}.log')),  # Output to file
-        ],
-    )
+        # **Logging Configuration**
+        logging.basicConfig(
+            level=logging.DEBUG,  # Minimum log level
+            format="%(asctime)s - %(levelname)s - %(message)s",  # Log format
+            handlers=[
+                logging.StreamHandler(),  # Output to console
+                logging.FileHandler(os.path.join(output_path, f'multifocus_stereo_{current_time}.log')),  # Output to file
+            ],
+        )
 
-    # Log parameter information
-    logging.info("Starting multifocus stereo experiment")
-    
-    # Log all parameters recursively
-    log_parameters(parameters)
+        # Log parameter information
+        logging.info("Starting multifocus stereo experiment")
+        
+        # Log all parameters recursively
+        log_parameters(parameters)
+
 
 
 
     # Load images
-    logging.info("Reading images ...")
-    images_paths = find_all_files(images_path)
-    image_list = read_images(images_paths, info=True)
+    logging.info("... Reading images ...")
+
+    if parameters.get('hybrid_method') == True:
+        image_list = read_images(parameters.get('filtered_dir'), info=True)
+
+    else:
+        images_paths = find_all_files(images_path)
+        image_list = read_images(images_paths, info=True)
 
     image_stack = np.asarray(image_list)
     gray_image_stack = np.asarray([convert_to_grayscale(img) for img in image_stack])
@@ -86,14 +112,14 @@ def main(parameters):
     logging.info("... Saving Data ...")
 
     logging.info("saving iSel and wSel")
-    save_image(output_path, 'iSel.png', iSel, 0, 12)
-    save_image(output_path, 'wSel.png', wSel, 0, np.max(wSel))
+    save_image(output_path, 'iSel.png', iSel)
+    save_image(output_path, 'wSel.png', wSel)
     convert_image_array_to_fni(normalize(iSel), os.path.join(output_path, "iSel.fni"))
     convert_image_array_to_fni(normalize(wSel), os.path.join(output_path, "wSel.fni"))
     
     logging.info("saving sMos and zMos")
-    save_image(output_path, 'sMos.png', sMos, 0, np.max(sMos))
-    save_image(output_path, 'zMos.png', zMos, np.min(zMos), np.max(zMos))
+    save_image(output_path, 'sMos.png', sMos)
+    save_image(output_path, 'zMos.png', zMos)
     convert_image_array_to_fni(normalize(sMos), os.path.join(output_path, "sMos.fni"))
     convert_image_array_to_fni(normalize(zMos), os.path.join(output_path, "zMos.fni"))
 
@@ -102,14 +128,14 @@ def main(parameters):
     
     logging.info("Saving focus indicator images")
     for i, focus_indicator_img in enumerate(focus_indicator_stack):
-        save_image(focus_save_path, f"{i:03d}_focus_indicator.png", focus_indicator_img, 0, 1)
+        save_image(focus_save_path, f"{i:03d}_focus_indicator.png", focus_indicator_img)
 
 
     if parameters.get('gabaritos'):
-        reference_image = read_images_from_path(reference_images_path)[0]  
+        reference_image = read_image(find_all_files(reference_images_path)[0], info=True)
         logging.info("Saving error image")
         error_image = calculate_error_image(reference_image, zMos)
-        save_image(error_image_path, 'error_image.png', error_image, -1, 1)
+        save_image(error_image_path, 'error_image.png', error_image)
         logging.info("Done!")
 
     logging.info("... All operations complete and exiting main function ...")

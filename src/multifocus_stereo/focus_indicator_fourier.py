@@ -1,8 +1,6 @@
 import cv2
 import numpy as np
-from multifocus_stereo.utils import convert_img_to_grayscale, zero_borders, print_img_statistics
-from scipy.ndimage import convolve
-from math import exp
+
 
 
 def calculate_fourier_focus_indicator(image: np.ndarray, radius: float) -> np.ndarray:
