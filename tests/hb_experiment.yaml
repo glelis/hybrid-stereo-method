@@ -14,13 +14,13 @@ focal_step: 1
 
 # Multifocus Parameters
 focal_descriptor_paramiters:
-  focal_descriptor: 'laplacian' # fourier, laplacian, wavelet
+  focal_descriptor: 'fourier' # fourier, laplacian, wavelet
 
   #laplacian_param:
   laplacian_kernel_size: 31
 
   #fourier_param:
-  fourier_radius: 0.05 #0.1 
+  fourier_radius: 0.1 #0.1 
 
   #general_param:
   square: False
