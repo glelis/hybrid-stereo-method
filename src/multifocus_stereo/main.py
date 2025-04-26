@@ -124,6 +124,14 @@ def main(parameters):
     convert_image_array_to_fni(normalize(zMos), os.path.join(output_path, "zMos.fni"))
 
 
+
+    # Add confidence as a new channel to zMos
+    #confidence_extra_exp = np.expand_dims(wSel, axis=-1)
+    zMos_with_confidence = np.stack((normalize(zMos), normalize(wSel)), axis=-1)
+    convert_image_array_to_fni(zMos_with_confidence, os.path.join(output_path, "zMos_with_confidence.fni"))
+
+
+
     logging.info("... Saving images ...")
     
     logging.info("Saving focus indicator images")
