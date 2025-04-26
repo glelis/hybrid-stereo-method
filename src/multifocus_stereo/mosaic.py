@@ -32,7 +32,7 @@ def mosaic(iSel, image_stack:np.array, zFoc:list, interpolation_type:str):
     logging.debug(f"Mosaic      height: {height}, width: {width}, n_frames: {n_frames}, chanels: {chanels}")
     
     sMos = np.zeros((height, width, chanels))
-    zMos = np.zeros((height, width,chanels))
+    zMos = np.zeros((height, width))
 
     #Calculo da imagem all_in_focus
     for i in range(height): #linha
