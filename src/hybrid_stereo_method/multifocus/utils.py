@@ -1,25 +1,31 @@
 import os
+
 import cv2
 import numpy as np
-#from natsort import natsorted
 
-#import matplotlib.pyplot as plt
-#from mpl_toolkits.mplot3d import Axes3D
+# from natsort import natsorted
+
+# import matplotlib.pyplot as plt
+# from mpl_toolkits.mplot3d import Axes3D
 
 # General
 WEIGHTS = np.array(
-        [[0, 0, 1, 2, 1, 0, 0],
+    [
+        [0, 0, 1, 2, 1, 0, 0],
         [0, 1, 2, 3, 2, 1, 0],
         [1, 2, 3, 4, 3, 2, 1],
         [2, 3, 4, 5, 4, 3, 2],
         [1, 2, 3, 4, 3, 2, 1],
         [0, 1, 2, 3, 2, 1, 0],
-        [0, 0, 1, 2, 1, 0, 0]])
+        [0, 0, 1, 2, 1, 0, 0],
+    ]
+)
 
 
 def convert_img_to_grayscale(img):
     imGray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     return imGray
+
 
 def convert_stack_to_grayscale(image_stack: np.ndarray) -> np.ndarray:
     """
@@ -36,10 +42,6 @@ def convert_stack_to_grayscale(image_stack: np.ndarray) -> np.ndarray:
     return grayscale_stack
 
 
-
-
-
-    
 def zero_borders(img, border_size):
     """
     Zera as bordas de uma imagem.
@@ -57,14 +59,15 @@ def zero_borders(img, border_size):
 
 def find_all_files(path):
     all_files = []
-    
+
     for root, dirs, files in os.walk(path):
         for file in files:
             all_files.append(file)
-    
+
     return all_files
 
-#def read_images_from_path(img_path):
+
+# def read_images_from_path(img_path):
 #    """
 #    Reads and returns a list of images from the specified directory path.
 #    This function traverses the directory tree rooted at `img_path`, reads all image files
@@ -75,7 +78,7 @@ def find_all_files(path):
 #        list: A list of images read from the specified directory.
 #    """
 #    img_list = []
-#    
+#
 #    for root, dirs, files in os.walk(img_path):
 #        for file in natsorted(files):
 #
@@ -105,7 +108,8 @@ def normalize(x: np.array) -> np.array:
     normalized = (x - min_) / (max_ - min_)
     return normalized
 
-#def normalize_max(x: np.array) -> np.array:
+
+# def normalize_max(x: np.array) -> np.array:
 #    """
 #    Normalizes the input array `x`from range [0, max] to range [0, 1]
 #
@@ -121,9 +125,7 @@ def normalize(x: np.array) -> np.array:
 #
 
 
-
-
-#def exibir_imagem(imagem_np_array):
+# def exibir_imagem(imagem_np_array):
 #  """
 #  Exibe um np.array que representa uma imagem.
 #
@@ -141,12 +143,8 @@ def normalize(x: np.array) -> np.array:
 #  plt.show()
 
 
-
-
-
-
-#def plot_3d(depth_map, z_scale=1):
-#    
+# def plot_3d(depth_map, z_scale=1):
+#
 #    #height_map = (255 - (depth_map))/255
 #    height_map = depth_map
 #
@@ -173,18 +171,19 @@ def normalize(x: np.array) -> np.array:
 #    plt.show()
 
 
-
-
-
 try:
     from stl import mesh
+
     HAS_STL = True
 except ImportError:
     HAS_STL = False
 
+
 def create_stl_from_heightmap(height_map, scale=(1, 1, 1), output_file="output.stl"):
     if not HAS_STL:
-        raise ImportError("numpy-stl is required for STL export. Install via: pip install numpy-stl")
+        raise ImportError(
+            "numpy-stl is required for STL export. Install via: pip install numpy-stl"
+        )
     """
     Cria um arquivo STL baseado em um mapa de altura.
     
@@ -223,10 +222,7 @@ def create_stl_from_heightmap(height_map, scale=(1, 1, 1), output_file="output.s
     print(f"STL gerado e salvo em {output_file}")
 
 
-import numpy as np
-from PIL import Image
-
-#def negativo_imagem(imagem):
+# def negativo_imagem(imagem):
 #    # Converte a imagem de um array NumPy para uma imagem PIL
 #    imagem_pil = Image.fromarray(imagem.astype('uint8'))
 #
@@ -238,15 +234,15 @@ from PIL import Image
 #
 #    return negativo_np
 #
-
 import numpy as np
-from PIL import Image
 
 try:
     from rembg import remove
+
     HAS_REMBG = True
 except ImportError:
     HAS_REMBG = False
+
 
 def aplicar_mascara(imagem, img_referencia):
     if not HAS_REMBG:
@@ -258,9 +254,9 @@ def aplicar_mascara(imagem, img_referencia):
     :param referencia: numpy.ndarray, da imagem referencia que ira fornecer a mascara (mesma forma que a imagem)
     :return: numpy.ndarray, imagem resultante após aplicação da máscara
     """
-    #retira a mascara
+    # retira a mascara
     mascara = remove(img_referencia, only_mask=True)
-    mascara = np.where(mascara <10, 0, 1)
+    mascara = np.where(mascara < 10, 0, 1)
 
     # Verifica se a máscara e a imagem têm a mesma forma
     if imagem.shape != mascara.shape:
@@ -275,7 +271,7 @@ def aplicar_mascara(imagem, img_referencia):
 def calculate_error_image(reference_image, depth_map):
     """
     Calculate the error image by comparing the depth map with a reference image.
-    
+
     Args:
         reference_image: The reference image.
         depth_map: The calculated depth map.
@@ -289,18 +285,14 @@ def calculate_error_image(reference_image, depth_map):
     return error_image
 
 
-
-
-
-
-import os
-from collections import defaultdict
 import shutil
+from collections import defaultdict
+
 
 def reorganize_repository(base_path, output_path):
     # Create a dictionary to hold the grouped files
     grouped_files = defaultdict(list)
-    
+
     # Walk through the directory structure
     for root, dirs, files in os.walk(base_path):
         # Sort directories alphabetically
@@ -321,13 +313,11 @@ def reorganize_repository(base_path, output_path):
                 shutil.copy(os.path.join(dir_path, file), new_file_path)
                 # Add the new file name to the grouped files dictionary
                 grouped_files[base_name].append(new_file_path)
-    
+
     return grouped_files
 
 
-
-
-#def compute_fuzzynes(img_fuzzy):
+# def compute_fuzzynes(img_fuzzy):
 #    height, width = img_fuzzy.shape
 #    s = 0
 #    for i in range(height):
@@ -339,15 +329,15 @@ def reorganize_repository(base_path, output_path):
 #    return s/(height*width)
 
 
+from math import cos, floor, pi
 
-from math import floor, pi, cos
 
-def quadratic_interpolation(val, k_fuzzy): 
+def quadratic_interpolation(val, k_fuzzy):
     nframes = len(val)
-    
+
     # Passo 1: Calcular o índice inteiro mais próximo de k_fuzzy
     kint = int(floor(k_fuzzy + 0.5))
-    
+
     # Passo 2: Definir a janela de interpolação
     if kint <= 1:
         k0 = 0
@@ -358,28 +348,28 @@ def quadratic_interpolation(val, k_fuzzy):
     else:
         k0 = kint - 2
         k1 = kint + 2
-    
+
     m = k1 - k0 + 1
-    
+
     # Passo 3: Calcular a diferença fracionária s
     s = k_fuzzy - kint
     assert -0.5 <= s <= 0.5
-    
+
     # Passo 4: Definir os vetores x e y
     x = [k0 + j for j in range(m)]
     y = [val[k0 + j] for j in range(m)]
-    
+
     # Passo 5: Calcular os pesos w
     a = pi * 0.5 * (m + 1)
     w = [0.5 * (1 + cos(a * (k0 + j - k_fuzzy))) for j in range(m)]
-    
+
     # Passo 6: Regressão quadrática ponderada usando np.polyfit
     # A, B, C = tuple(np.polyfit(x, y, 2, w=w))
-    
+
     # Passo 6: Regressão quadrática ponderada
     X = np.vstack([np.ones(m), x, np.square(x)]).T
     W = np.diag(w)
-    
+
     # Verificar se a matriz é singular
     try:
         A = np.linalg.inv(X.T @ W @ X) @ (X.T @ W @ y)
@@ -387,24 +377,23 @@ def quadratic_interpolation(val, k_fuzzy):
         # Adicionar regularização para evitar singularidade
         regularization = 1e-8
         A = np.linalg.inv(X.T @ W @ X + regularization * np.eye(X.shape[1])) @ (X.T @ W @ y)
-    
+
     # Coeficientes da parábola
     C, B, A = A
-    
+
     # Passo 7: Calcular o valor interpolado vsel
-    vsel = A * (k_fuzzy ** 2) + B * k_fuzzy + C
-    
+    vsel = A * (k_fuzzy**2) + B * k_fuzzy + C
+
     # Passo 8: Retornar o valor interpolado
     return vsel
 
 
-
 def linear_interpolation(val, k_fuzzy):
     nframes = len(val)
-    
+
     # Passo 1: Calcular o índice inteiro mais próximo de k_fuzzy
     kint = int(floor(k_fuzzy))
-    
+
     # Passo 2: Definir os índices de interpolação
     if kint < 0:
         k0 = 0
@@ -415,18 +404,14 @@ def linear_interpolation(val, k_fuzzy):
     else:
         k0 = kint
         k1 = kint + 1
-    
+
     # Passo 3: Calcular a diferença fracionária s
     s = k_fuzzy - k0
-    #print(f"kint: {kint}, k0: {k0}, k1: {k1}, s: {s}, nframes: {nframes}, k_fuzzy: {k_fuzzy}")
+    # print(f"kint: {kint}, k0: {k0}, k1: {k1}, s: {s}, nframes: {nframes}, k_fuzzy: {k_fuzzy}")
     assert 0 <= s <= 1
-    
+
     # Passo 4: Calcular o valor interpolado
     vsel = (1 - s) * val[k0] + s * val[k1]
-    
+
     # Passo 5: Retornar o valor interpolado
     return vsel
-
-
-
-

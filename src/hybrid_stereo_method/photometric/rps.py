@@ -1,39 +1,41 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Robust Photometric Stereo in Python
 """
+
 __author__ = "Yasuyuki Matsushita <yasumat@ist.osaka-u.ac.jp>"
 __version__ = "0.1.0"
 __date__ = "11 May 2018"
 
-import hybrid_stereo_method.photometric.ps_utils as psutil
-import hybrid_stereo_method.photometric.solvers.numerics as rpsnumerics
 import numpy as np
 from sklearn.preprocessing import normalize
 
+import hybrid_stereo_method.photometric.ps_utils as psutil
+import hybrid_stereo_method.photometric.solvers.numerics as rpsnumerics
 
-class RPS(object):
+
+class RPS:
     """
     Robust Photometric Stereo class
     """
+
     # Choice of solution methods
-    L2_SOLVER = 0   # Conventional least-squares
-    L1_SOLVER = 1   # L1 residual minimization
-    L1_SOLVER_MULTICORE = 2 # L1 residual minimization (multicore)
+    L2_SOLVER = 0  # Conventional least-squares
+    L1_SOLVER = 1  # L1 residual minimization
+    L1_SOLVER_MULTICORE = 2  # L1 residual minimization (multicore)
     SBL_SOLVER = 3  # Sparse Bayesian Learning
-    SBL_SOLVER_MULTICORE = 4    # Sparse Bayesian Learning (multicore)
-    RPCA_SOLVER = 5    # Robust PCA
+    SBL_SOLVER_MULTICORE = 4  # Sparse Bayesian Learning (multicore)
+    RPCA_SOLVER = 5  # Robust PCA
 
     def __init__(self):
-        self.M = None   # measurement matrix in numpy array
-        self.L = None   # light matrix in numpy array
-        self.N = None   # surface normal matrix in numpy array
+        self.M = None  # measurement matrix in numpy array
+        self.L = None  # light matrix in numpy array
+        self.N = None  # surface normal matrix in numpy array
         self.height = None  # image height
-        self.width = None   # image width
-        self.foreground_ind = None    # mask (indices of active pixel locations (rows of M))
-        self.background_ind = None    # mask (indices of inactive pixel locations (rows of M))
+        self.width = None  # image width
+        self.foreground_ind = None  # mask (indices of active pixel locations (rows of M))
+        self.background_ind = None  # mask (indices of inactive pixel locations (rows of M))
 
     def load_lighttxt(self, filename=None):
         """
@@ -103,7 +105,9 @@ class RPS(object):
         :param filename: filename of a normal map
         :return: None
         """
-        psutil.save_normalmap_as_npy(filename=filename, normal=self.N, height=self.height, width=self.width)
+        psutil.save_normalmap_as_npy(
+            filename=filename, normal=self.N, height=self.height, width=self.width
+        )
 
     def solve(self, method=L2_SOLVER):
         if self.M is None:
@@ -175,14 +179,14 @@ class RPS(object):
 
         Compute surface normal : numpy array of surface normal (p \times 3)
         """
-        from multiprocessing import Pool
         import multiprocessing
+        from multiprocessing import Pool
 
         if self.foreground_ind is None:
             indices = range(self.M.shape[0])
         else:
             indices = self.foreground_ind
-        p = Pool(processes=multiprocessing.cpu_count()-1)
+        p = Pool(processes=multiprocessing.cpu_count() - 1)
         normal = p.map(self._solve_l1_multicore_impl, indices)
         if self.foreground_ind is None:
             self.N = np.asarray(normal)
@@ -205,7 +209,7 @@ class RPS(object):
         """
         A = self.L.T
         b = np.array([self.M[index, :]]).T
-        n = rpsnumerics.L1_residual_min(A, b)   # row vector of a surface normal at pixel "index"
+        n = rpsnumerics.L1_residual_min(A, b)  # row vector of a surface normal at pixel "index"
         return n.ravel()
 
     def _solve_sbl(self):
@@ -241,14 +245,14 @@ class RPS(object):
 
         Compute surface normal : numpy array of surface normal (p \times 3)
         """
-        from multiprocessing import Pool
         import multiprocessing
+        from multiprocessing import Pool
 
         if self.foreground_ind is None:
             indices = range(self.M.shape[0])
         else:
             indices = self.foreground_ind
-        p = Pool(processes=multiprocessing.cpu_count()-1)
+        p = Pool(processes=multiprocessing.cpu_count() - 1)
         normal = p.map(self._solve_sbl_multicore_impl, indices)
         if self.foreground_ind is None:
             self.N = np.asarray(normal)
@@ -271,7 +275,9 @@ class RPS(object):
         """
         A = self.L.T
         b = np.array([self.M[index, :]]).T
-        n = rpsnumerics.sparse_bayesian_learning(A, b)   # row vector of a surface normal at pixel "index"
+        n = rpsnumerics.sparse_bayesian_learning(
+            A, b
+        )  # row vector of a surface normal at pixel "index"
         return n.ravel()
 
     def _solve_rpca(self):
@@ -289,14 +295,14 @@ class RPS(object):
         else:
             _M = self.M[self.foreground_ind, :].T
 
-        A, E, ite = rpsnumerics.rpca_inexact_alm(_M)    # RPCA Photometric stereo
+        A, E, ite = rpsnumerics.rpca_inexact_alm(_M)  # RPCA Photometric stereo
 
         if self.foreground_ind is None:
             self.N = np.linalg.lstsq(self.L.T, A, rcond=None)[0].T
-            self.N = normalize(self.N, axis=1)    # normalize to account for diffuse reflectance
+            self.N = normalize(self.N, axis=1)  # normalize to account for diffuse reflectance
         else:
             N = np.linalg.lstsq(self.L.T, A, rcond=None)[0].T
-            N = normalize(N, axis=1)    # normalize to account for diffuse reflectance
+            N = normalize(N, axis=1)  # normalize to account for diffuse reflectance
             self.N = np.zeros((self.M.shape[0], 3))
             for i in range(self.N.shape[1]):
                 self.N[self.foreground_ind, i] = N[:, i]

@@ -1,11 +1,9 @@
-from __future__ import print_function
-
-import cv2.xfeatures2d
-from utils import *
-from natsort import natsorted
 
 import cv2
+import cv2.xfeatures2d
 import numpy as np
+from natsort import natsorted
+from utils import *
 
 
 def compute_descriptors(imGray):
@@ -26,7 +24,7 @@ def compute_descriptors(imGray):
     keypoints, descriptors = sift.detectAndCompute(imGray, None)
 
     # Print number of detected keypoints and descriptor array shape
-    print("keypoints: {}, descriptors: {}".format(len(keypoints), descriptors.shape))
+    print(f"keypoints: {len(keypoints)}, descriptors: {descriptors.shape}")
 
     return keypoints, descriptors
 
@@ -84,12 +82,18 @@ def find_good_matches_loc(matcher, keypoints1, descriptors1, keypoints2, descrip
 
     # Apply Lowe's ratio test to filter ambiguous matches
     for m, n in matches:
-        if m.distance < factor * n.distance:  # Keep matches where the distance to the nearest neighbor is significantly smaller than the distance to the second nearest neighbor
+        if (
+            m.distance < factor * n.distance
+        ):  # Keep matches where the distance to the nearest neighbor is significantly smaller than the distance to the second nearest neighbor
             good_matches.append(m)
 
     # Extract coordinates of corresponding keypoints in both images
-    points1 = np.float32([keypoints1[match.queryIdx].pt for match in good_matches]).reshape(-1, 1, 2)
-    points2 = np.float32([keypoints2[match.trainIdx].pt for match in good_matches]).reshape(-1, 1, 2)
+    points1 = np.float32([keypoints1[match.queryIdx].pt for match in good_matches]).reshape(
+        -1, 1, 2
+    )
+    points2 = np.float32([keypoints2[match.trainIdx].pt for match in good_matches]).reshape(
+        -1, 1, 2
+    )
 
     return good_matches, points1, points2
 
@@ -145,7 +149,9 @@ def align_im1_to_im2(img1, img2):
     matcher = create_matcher(trees=5, checks=50)
 
     # Find good quality matches and their locations
-    good_matches, points1, points2 = find_good_matches_loc(matcher, keypoints1, descriptors1, keypoints2, descriptors2, factor=0.80)
+    good_matches, points1, points2 = find_good_matches_loc(
+        matcher, keypoints1, descriptors1, keypoints2, descriptors2, factor=0.80
+    )
 
     # Draw matches found in an image
     imMatches = cv2.drawMatches(img1, keypoints1, img2, keypoints2, good_matches, None, flags=2)
@@ -165,41 +171,41 @@ def main_align(base_path):
 
     """
 
-    img_path = base_path + 'imagens/'
-    save_path = base_path + 'output/align_images/aligned/'
-    match_path = base_path + 'output/align_images/match_save/'
+    img_path = base_path + "imagens/"
+    save_path = base_path + "output/align_images/aligned/"
+    match_path = base_path + "output/align_images/match_save/"
 
     # Find all files in the image folder and sort them naturally
     all_files = find_all_files(img_path)
     all_files = natsorted(all_files)
     print(all_files)
-    
+
     aligned_img = read_image(img_path + all_files[0])
 
     # Iterate over the files, aligning each image with the next in sequence
-    for i in range(len(all_files)-1):
+    for i in range(len(all_files) - 1):
         # Define paths for source and target images
         source_img_path = img_path + all_files[i]
-        target_img_path = img_path + all_files[i+1]
+        target_img_path = img_path + all_files[i + 1]
 
         # Define output file names for matches and aligned image
-        match_save_as = "matches_" + str(i) + ".jpg" 
+        match_save_as = "matches_" + str(i) + ".jpg"
         align_save_as = "align_" + str(i) + ".jpg"
 
         # Read the target image
-        print("Reading a target image : ", target_img_path);
+        print("Reading a target image : ", target_img_path)
         target_img = read_image(target_img_path)
 
         # Align images
         print("Aligning images ...")
         imMatches, aligned_img = align_im1_to_im2(aligned_img, target_img)
-        
+
         # Save the feature matching image
-        print("Saving a feature matching image : ", save_path);
-        save_image(match_path, match_save_as, imMatches,0,255)
+        print("Saving a feature matching image : ", save_path)
+        save_image(match_path, match_save_as, imMatches, 0, 255)
 
         # Save the aligned image
-        print("Saving an aligned image : ", save_path);
+        print("Saving an aligned image : ", save_path)
         save_image(save_path, align_save_as, aligned_img, 0, 255)
 
         # Add a blank line to separate output of each iteration

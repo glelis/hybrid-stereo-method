@@ -1,5 +1,6 @@
-import numpy as np
 import warnings
+
+import numpy as np
 
 
 def L1_residual_min(A, b, max_ite=1000, tol=1.0e-8):
@@ -58,8 +59,8 @@ def sparse_bayesian_learning(A, b, max_ite=1000, tol=1.0e-8):
         ValueError: An error occurs in evaluating the dimensionality of the input matrix A and vector b.
 
     """
-    GAMMA_THR = 1e-8    # For numerical stability
-    lambda1 = 1.0    # Coefficient regularizer
+    GAMMA_THR = 1e-8  # For numerical stability
+    lambda1 = 1.0  # Coefficient regularizer
     lambda2 = 1.0e-6
 
     if A.shape[0] != b.shape[0]:
@@ -70,7 +71,7 @@ def sparse_bayesian_learning(A, b, max_ite=1000, tol=1.0e-8):
     x_old = 1000 * np.ones((n, 1))
     ite = 0
     while ite < max_ite:
-        W = np.diag((1. / gamma.T)[0])
+        W = np.diag((1.0 / gamma.T)[0])
         C = lambda2 * np.identity(n) + A.T.dot(W).dot(A)
         d = A.T.dot(W).dot(b)
         x = np.linalg.solve(C, d)
@@ -146,29 +147,29 @@ def rpca_inexact_alm(D, lambda_=None, max_ite=1000, tol=1.0e-6):
 
     A = np.zeros((m, n))
     E = np.zeros((m, n))
-    mu = 1.25 / norm_two   # This can be tuned
+    mu = 1.25 / norm_two  # This can be tuned
     mu_bar = mu * 1e7
-    rho = 1.5    # This can be tuned
-    d_norm = np.linalg.norm(D, 'fro')
+    rho = 1.5  # This can be tuned
+    d_norm = np.linalg.norm(D, "fro")
     ite = 0
-    sv = 10    # This can be tuned
+    sv = 10  # This can be tuned
 
     while ite < max_ite:
         ite = ite + 1
-        T = D - A + (1/mu) * Y
-        E = np.maximum(T - lambda_/mu, 0.0)
+        T = D - A + (1 / mu) * Y
+        E = np.maximum(T - lambda_ / mu, 0.0)
         E = E + np.minimum(T + lambda_ / mu, 0.0)
         U, S, V = np.linalg.svd(D - E + (1.0 / mu) * Y, full_matrices=False)
-        svp = len(S[S > 1.0 / mu])
+        svp = len(S[1.0 / mu < S])
         if svp < sv:
             sv = min(svp + 1, n)
         else:
             sv = min(svp + round(0.05 * n), n)
-        A = U[:, 0:svp].dot(np.diag(S[0:svp] - 1.0/mu)).dot((V[0:svp, :]))
+        A = U[:, 0:svp].dot(np.diag(S[0:svp] - 1.0 / mu)).dot(V[0:svp, :])
         Z = D - A - E
         Y = Y + mu * Z
         mu = min(mu * rho, mu_bar)
-        stop_criterion = np.linalg.norm(Z, 'fro') / d_norm
+        stop_criterion = np.linalg.norm(Z, "fro") / d_norm
         if stop_criterion < tol:
             return A, E, ite
 
