@@ -177,3 +177,5 @@ def estimate_normals_argmax_lstsq_robust(images, light_sources):
                 selected_areas[i, j, original_indices] = 255
 
     return normals, albedo, confidence, selected_areas
+
+
