@@ -1,0 +1,2 @@
+# Option 1: Use "zero" as initialization method
+./gus_integrate_recursive -initial zero 0 -outPrefix teste_blabla -normals /home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/hybrid_stereo/20250422_1543_2025-03-08-stQ-melon24-amb0.00-glo0.50/photometric_stereo/normal_map_with_residuals.fni

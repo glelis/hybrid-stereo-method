@@ -1,16 +1,82 @@
 [build-system]
-requires = ["setuptools>=42", "wheel"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "hybrid-stereo-method"
-version = "0.1.0"
-description = "A project created using setuptools."
+version = "0.2.0"
+description = "Hybrid 3D reconstruction combining multifocal and photometric stereo"
+readme = "README.md"
+license = {text = "MIT"}
 authors = [
-    { name = "Gustavo Lelis", email = "g.lelis.silva@gmail.com" }
+    {name = "Gustavo Lelis", email = "g.lelis.silva@gmail.com"}
 ]
-dependencies = []
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Image Processing",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "numpy>=2.0",
+    "opencv-python>=4.10",
+    "scipy>=1.14",
+    "scikit-image>=0.24",
+    "scikit-learn>=1.5",
+    "PyYAML>=6.0",
+    "numba>=0.60",
+    "matplotlib>=3.9",
+    "tqdm>=4.67",
+    "natsort>=8.4",
+    "PyWavelets>=1.6",
+    "imageio>=2.30",
+    "pillow>=10.0",
+]
 
-[tool.setuptools]
-packages = { find = { where = ["src"], include = ["*"]} }
-package-dir = { "" = "src" }
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.0",
+    "mypy>=1.8",
+    "ruff>=0.3",
+    "pre-commit>=3.6",
+]
+docs = [
+    "sphinx>=7.0",
+    "sphinx-rtd-theme>=2.0",
+]
+
+[project.scripts]
+multifocus-stereo = "hybrid_stereo_method.multifocus.main:cli"
+photometric-stereo = "hybrid_stereo_method.photometric.main:cli"
+hybrid-stereo = "hybrid_stereo_method.hybrid.main:cli"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "PTH"]
+ignore = ["E501"]  # Line length handled separately
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --cov=hybrid_stereo_method"
