@@ -3,8 +3,13 @@ import logging
 import os
 from datetime import datetime
 
+import numpy as np
 from natsort import natsorted
 
+from hybrid_stereo_method.hybrid.integrate import (
+    IntegrateRecursiveConfig,
+    integrate_normals_to_height,
+)
 from hybrid_stereo_method.infrastructure.io.image_io import (
     find_all_files,
     log_parameters,
@@ -20,6 +25,11 @@ from hybrid_stereo_method.photometric.main_wps import main as photometric_stereo
 def main(parameters):
     """
     Main function to execute the hybrid stereo method.
+    
+    This runs the complete pipeline:
+    1. Multifocus stereo - depth from focus variation
+    2. Photometric stereo - surface normals from lighting variation  
+    3. Surface integration - height map from normals
     """
 
     # Define the current timestamp to name output folders and files
@@ -52,7 +62,13 @@ def main(parameters):
     # Log the provided parameters
     log_parameters(parameters)
 
-    logging.info("... Multifocus stereo ...")
+    # =========================================================================
+    # Step 1: Multifocus Stereo
+    # =========================================================================
+    logging.info("=" * 60)
+    logging.info("STEP 1: Multifocus Stereo")
+    logging.info("=" * 60)
+    
     # Find all files in the input directory
     input_files_path = find_all_files(
         os.path.join(parameters.get("input_path"), parameters.get("data_foldername"))
@@ -120,7 +136,13 @@ def main(parameters):
         # Execute the multifocus stereo method for the current directory
         multifocus_stereo_main(parameters)
 
-    logging.info("... Photometric Stereo ...")
+    # =========================================================================
+    # Step 2: Photometric Stereo
+    # =========================================================================
+    logging.info("=" * 60)
+    logging.info("STEP 2: Photometric Stereo")
+    logging.info("=" * 60)
+    
     # Configure parameters for the photometric stereo method
     output_files = find_all_files(output_path)
     parameters["sMos_path_list"] = natsorted(
@@ -134,6 +156,70 @@ def main(parameters):
 
     # Execute the photometric stereo method
     photometric_stereo_main(parameters)
+
+    # =========================================================================
+    # Step 3: Surface Integration
+    # =========================================================================
+    logging.info("=" * 60)
+    logging.info("STEP 3: Surface Integration (Normal to Height)")
+    logging.info("=" * 60)
+    
+    # Load the normal map from photometric stereo output
+    normal_map_path = os.path.join(
+        parameters["output_path_photometric"], "normal_map.npy"
+    )
+    
+    if os.path.exists(normal_map_path):
+        logging.info(f"Loading normal map from: {normal_map_path}")
+        normal_map = np.load(normal_map_path)
+        
+        # Configure integration parameters
+        integration_config = IntegrateRecursiveConfig(
+            initial_method="zero",
+            initial_noise=0.0,
+            max_level=parameters.get("integration_max_level", 30),
+            max_iter=parameters.get("integration_max_iter", 100000),
+            conv_tol=parameters.get("integration_conv_tol", 0.0000005),
+            verbose=parameters.get("debug", False),
+        )
+        
+        # Output directory for integration
+        integration_output = os.path.join(output_path, "integration")
+        
+        logging.info("Running surface integration...")
+        try:
+            height_map = integrate_normals_to_height(
+                normal_map=normal_map,
+                output_dir=integration_output,
+                output_prefix="height",
+                config=integration_config,
+            )
+            
+            # Save the height map as numpy array
+            height_npy_path = os.path.join(integration_output, "height_map.npy")
+            np.save(height_npy_path, height_map)
+            logging.info(f"Height map saved to: {height_npy_path}")
+            
+            # Save as image for visualization
+            save_image(integration_output, "height_map.png", height_map)
+            logging.info(f"Height map visualization saved")
+            
+            logging.info(f"Height map shape: {height_map.shape}")
+            logging.info(f"Height map range: [{height_map.min():.4f}, {height_map.max():.4f}]")
+            
+        except FileNotFoundError as e:
+            logging.error(f"Integration executable not found: {e}")
+            logging.error("Please build the C code: cd csrc/integrate_recursive && make")
+        except Exception as e:
+            logging.error(f"Integration failed: {e}")
+    else:
+        logging.warning(f"Normal map not found at: {normal_map_path}")
+        logging.warning("Skipping surface integration step")
+
+    logging.info("=" * 60)
+    logging.info("Hybrid stereo pipeline complete!")
+    logging.info(f"Results saved to: {output_path}")
+    logging.info("=" * 60)
 
 
 if __name__ == "__main__":
@@ -151,3 +237,4 @@ if __name__ == "__main__":
 
     # Execute the main function
     main(parameters)
+
