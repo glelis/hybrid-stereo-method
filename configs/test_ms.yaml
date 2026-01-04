@@ -1,0 +1,24 @@
+# Multifocus Stereo Test Configuration
+hybrid_method: False
+
+# Paths
+input_path: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/raw/multifocus_stereo/'
+output_path: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/test_refactoring/'
+data_foldername: 'obj_1'
+
+# Processing Parameters
+interpolation_type: 'linear_interpolation'
+focal_step: 1
+
+# Multifocus Parameters
+focal_descriptor_paramiters:
+  focal_descriptor: 'laplacian'
+  laplacian_kernel_size: 5
+  fourier_radius: 0.05
+  square: False
+  smooth: True
+  zero_border: False
+
+mask: False
+gabaritos: False
+debug: False

@@ -1,0 +1,12 @@
+# Photometric Stereo Test Configuration
+
+# Paths
+input_path: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/raw/photometric_stereo/'
+output_path: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/test_refactoring/'
+data_foldername: 'bunny'
+
+# Processing Parameters
+data_scale: 1.0
+image_type: "jpg"
+method_name: 'L2'
+debug: False
