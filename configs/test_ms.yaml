@@ -1,24 +1,33 @@
 # Multifocus Stereo Test Configuration
-hybrid_method: False
 
-# Paths
-input_path: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/raw/multifocus_stereo/'
-output_path: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/test_refactoring/'
-data_foldername: 'obj_1'
+experiment:
+  type: "multifocus"
+  paths:
+    input: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/raw/multifocus_stereo/'
+    output: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/test_refactoring/'
+    data_folder: 'obj_1'
+  settings:
+    mask: False
+    gabaritos: False
+    debug: False
 
-# Processing Parameters
-interpolation_type: 'linear_interpolation'
-focal_step: 1
+multifocus:
+  parameters:
+    interpolation: 'linear_interpolation'
+    focal_step: 1
+    z_foc: [15.0, 25.0, 35.0, 45.0, 55.0, 65.0, 75.0, 85.0, 95.0, 105.0, 115.0, 125.0] # Assuming these are defaults or what user wanted
 
-# Multifocus Parameters
-focal_descriptor_paramiters:
-  focal_descriptor: 'laplacian'
-  laplacian_kernel_size: 5
-  fourier_radius: 0.05
-  square: False
-  smooth: True
-  zero_border: False
+  focus_measure:
+    method: 'laplacian'
+    parameters:
+      kernel_size: 5
+      radius: 0.05 # Not used for laplacian but good to have
+    preprocessing:
+      square: False
+      smooth: True
+      zero_border: False
 
-mask: False
-gabaritos: False
-debug: False
+  optimization:
+    # Defaults
+    r_max: 2
+    polyfit_epsilon: 1.0e-9

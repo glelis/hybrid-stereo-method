@@ -51,7 +51,7 @@ def log_parameters(params: dict[str, Any], prefix: str = "") -> None:
     """
     for key, value in params.items():
         current_path = f"{prefix}.{key}" if prefix else key
-        if isinstance(value, (dict, list)):
+        if isinstance(value, dict):
             log_parameters(value, current_path)
         else:
             logging.info(f"Parameter - {current_path}: {value}")

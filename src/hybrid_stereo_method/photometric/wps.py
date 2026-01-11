@@ -3,7 +3,7 @@
 import numpy as np
 
 
-def estimate_normals_argmax(images, light_sources):
+def estimate_normals_argmax(images, light_sources, wps_params=None):
     """
     Estimates surface normals using the brightest pixels from multiple images.
 
@@ -18,8 +18,14 @@ def estimate_normals_argmax(images, light_sources):
         normals: Array of estimated surface normals for each pixel.
         selected_areas: Binary mask indicating which images were used for each pixel.
     """
+    if wps_params is None:
+        wps_params = {}
+    
+    epsilon = wps_params.get("epsilon", 1e-6)
+    top_k = wps_params.get("top_k", 3)
+
     images = np.stack(images, axis=-1)  # Convert list of images to a 3D array
-    images = images + 1e-6  # Add a small value to avoid division by zero
+    images = images + epsilon  # Add a small value to avoid division by zero
 
     h, w, num_images = images.shape
     normals = np.zeros((h, w, 3), dtype=np.float32)
@@ -28,7 +34,7 @@ def estimate_normals_argmax(images, light_sources):
     for i in range(h):
         for j in range(w):
             pixel_values = images[i, j, :]
-            top_indices = np.argsort(pixel_values)[-3:]
+            top_indices = np.argsort(pixel_values)[-top_k:]
             selected_values = pixel_values[top_indices]
             selected_lights = light_sources[top_indices, :]
 
@@ -44,7 +50,7 @@ def estimate_normals_argmax(images, light_sources):
     return normals, selected_areas
 
 
-def estimate_normals_argmax_lstsq(images, light_sources):
+def estimate_normals_argmax_lstsq(images, light_sources, wps_params=None):
     """
     Estimates surface normals using least squares fitting on all pixels.
 
@@ -61,8 +67,13 @@ def estimate_normals_argmax_lstsq(images, light_sources):
         confidence: Confidence map based on inverse residuals.
         selected_areas: Binary mask indicating which images were used for each pixel.
     """
+    if wps_params is None:
+        wps_params = {}
+
+    epsilon = wps_params.get("epsilon", 1e-6)
+
     images = np.stack(images, axis=-1)  # Convert list of images to a 3D array
-    images = images + 1e-6  # Add a small value to avoid division by zero
+    images = images + epsilon  # Add a small value to avoid division by zero
 
     h, w, num_images = images.shape
     normals = np.zeros((h, w, 3), dtype=np.float32)
@@ -95,7 +106,7 @@ def estimate_normals_argmax_lstsq(images, light_sources):
     return normals, residuals, confidence, selected_areas
 
 
-def estimate_normals_argmax_lstsq_robust(images, light_sources):
+def estimate_normals_argmax_lstsq_robust(images, light_sources, wps_params=None):
     """
     Estimates surface normals using a robust least squares approach.
 
@@ -114,8 +125,15 @@ def estimate_normals_argmax_lstsq_robust(images, light_sources):
         confidence: Confidence map based on available data and residual quality.
         selected_areas: Binary mask indicating which images were used for each pixel.
     """
+    if wps_params is None:
+        wps_params = {}
+
+    epsilon = wps_params.get("epsilon", 1e-6)
+    shadow_threshold = wps_params.get("shadow_threshold", 1e-3)
+    outlier_threshold_multiplier = wps_params.get("outlier_threshold_multiplier", 3)
+
     images = np.stack(images, axis=-1)  # Convert list of images to a 3D array
-    images = images + 1e-6  # Add a small value to avoid division by zero
+    images = images + epsilon  # Add a small value to avoid division by zero
 
     h, w, num_images = images.shape
 
@@ -128,7 +146,7 @@ def estimate_normals_argmax_lstsq_robust(images, light_sources):
         for j in range(w):
             pixel_values = images[i, j, :]
             v_max = np.max(pixel_values)
-            valid_indices = pixel_values / v_max > 1e-3  # Step (1): Reject shadowed pixels
+            valid_indices = pixel_values / v_max > shadow_threshold  # Step (1): Reject shadowed pixels
 
             if np.sum(valid_indices) < 3:  # Step (2): Not enough valid images
                 normals[i, j, :] = np.nan
@@ -150,7 +168,7 @@ def estimate_normals_argmax_lstsq_robust(images, light_sources):
                 r_avg = np.mean(residuals)  # Step (4): Compute average residual
 
                 # Step (5): Discard outliers
-                mask = residuals <= 3 * r_avg
+                mask = residuals <= outlier_threshold_multiplier * r_avg
                 if np.sum(mask) == len(selected_values):  # Step (6): Stabilization
                     break
 

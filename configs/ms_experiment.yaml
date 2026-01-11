@@ -1,38 +1,71 @@
-# Multifocus Stereo Configuration
-hybrid_method: False
-# Paths
-input_path: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/raw/hybrid_stereo/2025-03-08-stQ-melon24-amb0.00-glo0.50/'
-#input_path: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/raw/multifocus_stereo/'
-output_path: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/hybrid_stereo/'
-data_foldername: 'media_iluminacao'
-#data_foldername: 'obj_3'
+# Multifocus Stereo Experiment Configuration
 
+experiment:
+  # Experiment Type
+  # options: "multifocus", "photometric", "hybrid"
+  type: "multifocus"
+  
+  paths:
+    # Path to the directory containing the input dataset
+    input: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/raw/hybrid_stereo/2025-03-08-stQ-melon24-amb0.00-glo0.50/'
+    #input: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/raw/multifocus_stereo/'
+    
+    # Path to the directory where results will be saved
+    output: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/hybrid_stereo/'
+    
+    # Name of the specific data folder to process
+    data_folder: 'media_iluminacao'
+    #data_folder: 'obj_3'
 
-# Processing Parameters
-interpolation_type: 'linear_interpolation' # quadratic_interpolation, linear_interpolation, crop
-focal_step: 1
+  settings:
+    # Whether to specific mask
+    mask: False
+    
+    # Whether ground truth (gabaritos) are available for error calculation
+    gabaritos: False
+    
+    # Enable debug mode for verbose logging and saving intermediate data
+    debug: False
 
-# Multifocus Parameters
-focal_descriptor_paramiters:
-  focal_descriptor: 'fourier' # fourier, laplacian, wavelet
+multifocus:
+  parameters:
+    # Method for interpolating focus values
+    # Options: 'linear_interpolation', 'quadratic_interpolation', 'crop'
+    interpolation: 'linear_interpolation'
+    
+    # Step size between focal planes (if integer steps are used)
+    focal_step: 1
+    
+    # List of focal distances (Z coordinates) corresponding to each image in the stack
+    z_foc: [15.000, 25.000, 35.000, 45.000, 55.000, 65.000, 75.000, 85.000, 95.000, 105.000, 115.000, 125.000]
 
-  #laplacian_param:
-  laplacian_kernel_size: 5
+  focus_measure:
+    # Algorithm to measure focus
+    # Options: 'fourier', 'laplacian', 'wavelet'
+    method: 'fourier'
+    
+    parameters:
+      # Size of the Laplacian kernel (if method is 'laplacian')
+      kernel_size: 5
+      
+      # Radius for Fourier transform frequency masking (if method is 'fourier')
+      radius: 0.05
+      
+    preprocessing:
+      # Whether to square the focus measure result
+      square: False
+      
+      # Whether to smooth the focus measure result
+      smooth: False
+      
+      # Whether to zero out the borders to avoid artifacts
+      zero_border: False
 
-  #fourier_param:
-  fourier_radius: 0.05 #0.1 
-
-  #general_param:
-  square: False
-  smooth: False
-  zero_border: False
-
-
-#gaussian_size: 9
-#focus_measure_kernel_size: 0
-
-
-mask: False
-gabaritos: False
-debug: False
-
+  optimization:
+    # Parameters for the Fuzzy Argmax algorithm
+    
+    # Radius of influence for the fuzzy regression
+    r_max: 2
+    
+    # Epsilon value to determine if a curve is flat/convex for polyfit
+    polyfit_epsilon: 1.0e-9

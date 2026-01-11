@@ -8,7 +8,7 @@ from hybrid_stereo_method.multifocus.utils import normalize
 
 
 def compute_argmax_fuzzy(
-    focus_indicator_stack: np.ndarray, debug: bool, debug_data_path: str
+    focus_indicator_stack: np.ndarray, debug: bool, debug_data_path: str, fuzzy_params: dict = None
 ) -> tuple:
     """
     Calcula o argmax difuso (fuzzy) para uma pilha de indicadores de foco e confiança.
@@ -63,7 +63,7 @@ def compute_argmax_fuzzy(
 
             # Calcula o argmax fuzzy e a confiança para o pixel atual
             iSel[i, j], wSel[i, j] = compute_argmax_fuzzy_1d(
-                focus_values, [i, j], debug, debug_data_path
+                focus_values, [i, j], debug, debug_data_path, fuzzy_params
             )
 
             # normaliza o indicador de foco pixel por pixel e salvando na pilha de indicadores de foco
@@ -117,7 +117,10 @@ def calculate_weights(focus_values: np.array) -> np.array:
     return [value / total_focus for value in focus_values]
 
 
-def compute_argmax_fuzzy_1d(focus_values, pixel_location, debug, debug_data_path):
+def compute_argmax_fuzzy_1d(focus_values, pixel_location, debug, debug_data_path, fuzzy_params=None):
+    if fuzzy_params is None:
+        fuzzy_params = {}
+    
     n = len(focus_values)
     k_max = find_index_of_max_sum(focus_values)
 
@@ -125,7 +128,7 @@ def compute_argmax_fuzzy_1d(focus_values, pixel_location, debug, debug_data_path
         return n / 2, 0
 
     # Calcula o raio r da regressão
-    r_max = 2
+    r_max = fuzzy_params.get("r_max", 2)
     r = r_max
     if k_max - r < 0:
         r = k_max
@@ -163,7 +166,8 @@ def compute_argmax_fuzzy_1d(focus_values, pixel_location, debug, debug_data_path
         np.polyfit(x_list, y_list, 2, w=w_list)
     )  # coeficientes da funcao de segundo grau
 
-    if A > 0 or abs(A) < 1.0e-9:  # se a funcao for convexa ou muito proxima de zero
+    polyfit_epsilon = fuzzy_params.get("polyfit_epsilon", 1.0e-9)
+    if A > 0 or abs(A) < polyfit_epsilon:  # se a funcao for convexa ou muito proxima de zero
         # k_fuzzy = k_max
         k_fuzzy = 0
         conf = 0

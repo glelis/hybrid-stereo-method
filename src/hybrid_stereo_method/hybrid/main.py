@@ -36,9 +36,9 @@ def main(parameters):
     current_time = datetime.now().strftime("%Y%m%d_%H%M")
 
     # Define the output path
-    output_path = os.path.join(
-        parameters.get("output_path"), f"{current_time}_{parameters.get('data_foldername')}"
-    )
+    base_output_path = parameters["experiment"]["paths"]["output"]
+    data_foldername = parameters["experiment"]["paths"]["data_folder"]
+    output_path = os.path.join(base_output_path, f"{current_time}_{data_foldername}")
 
     # Create the output directory if it does not exist
     if not os.path.exists(output_path):
@@ -70,9 +70,8 @@ def main(parameters):
     logging.info("=" * 60)
     
     # Find all files in the input directory
-    input_files_path = find_all_files(
-        os.path.join(parameters.get("input_path"), parameters.get("data_foldername"))
-    )
+    input_path = parameters["experiment"]["paths"]["input"]
+    input_files_path = find_all_files(os.path.join(input_path, data_foldername))
 
     # Process images to calculate the average for each 'zf' directory
     zf_directories = sorted(
@@ -174,13 +173,15 @@ def main(parameters):
         normal_map = np.load(normal_map_path)
         
         # Configure integration parameters
+        integration_params = parameters.get("hybrid", {}).get("integration", {})
+        
         integration_config = IntegrateRecursiveConfig(
-            initial_method="zero",
-            initial_noise=0.0,
-            max_level=parameters.get("integration_max_level", 30),
-            max_iter=parameters.get("integration_max_iter", 100000),
-            conv_tol=parameters.get("integration_conv_tol", 0.0000005),
-            verbose=parameters.get("debug", False),
+            initial_method=integration_params.get("initial_method", "zero"),
+            initial_noise=integration_params.get("initial_noise", 0.0),
+            max_level=integration_params.get("max_level", 30),
+            max_iter=integration_params.get("max_iter", 100000),
+            conv_tol=integration_params.get("conv_tol", 0.0000005),
+            verbose=parameters["experiment"]["settings"]["debug"],
         )
         
         # Output directory for integration

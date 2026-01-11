@@ -1,50 +1,112 @@
-# Multifocus Stereo Configuration
-hybrid_method: True
-# Paths
-input_path: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/raw/hybrid_stereo/'
-output_path: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/hybrid_stereo/'
-data_foldername: '2025-03-08-stQ-melon24-amb0.00-glo0.50'
+# Hybrid Stereo Experiment Configuration
 
+experiment:
+  # Experiment Type
+  # options: "multifocus", "photometric", "hybrid"
+  type: "hybrid"
+  
+  paths:
+    # Path to the directory containing the input dataset
+    input: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/raw/hybrid_stereo/'
+    
+    # Path to the directory where results will be saved
+    output: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/hybrid_stereo/'
+    
+    # Name of the specific data folder to process
+    data_folder: '2025-03-08-stQ-melon24-amb0.00-glo0.50'
 
-# multifocus_stereo:
+  settings:
+    # Whether to specific mask
+    mask: False
+    
+    # Whether ground truth (gabaritos) are available for error calculation
+    gabaritos: False
+    
+    # Enable debug mode for verbose logging and saving intermediate data
+    debug: False
 
-# Processing Parameters
-interpolation_type: 'linear_interpolation' # quadratic_interpolation, linear_interpolation, crop
-focal_step: 1
+multifocus:
+  parameters:
+    # Method for interpolating focus values
+    # Options: 'linear_interpolation', 'quadratic_interpolation', 'crop'
+    interpolation: 'linear_interpolation'
+    
+    # Step size between focal planes (if integer steps are used)
+    focal_step: 1
+    
+    # List of focal distances (Z coordinates) corresponding to each image in the stack
+    z_foc: [15.000, 25.000, 35.000, 45.000, 55.000, 65.000, 75.000, 85.000, 95.000, 105.000, 115.000, 125.000]
 
-# Multifocus Parameters
-focal_descriptor_paramiters:
-  focal_descriptor: 'fourier' # fourier, laplacian, wavelet
+  focus_measure:
+    # Algorithm to measure focus
+    # Options: 'fourier', 'laplacian', 'wavelet'
+    method: 'fourier'
+    
+    parameters:
+      # Size of the Laplacian kernel (if method is 'laplacian')
+      kernel_size: 31
+      
+      # Radius for Fourier transform frequency masking (if method is 'fourier')
+      radius: 0.1
+      
+    preprocessing:
+      # Whether to square the focus measure result
+      square: False
+      
+      # Whether to smooth the focus measure result
+      smooth: False
+      
+      # Whether to zero out the borders to avoid artifacts
+      zero_border: False
 
-  #laplacian_param:
-  laplacian_kernel_size: 31
+  optimization:
+    # Parameters for the Fuzzy Argmax algorithm
+    
+    # Radius of influence for the fuzzy regression
+    r_max: 2
+    
+    # Epsilon value to determine if a curve is flat/convex for polyfit
+    polyfit_epsilon: 1.0e-9
 
-  #fourier_param:
-  fourier_radius: 0.1 #0.1 
+photometric:
+  parameters:
+    # Solver method to use
+    method: 'wodham_implementation_argmax'
+    
+    # Scale factor for input images
+    data_scale: 1.0
+    
+    # Extension of input images
+    image_extension: "png"
+    
+  solver:
+    # Parameters for Weighted/Robust solvers
+    
+    # Small value to avoid division by zero
+    epsilon: 1.0e-6
+    
+    # Minimum intensity ratio to consider a pixel not shadowed
+    shadow_threshold: 1.0e-3
+    
+    # Number of brightest images to keep for argmax method
+    top_k: 3
+    
+    # Multiplier for residual standard deviation to identify outliers
+    outlier_threshold_multiplier: 3
 
-  #general_param:
-  square: False
-  smooth: False
-  zero_border: False
-
-
-#gaussian_size: 9
-#focus_measure_kernel_size: 0
-
-
-mask: False
-gabaritos: False
-debug: False
-
-
-
-
-
-
-photometric_stereo:
-
-# Processing Parameters
-data_scale: 1.0
-image_type: "png"
-method_name: 'wodham_implementation_argmax'
-debug: False
+hybrid:
+  integration:
+    # Integration method (starting point)
+    initial_method: "zero"
+    
+    # Initial noise level
+    initial_noise: 0.0
+    
+    # Maximum recursion level for the integration algorithm
+    max_level: 30
+    
+    # Maximum iterations for the solver
+    max_iter: 100000
+    
+    # Convergence tolerance
+    conv_tol: 0.0000005

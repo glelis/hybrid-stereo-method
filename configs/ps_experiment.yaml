@@ -1,14 +1,48 @@
-# Photometric Stereo Configuration
+# Photometric Stereo Experiment Configuration
 
-# Paths
-input_path: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/raw/hybrid_stereo/'
-output_path: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/hybrid_stereo/'
-data_foldername: '2025-02-09-stF-melon24-amb0-glo0'
+experiment:
+  # Experiment Type
+  # options: "multifocus", "photometric", "hybrid"
+  type: "photometric"
+  
+  paths:
+    # Path to the directory containing the input dataset
+    input: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/raw/hybrid_stereo/2025-03-08-stQ-melon24-amb0.00-glo0.50/'
+    
+    # Path to the directory where results will be saved
+    output: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/hybrid_stereo/'
+    
+    # Name of the specific data folder to process
+    data_folder: 'images_ps'
 
-# Processing Parameters
-data_scale: 1.0
-image_type: "png"
-method_name: 'L2'
-debug: False
+  settings:
+    # Enable debug mode
+    debug: False
+    mask: False
+    gabaritos: False
 
-
+photometric:
+  parameters:
+    # Solver method to use
+    method: 'L2' # Options: L2, L1, SBL, RPCA, wodham_implementation_argmax
+    
+    # Scale factor for input images
+    data_scale: 1.0
+    
+    # Extension of input images
+    image_extension: "png"
+    
+  solver:
+    # Parameters for Weighted/Robust solvers
+    
+    # Small value to avoid division by zero
+    epsilon: 1.0e-6
+    
+    # Minimum intensity ratio to consider a pixel not shadowed
+    shadow_threshold: 1.0e-3
+    
+    # Number of brightest images to keep for argmax method
+    top_k: 3
+    
+    # Multiplier for residual standard deviation to identify outliers
+    outlier_threshold_multiplier: 3

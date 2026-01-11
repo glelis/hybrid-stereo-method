@@ -31,10 +31,17 @@ from hybrid_stereo_method.photometric.wps import (
 
 
 def main(parameters):
-    if parameters.get("hybrid_method") == True:
+    experiment_type = parameters.get("experiment", {}).get("type")
+    
+    if experiment_type == "hybrid":
         # Define paths
         current_time = datetime.now().strftime("%Y%m%d_%H%M")
-        data_path = os.path.join(parameters.get("input_path"), parameters.get("data_foldername"))
+        
+        input_path = parameters["experiment"]["paths"]["input"]
+        data_foldername = parameters["experiment"]["paths"]["data_folder"]
+        
+        data_path = os.path.join(input_path, data_foldername)
+
 
         # Input files
         images_path = parameters.get("sMos_path_list")
@@ -54,8 +61,11 @@ def main(parameters):
     else:
         # Define paths
         current_time = datetime.now().strftime("%Y%m%d_%H%M")
-        data_path = os.path.join(parameters.get("input_path"), parameters.get("data_foldername"))
-
+        input_path = parameters["experiment"]["paths"]["input"]
+        data_foldername = parameters["experiment"]["paths"]["data_folder"]
+        
+        data_path = os.path.join(input_path, data_foldername)
+        
         # Input files
         images_path = os.path.join(data_path, "images")
         light_path = os.path.join(data_path, "lights.npy")
@@ -63,9 +73,9 @@ def main(parameters):
         gt_normal_path = os.path.join(data_path, "gt_normal.npy")
 
         # Output files
-        output_path = os.path.join(
-            parameters.get("output_path"), f"{current_time}_{parameters.get('data_foldername')}"
-        )
+        base_output_path = parameters["experiment"]["paths"]["output"]
+        output_path = os.path.join(base_output_path, f"{current_time}_{data_foldername}")
+        
         normal_map_path = os.path.join(output_path, "normal_map.npy")
         selected_areas_path = os.path.join(output_path, "selected_areas")
 
@@ -94,7 +104,7 @@ def main(parameters):
     # Load images
     logging.info("... Loading images ...")
 
-    if parameters.get("hybrid_method") == True:
+    if experiment_type == "hybrid":
         images = read_images(parameters.get("sMos_path_list"))
         # images = parameters.get('sMos_list')
     else:
@@ -114,10 +124,14 @@ def main(parameters):
     # Estimate normals
     logging.info("... Calculating  normals ...")
     start_time = time.time()
+    
+    wps_params = parameters["photometric"]["solver"]
+    
     # normals, selected_areas = estimate_normals_argmax(images, light_sources)
     # normals, residuals, confidence, selected_areas = estimate_normals_argmax_lstsq(images, light_sources)
+    
     normals, albedo, confidence, selected_areas = estimate_normals_argmax_lstsq_robust(
-        images, light_sources
+        images, light_sources, wps_params
     )
 
     elapsed_time = time.time() - start_time
