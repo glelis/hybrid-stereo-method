@@ -78,3 +78,6 @@ Funções que calculam mapas de nitidez $F(x,y)$ a partir de uma imagem $I$.
 
 *   **`mosaic(iSel, image_stack, zFoc)`** (`mosaic.py`):
     *   Constrói a imagem *All-in-Focus* combinando pixels das imagens originais baseando-se no mapa de índices `iSel`.
+
+
+
