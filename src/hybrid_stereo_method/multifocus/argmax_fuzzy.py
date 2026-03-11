@@ -114,7 +114,8 @@ def calculate_weights(focus_values: np.array) -> np.array:
     total_focus = sum(focus_values)
     if total_focus == 0:
         return [1] * len(focus_values)  # Avoid division by zero, return equal weights
-    return [value / total_focus for value in focus_values]
+    # Add small regularization to avoid zero weights which can cause SVD to not converge
+    return [(value / total_focus) + 1e-6 for value in focus_values]
 
 
 def compute_argmax_fuzzy_1d(focus_values, pixel_location, debug, debug_data_path, fuzzy_params=None):
@@ -162,9 +163,21 @@ def compute_argmax_fuzzy_1d(focus_values, pixel_location, debug, debug_data_path
     y_list = [(focus_values[i]) for i in range(k0, k1 + 1)]
     w_list = calculate_weights(focus_values[k0 : k1 + 1])
 
-    A, B, C = tuple(
-        np.polyfit(x_list, y_list, 2, w=w_list)
-    )  # coeficientes da funcao de segundo grau
+    try:
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            A, B, C = tuple(
+                np.polyfit(x_list, y_list, 2, w=w_list)
+            )  # coeficientes da funcao de segundo grau
+    except np.linalg.LinAlgError:
+        try:
+            A, B, C = tuple(
+                np.polyfit(x_list, y_list, 2)
+            )
+        except np.linalg.LinAlgError:
+            # If all fits fail, fallback to returning the max index
+            return k_max, 0
 
     polyfit_epsilon = fuzzy_params.get("polyfit_epsilon", 1.0e-9)
     if A > 0 or abs(A) < polyfit_epsilon:  # se a funcao for convexa ou muito proxima de zero

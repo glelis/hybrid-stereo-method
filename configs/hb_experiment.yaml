@@ -56,6 +56,9 @@ multifocus:
       # Whether to smooth the focus measure result
       smooth: False
       
+      # Whether to apply spatial median filter (cv2.medianBlur) on the focus measure
+      spatial_median_filter: False
+      
       # Whether to zero out the borders to avoid artifacts
       zero_border: False
 
@@ -67,6 +70,14 @@ multifocus:
     
     # Epsilon value to determine if a curve is flat/convex for polyfit
     polyfit_epsilon: 1.0e-9
+
+  depth_refinement:
+    # Use spatial uncertainty from fuzzy argmax to guide a graph cut regularizer
+    enabled: False
+    gaussian_size: 9
+    unary_scale: 44
+    pair_scale: 4096
+    n_iter: 5
 
 photometric:
   parameters:

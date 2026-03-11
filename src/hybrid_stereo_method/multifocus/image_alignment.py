@@ -164,7 +164,7 @@ def align_im1_to_im2(img1, img2):
 
 def main_align(base_path):
     """
-    Main function that performs image alignment in sequence.
+    Main function that performs image alignment using a global reference image.
 
     Args:
         base_path: The base directory containing the input images.
@@ -180,33 +180,39 @@ def main_align(base_path):
     all_files = natsorted(all_files)
     print(all_files)
 
-    aligned_img = read_image(img_path + all_files[0])
+    if len(all_files) == 0:
+        print("No images found.")
+        return
 
-    # Iterate over the files, aligning each image with the next in sequence
-    for i in range(len(all_files) - 1):
-        # Define paths for source and target images
-        source_img_path = img_path + all_files[i]
-        target_img_path = img_path + all_files[i + 1]
+    # Use the middle image as the global reference
+    ref_idx = len(all_files) // 2
+    reference_img_path = img_path + all_files[ref_idx]
+    print(f"Reading global reference image: {reference_img_path}")
+    reference_img = read_image(reference_img_path)
+    
+    # Save the reference image directly to the aligned folder
+    ref_save_as = "align_" + str(ref_idx) + ".jpg"
+    save_image(save_path, ref_save_as, reference_img, 0, 255)
 
-        # Define output file names for matches and aligned image
+    # Iterate over the files, aligning each image with the reference image
+    for i in range(len(all_files)):
+        if i == ref_idx:
+            continue
+            
+        target_img_path = img_path + all_files[i]
         match_save_as = "matches_" + str(i) + ".jpg"
         align_save_as = "align_" + str(i) + ".jpg"
 
-        # Read the target image
         print("Reading a target image : ", target_img_path)
         target_img = read_image(target_img_path)
 
-        # Align images
-        print("Aligning images ...")
-        imMatches, aligned_img = align_im1_to_im2(aligned_img, target_img)
+        print("Aligning image to global reference ...")
+        imMatches, aligned_img = align_im1_to_im2(reference_img, target_img)
 
-        # Save the feature matching image
-        print("Saving a feature matching image : ", save_path)
+        print("Saving a feature matching image : ", match_path)
         save_image(match_path, match_save_as, imMatches, 0, 255)
 
-        # Save the aligned image
         print("Saving an aligned image : ", save_path)
         save_image(save_path, align_save_as, aligned_img, 0, 255)
 
-        # Add a blank line to separate output of each iteration
         print("\n")

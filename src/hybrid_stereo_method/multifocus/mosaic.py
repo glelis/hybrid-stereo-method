@@ -2,7 +2,7 @@ import logging
 
 import numpy as np
 
-from hybrid_stereo_method.multifocus.utils import linear_interpolation, quadratic_interpolation
+from hybrid_stereo_method.multifocus.math_utils import linear_interpolation, quadratic_interpolation
 
 
 def mosaic(iSel, image_stack: np.array, zFoc: list, interpolation_type: str):

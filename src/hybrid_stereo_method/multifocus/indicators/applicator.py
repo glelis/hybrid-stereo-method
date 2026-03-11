@@ -16,6 +16,7 @@ def focus_indicator(
     radius=None,
     square=False,
     smooth=False,
+    spatial_median_filter=False,
     zero_border=False,
     mask=False,
     mask_img=None,
@@ -51,6 +52,14 @@ def focus_indicator(
         # if zero_border:
         #    # Zero out borders (remove edge artifacts)
         #    focus_indicator = zero_borders(focus_indicator, 40)
+        
+        if spatial_median_filter:
+            # apply spatial median filter using cv2
+            focus_indicator = np.float32(focus_indicator)
+            # median blur requires a bit specific formats or we can use generic scipy median filter
+            # Since cv2 medianBlur natively supports float32
+            focus_indicator = cv2.medianBlur(focus_indicator, 5)
+
         if mask:
             focus_indicator = focus_indicator * mask_img
 
@@ -71,9 +80,11 @@ def focus_indicator(
         f"Focus indicator before normalization ({focus_indicator_type}) min_val: {min_val}, max_val: {max_val}, percentil_90: {percentile}."
     )
 
-    # Remove outliers by clipping values
-    p1, p90 = np.percentile(focus_indicator_stack, [1, 90])
-    focus_indicator_stack = np.clip(focus_indicator_stack, p1, p90)
+    # Remove outliers by clipping values. Note: Do NOT clip focus peaks since that destroys the focal curve
+    # Removed p90 clipping to keep strict physical values on focus peak intact
+    # Only clip strictly below zero if needed or ignore it
+    p1 = np.percentile(focus_indicator_stack, 1)
+    focus_indicator_stack = np.clip(focus_indicator_stack, p1, np.inf)
 
     min_val = np.min(focus_indicator_stack)
     max_val = np.max(focus_indicator_stack)

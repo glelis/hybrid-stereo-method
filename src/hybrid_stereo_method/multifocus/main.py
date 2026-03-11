@@ -116,6 +116,7 @@ def main(parameters):
         focus_measure_params["parameters"]["radius"],
         preprocess_params["square"],
         preprocess_params["smooth"],
+        preprocess_params.get("spatial_median_filter", False),
         preprocess_params["zero_border"],
     )
 
@@ -129,10 +130,12 @@ def main(parameters):
     logging.info("... Calculating mosaic ...")
     # Calcula o mosaico
     zFoc = mf_params["parameters"]["z_foc"]
-    interpolation_type = mf_params["parameters"]["interpolation"]
+    if len(zFoc) != image_stack.shape[0]:
+        error_msg = f"Erro Crítico: A lista z_foc no arquivo YAML possui {len(zFoc)} elementos, mas a pasta contém {image_stack.shape[0]} imagens. Cada imagem deve possuir seu valor z_foc."
+        logging.error(error_msg)
+        raise ValueError(error_msg)
     
-    # zFoc = [i for i in range(image_stack.shape[0])]
-    print(zFoc)
+    interpolation_type = mf_params["parameters"]["interpolation"]
     sMos, zMos = mosaic(iSel, image_stack, zFoc, interpolation_type)
 
     # Salvando imagens
@@ -148,11 +151,13 @@ def main(parameters):
     save_image(output_path, "sMos.png", sMos)
     save_image(output_path, "zMos.png", zMos)
     convert_image_array_to_fni(normalize(sMos), os.path.join(output_path, "sMos.fni"))
-    convert_image_array_to_fni(normalize(zMos), os.path.join(output_path, "zMos.fni"))
+    
+    # Do NOT normalize zMos, we need it to keep physical Z distance values
+    convert_image_array_to_fni(zMos, os.path.join(output_path, "zMos.fni"))
 
     # Add confidence as a new channel to zMos
     # confidence_extra_exp = np.expand_dims(wSel, axis=-1)
-    zMos_with_confidence = np.stack((normalize(zMos), normalize(wSel)), axis=-1)
+    zMos_with_confidence = np.stack((zMos, normalize(wSel)), axis=-1)
     convert_image_array_to_fni(
         zMos_with_confidence, os.path.join(output_path, "zMos_with_confidence.fni")
     )

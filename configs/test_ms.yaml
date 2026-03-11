@@ -25,9 +25,17 @@ multifocus:
     preprocessing:
       square: False
       smooth: True
+      spatial_median_filter: False
       zero_border: False
 
   optimization:
     # Defaults
     r_max: 2
     polyfit_epsilon: 1.0e-9
+
+  depth_refinement:
+    enabled: False
+    gaussian_size: 9
+    unary_scale: 44
+    pair_scale: 4096
+    n_iter: 5
