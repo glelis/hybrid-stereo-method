@@ -113,6 +113,12 @@ hybrid:
     # Initial noise level
     initial_noise: 0.0
     
+    # Whether to use the depth map from multifocus as hints
+    use_hints: True
+    
+    # Weight for the hints map (0.0 to 1.0)
+    hints_weight: 0.1
+    
     # Maximum recursion level for the integration algorithm
     max_level: 30
     

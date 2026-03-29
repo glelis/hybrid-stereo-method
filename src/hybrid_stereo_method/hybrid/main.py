@@ -176,7 +176,7 @@ def main(parameters):
         integration_params = parameters.get("hybrid", {}).get("integration", {})
         
         integration_config = IntegrateRecursiveConfig(
-            initial_method=integration_params.get("initial_method", "zero"),
+            initial_method=integration_params.get("initial_method", "hints"),
             initial_noise=integration_params.get("initial_noise", 0.0),
             max_level=integration_params.get("max_level", 30),
             max_iter=integration_params.get("max_iter", 100000),
@@ -188,6 +188,18 @@ def main(parameters):
         # Output directory for integration
         integration_output = os.path.join(output_path, "integration")
         
+        hints_fni_path = None
+        hints_weight = integration_params.get("hints_weight", 0.0)
+        
+        if integration_params.get("use_hints", False):
+            # Locate zMos_with_confidence.fni inside multifocus_stereo/average
+            hints_file = os.path.join(output_path, "multifocus_stereo", "average", "zMos_with_confidence.fni")
+            if os.path.exists(hints_file):
+                hints_fni_path = hints_file
+                logging.info(f"Found hints map: {hints_fni_path}")
+            else:
+                logging.warning(f"Hints map requested but not found at: {hints_file}")
+        
         logging.info("Running surface integration...")
         try:
             height_map = integrate_normals_to_height(
@@ -195,6 +207,8 @@ def main(parameters):
                 output_dir=integration_output,
                 output_prefix="height",
                 config=integration_config,
+                hints_fni_path=hints_fni_path,
+                hints_weight=hints_weight,
             )
             
             # Save the height map as numpy array

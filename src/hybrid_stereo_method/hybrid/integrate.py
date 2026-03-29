@@ -68,6 +68,7 @@ def integrate_normals_to_height(
     hints_map: np.ndarray | None = None,
     hints_weight: float = 0.0,
     reference_map: np.ndarray | None = None,
+    hints_fni_path: str | Path | None = None,
 ) -> np.ndarray:
     """Integrate a normal map to compute a height map.
     
@@ -126,7 +127,10 @@ def integrate_normals_to_height(
         cmd.extend(["scale", str(config.slopes_scale[0]), str(config.slopes_scale[1])])
     
     # Add hints map if provided
-    if hints_map is not None:
+    if hints_fni_path is not None:
+        cmd.extend(["-hints", str(hints_fni_path), str(hints_weight)])
+        logger.info(f"Using existing hints map at: {hints_fni_path}")
+    elif hints_map is not None:
         hints_fni_path = output_dir / f"{output_prefix}_hints.fni"
         convert_image_array_to_fni(hints_map, hints_fni_path)
         cmd.extend(["-hints", str(hints_fni_path), str(hints_weight)])
