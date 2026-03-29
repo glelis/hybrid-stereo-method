@@ -1,50 +1,53 @@
-# Relatório de Análise: Módulo Estéreo Multifocal (Multifocus)
+# Relatório de Análise Técnica: Implementação Multifocus Stereo (`src/hybrid_stereo_method/multifocus`)
 
-Este relatório apresenta uma análise técnica da implementação do módulo de Estéreo Multifocal (`src/hybrid_stereo_method/multifocus`), avaliando-o sob as perspectivas de Engenharia de Software e de Ciência da Computação (Física e Matemática), especialmente no contexto da sua integração com um processo híbrido de reconstrução 3D.
+## 1. Visão Geral
+O módulo `multifocus` implementa a técnica de **Depth-from-Focus (DFF) / Shape-from-Focus (SFF)**. Ele é capaz de produzir imagens com foco estendido (All-in-Focus) e mapas topográficos de profundidade 3D com precisão sub-pixel, a partir de uma pilha de imagens (*Z-Stack*) focadas em diferentes distâncias focais.
 
----
+## 2. Ponto de Entrada, Entrada de Dados e Fluxo Principal (`main.py`)
 
-## 1. Pontos Positivos (O que está bom)
+A coordenação principal ocorre em `main.py` na função `main(parameters)`. 
 
-### 1.1. Integração com Processos Híbridos (Confiança)
-A implementação tem uma visão clara de integração: o script `main.py` exporta o mapa de profundidade (`zMos`) junto com um mapa de confiabilidade (`wSel`). Em métodos híbridos (ex: Multifoco + Estéreo Fotométrico), ter uma medida de incerteza/confiança por pixel é essencial para a fusão de sensores e otimização global.
+**Passo-a-passo:**
+1. **Leitura e Configuração:** O script lê caminhos (input/output) baseados na configuração YAML fornecida. Logs e pastas de debug são criados.
+2. **Carregamento de Imagens:** As imagens são encontradas através de `find_all_files` e convertidas num numpy array 4D, depois convertidas para imagem monocromática (`convert_to_grayscale`).
+3. **Indicador de Foco:** O foco é calculado via `focus_indicator()` que percorre as imagens com algoritmos dedicados (como Laplaciano ou Fourier) estimando o quão focado o pixel está.
+4. **Argmax Fuzzy (Nitidez Sub-pixel):** O stack de foco é submetido à função `compute_argmax_fuzzy`. Esse mapeamento computa onde estaria o ponto exato da imagem mais nítida, contornando a captura discreta da câmera. A "confiança" desta modelagem é exportada paralelamente.
+5. **Combinação do Mosaico (Mosaic):** O algoritmo funde os pixels (`sMos`) e modela a topografia (`zMos`) convertendo dos índices ideais interpolados via `mosaic()`. 
+6. **Armazenamento:** Salva todas as visões coloridas (.png) e resultados matriciais flutuantes exatos (.fni) protegidos contra compressão visual, juntamente à confiança da nuvem (`wSel`).
 
-### 1.2. Precisão Sub-frame (Matemática do Argmax Fuzzy)
-O cálculo em `argmax_fuzzy.py` não se limita a escolher a imagem de maior foco discreta. A utilização de uma regressão polinomial quadrática (parábola) aos pontos ao redor do pico máximo para encontrar a profundidade contínua inter-frames (`k_fuzzy = -B / (2 * A)`) é classicamente correta e confere exatidão sub-milimétrica (se bem calibrada). A validação de concavidade (`A < 0`) e a definição da confiança baseada na curvatura (`abs(A) / fnoc`) refletem um bom entendimento do modelo físico de desfoque.
+## 3. Avaliação da Nitidez Cênica e Indicadores (`indicators/`)
 
-### 1.3. Estrutura de Software e Modularidade
-- O software possui boa separação de responsabilidades (`main.py`, `mosaic.py`, `argmax_fuzzy.py`, `indicators/`).
-- O suporte a arquivos de configuração (`yaml`) através do `read_yaml_parameters` permite parametrizar experimentos sem alterar o código-fonte, uma ótima prática experimental.
+Em `applicator.py`, através da função `focus_indicator`, são englobados métodos independentes que calculam o nível de frequência-focal do pixel. Opções de máscara base, mitigação das bordas nulas, medianas e pós-suavização espacial estão disponíveis. As abordagens implementadas são:
 
----
+- **Transformada de Fourier (`fourier.py`):** Utiliza FFT 2D (`np.fft.fft2`). Emprega-se uma máscara elíptica Gaussiana passa-alta (`create_gaussian_elliptical_mask`) filtrando os elementos sem arestas (baixa frequência). A magnitude remanescente forma o indicativo focal do pixel.
+- **Espaço Laplaciano (`laplacian.py`):** Aplica a segunda derivada utilizando clássico `cv2.Laplacian` e calculando as variações absolutas locais de alta frequência.
+- **Wavelet (`wavelet.py`):** Utiliza Transformada Discreta de Wavelet `pywt.wavedec2`. Separa as componentes horizontais, verticais e diagonais extraindo sua magnitude matemática (níveis altíssimos condizem à boa nitidez e precisão).
+- **Resolução de Resíduos LSQ (`non_linear_res.py`):** Aplica estimações de blocos mínimos quadrados por Mínimos Quadrados. A falta local de aderência perfeita aos resíduos Q evidencia zonas complexas das fendas ferais de bordos finos.
 
-## 2. Falhas Críticas e Erros (O que está errado)
+## 4. Otimização de Profundidade Sub-pixel (`argmax_fuzzy.py`)
 
-### 2.1. Destruição do Pico de Foco (Matemática/Sinal)
-**Arquivo:** `indicators/applicator.py`
-**Problema:** Na normalização do indicador de foco, o código utiliza `np.clip(focus_indicator_stack, p1, p90)`.
-**Consequência:** Cortar os valores no 90º percentil é **catastrófico** para algoritmos de foco. O método de "Depth from Focus" depende matematicamente de encontrar o pico absoluto da curva passa-alta (foco). Ao fazer o clip em 90%, os 10% de maiores valores de foco tornam-se um platô plano. Isso destrói a parábola exata que `argmax_fuzzy.py` tenta ajustar, causando erros grosseiros na estimativa de profundidade sempre que o pixel estiver muito bem focado, pois a derivada no pico torna-se zero.
+Para inferir medidas espaciais além dos cliques da máquina mecânica, a lógica de Argmax não-discreto é adotada:
 
-### 2.2. Perda de Escala Física na Exportação (Física)
-**Arquivo:** `main.py`
-**Problema:** O mapa de profundidade físico é normalizado antes de ser salvo: `convert_image_array_to_fni(normalize(zMos), ...)`
-**Consequência:** `zMos` contém o valor das posições focais (`zFoc`). Ao aplicar a função `normalize()` (que converte tudo linearmente para `[0, 1]`), todas as unidades físicas (milímetros, micrômetros) relacionadas ao eixo Z do microscópio ou lente são jogadas fora. Num sistema híbrido físico, a escala real é a única forma de unir os dados de multifoco (físico/métrico) com as normais do estéreo fotométrico. Essa normalização "achata" e invalida a escala para fusão.
+- **Busca Macroscópica (`find_index_of_max_sum`):** Avalia e detecta o intervalo majoritário mais crível de máximo foco somando os envoltórios de três amostras locais contra a amostra isolada oscilante.
+- **Curva Parabólica (`compute_argmax_fuzzy_1d`):** Ajusta os pixels vizinhos extraídos à volta do pico (raios de `r_max`), construindo uma equação através da biblioteca `numpy.polyfit`.
+- **Foco Preciso e Confiabilidade (`wSel`):** A extração do topo da crista parabólica produz o valor decimal (sub-pixel index, via `-B/2A`). O alongamento paraboloide acusa em `conf` a convicção algorítmica - cristas pontiagudas possuem altíssima certeza, enquanto respostas alongadas ou convexas forçam o descarte. 
 
-### 2.3. Código "Fantasma" e Quebrado
-- **Arquivos não utilizados/quebrados:** O arquivo `weighted_filter.py` possui um comentário claro `## não está funcioando corretamente` e não é invocado no pipeline. O arquivo `depth_refinement.py` possui caminhos *hardcoded* (`base_path = "/home/lelis/..."`), sendo praticamente inexecutável por outros computadores sem modificação, além de não estar conectado ao fluxo principal `main.py`.
-- **Degradação na Transformação (Alinhamento):** O `image_alignment.py` aplica alinhamento de forma sequencial transitiva (i com i+1). A aplicação sucessiva de homografias degrada a imagem iterativamente por conta de re-interpolações, o que pode mascarar as altas frequências cruciais para a deteção do foco.
+## 5. Mosaicamento Dimensional e Interpolação (`mosaic.py` e `math_utils.py`)
 
----
+Possuindo a lista com a dimensão original (os perfis capturados reais na física, via array YAML `zFoc`), interpolamos os dados:
 
-## 3. Sugestões de Melhoria (O que pode melhorar)
+- **Fusão (Mos):** Constrói-se um plano bidimensional focado perfeitamente unindo recortes que espelham o pixel `sMos` em seu canal. Em paralelo a coordenada `z` espacial é fixada por `zMos`.
+- Em **`math_utils.py`**, além da montagem direta (Crop), possuímos **`linear_interpolation`** (transição proporcional entre 2 frames) e a **`quadratic_interpolation`** que ajusta funções seno e co-senoides em Mínimos Quadrados Regularizados fornecendo passagem ininterruptamente lisa de cores. 
 
-### 3.1. Correção Imediata da Extração e Foco e Profundidade (Matemática)
-- **Remover Clipping:** Eliminar o `np.clip` no percentil 90 em `applicator.py`. Se houver ruído impulsivo (outliers de foco), aplique um filtro de Mediana Espacial (`cv2.medianBlur`) 2D por plano focal antes ou depois da medida de foco, mas nunca corte os picos de intensidade da curva Z.
-- **Exportação Bruta (Física):** Em `main.py`, salve o `zMos` não-normalizado. Certifique-se de que a IO de `.fni` (ou altere para um formato bruto como `.npy` ou `TIFF` de 32/64 bits) consiga persistir os floats nativos de `zMos`. Só normalize matrizes para a geração de imagens de visualização `.png`.
+## 6. Módulos Adicionais Base Opcionais
 
-### 3.2. Aprimoramento do Alinhamento de Imagens (*Focus Breathing*)
-Para resolver a "respiração" da lente (pequenas mudanças de magnificação ao alterar o foco), **não alinhe as imagens sequencialmente**. Escolha uma imagem de referência global (preferencialmente a imagem correspondente ao foco médio da pilha) e alinhe todas as outras imagens do *stack* unicamente contra essa referência. Isso resulta em apenas 1 operação de *warp* por imagem, minimizando imensamente a perda de dados de alta-frequência.
+- **Alinhamento (`image_alignment.py`):** Trata instabilidades pré-ensaio quando a plataforma vibrar (Shift). Opera SIFT (`cv2.SIFT`), computa cruzamentos KNN validados e soluciona via RANSAC matrizes homográficas (`cv2.warpPerspective`) reentortando a matriz no lugar referencial ideal global.
+- **Refinamento Topográfico (`depth_refinement.py`):** Se requerido, emprega Graph Cut (PyGCO) injetando rigidez do vizinho com função não-linear penalizando gradientes (preservador e despigmentador) usando `weighted_median_filter` suavizador matricial.
+- **Apoio Operacional (`utils.py`):** Lida com exportações densas: Salva STLs puros 3D a partir da geometria, retira planícies e backgrounds não mapeados implementando Inteligência Artificial Segmentadora nativa (`rembg`), e processa formatos restritos com salvamento FNI para integrá-lo transparentemente.
 
-### 3.3. Limpeza de Repositório (Engenharia)
-- **Isolamento da Matemática:** Remover o código comentado (`plot_3d`, `exibir_imagem`) do `utils.py`. Mova operações matemáticas complexas, como as funções polinomiais `quadratic_interpolation`, para um arquivo dedicado (por exemplo, `math_utils.py`), deixando o `utils.py` apenas para file I/O ou utilitários gerais.
-- **Integração Real do Refinamento:** Utilizar o mapa de incerteza (1 - `wSel`) do `argmax_fuzzy` ativamente como peso (*unary cost*) nas penalidades de Graph-Cut do módulo `depth_refinement`. E acoplar esse algoritmo diretamente como um passo opcional acionável via YAML no `main.py`, substituindo o arquétipo de script isolado.
+## 7. Sumário da Execução
+
+Ao final da varredura, os mapeamentos são exportados:
+- **`zMos.png` / `zMos.fni`**: Topografia altimétrica original calculada do objeto (Mapeamento Base Z) com subcanal de precisão inclusa em Numpy arrays.
+- **`sMos.png`**: Representando visual unificada colorida "Tudo-em-Foco".
+- **`iSel.fni` / `wSel.fni`**: Registros subjacentes de calibrações de indexamento polinomial e estatísticas locais de acurácias validadas em laboratório.

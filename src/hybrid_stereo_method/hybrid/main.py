@@ -182,6 +182,7 @@ def main(parameters):
             max_iter=integration_params.get("max_iter", 100000),
             conv_tol=integration_params.get("conv_tol", 0.0000005),
             verbose=parameters["experiment"]["settings"]["debug"],
+            #report_step=integration_params.get("report_step", 1),
         )
         
         # Output directory for integration
