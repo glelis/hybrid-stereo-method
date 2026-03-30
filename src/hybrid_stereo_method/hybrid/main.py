@@ -11,6 +11,7 @@ from hybrid_stereo_method.hybrid.integrate import (
     integrate_normals_to_height,
 )
 from hybrid_stereo_method.infrastructure.io.image_io import (
+    convert_image_array_to_fni,
     find_all_files,
     log_parameters,
     read_images,
@@ -19,6 +20,8 @@ from hybrid_stereo_method.infrastructure.io.image_io import (
 )
 from hybrid_stereo_method.infrastructure.utils import calculate_avarage_of_images
 from hybrid_stereo_method.multifocus.main import main as multifocus_stereo_main
+from hybrid_stereo_method.multifocus.mosaic import mosaic
+from hybrid_stereo_method.multifocus.utils import normalize
 from hybrid_stereo_method.photometric.main_wps import main as photometric_stereo_main
 
 
@@ -104,8 +107,8 @@ def main(parameters):
     parameters["filtered_dir"] = average_images_paths
     parameters["output_path_multifocus"] = os.path.join(output_path, "multifocus_stereo", "average")
 
-    # Execute the multifocus stereo method
-    multifocus_stereo_main(parameters)
+    # Execute the multifocus stereo method and capture the output for average configuration
+    iSel_avg, wSel_avg, sMos_avg, zMos_avg = multifocus_stereo_main(parameters)
 
     # Process images for each light directory 'L'
     light_directories = sorted(
@@ -118,6 +121,10 @@ def main(parameters):
         )
     )
 
+    # Extract configuration for the mosaic
+    zFoc = parameters["multifocus"]["parameters"]["z_foc"]
+    interpolation_type = parameters["multifocus"]["parameters"]["interpolation"]
+
     for light_dir in light_directories:
         logging.info(f"... Processing light directory: {light_dir} ...")
 
@@ -126,14 +133,23 @@ def main(parameters):
             [file for file in input_files_path if f"{light_dir}/zf" in file and "sVal.png" in file]
         )
 
-        # Update parameters for the current directory
-        parameters["filtered_dir"] = filtered_files
-        parameters["output_path_multifocus"] = os.path.join(
+        output_path_multifocus = os.path.join(
             output_path, "multifocus_stereo", light_dir
         )
+        if not os.path.exists(output_path_multifocus):
+            os.makedirs(output_path_multifocus)
 
-        # Execute the multifocus stereo method for the current directory
-        multifocus_stereo_main(parameters)
+        # Read images
+        image_list = read_images(filtered_files, info=True)
+        image_stack = np.asarray(image_list)
+
+        # Generate the mosaic for this light, given the mapping `iSel_avg` and configuration `zFoc`
+        logging.info(f"...... Generating mosaic from average iSel ...")
+        sMos_light, _ = mosaic(iSel_avg, image_stack, zFoc, interpolation_type)
+
+        # Save the mosaic images to the output directory
+        save_image(output_path_multifocus, "sMos.png", sMos_light)
+        convert_image_array_to_fni(normalize(sMos_light), os.path.join(output_path_multifocus, "sMos.fni"))
 
     # =========================================================================
     # Step 2: Photometric Stereo

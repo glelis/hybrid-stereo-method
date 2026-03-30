@@ -40,11 +40,11 @@ multifocus:
   focus_measure:
     # Algorithm to measure focus
     # Options: 'fourier', 'laplacian', 'wavelet'
-    method: 'fourier'
+    method: 'laplacian'
     
     parameters:
       # Size of the Laplacian kernel (if method is 'laplacian')
-      kernel_size: 31
+      kernel_size: 15
       
       # Radius for Fourier transform frequency masking (if method is 'fourier')
       radius: 0.1
@@ -60,7 +60,7 @@ multifocus:
       spatial_median_filter: False
       
       # Whether to zero out the borders to avoid artifacts
-      zero_border: False
+      zero_border: True
 
   optimization:
     # Parameters for the Fuzzy Argmax algorithm
