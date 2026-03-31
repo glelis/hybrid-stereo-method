@@ -1,0 +1,147 @@
+# Last edited on 2025-03-08 07:39:02 by stolfi
+# High-level description of the synergistic (multifocus + photometric)
+# stereo algorithm.
+
+def multifocus_stereo(nF, sVal):
+# The multifocus stereo sub-algorithm.
+#
+# Input is a single list of blurry images
+# {sVal[F]}, where {F} (the focusing index) varies in{0..nF-1}.
+# We may assume that each pixel of these images is a color value
+# in some linear color space {\RC}.
+#
+# Output is two images {iSel} and {wSel}.
+#
+# Each pixel {isel[x,y]} is a fractional index in {[0 _ nF-1]} that tels
+# which of the input images {sVal[0..nF-1]} is sharpest at the pixel
+# {[x,y]}. A fractional value {i = iSel[x,y]} means that the sharpest
+# image would be somewhere between {sVal[floor(i)]} and {sVal[ceil(i)]}.
+#
+# The value of {wSel[x,y]} will be a non-negative number that indicates 
+# the relative reliability or confidence weight for the index {iSel[x,y]}.  
+# A zero value in {wSel[x,y]} means that the multifocus stereo failed
+# completely in the pixel {[x,y]}, and thus the value of {iSel[x,y]} is
+# meaningless. 
+    ...
+    return iSel, wSel
+
+def mosaic(nF, iSel, sVal, zFoc, sMos_ref, zMos_ref):
+# The mosaicking operator.
+#
+# Input in a "production" run is a pixel selection image {iSel} (as
+# would be produced by {multifocus_stereo}), a list of blurry images
+# {sVal[0..nF-1]}, and a list {zFoc[0..nF-1]} with the {Z} coordinate of
+# the in-focus plane for each image.
+#
+# Output in a "production" run is two "mosaic" images {sMos} and {zMos}.
+# Each pixel {sMos[x,y]} is obtained by interpolating the values 
+# {sVal[floor(i)]} and {sVal[ceil[i]} with the fractional index {i=iSel[x,y]}.
+# (Possibly it is just either one of the two values, or an affine interpolation
+# of the two; not ckear which will produce the best result).
+#
+# The image {zMos} is an estimated height map for the scene, as implied
+# by {iSel}. Namely, each pixel {zMos[x,y]} is obtained by affine
+# interpolation of the two {Z} values {zFoc[floor(i)]} and
+# {zFoc[ceil(i)]}.
+#
+# If the images {sVal[0..nF-1]} are synthetically generated for testing
+# purposes, the inputs to {mosaic} may also include two images image
+# {sMos_ref} and {zMos_ref}, which are the expected outputs {sMos} and
+# {zMos}. The procedure {mosaic} may compare the latter with the former
+# and output the difference images to disk.
+    ...
+    return sMos, zMos
+
+def photometric_stereo(nL, sVal, dLux, uNrm_ref):
+# The photometric stereo sub-algorithm.
+#
+# Inputs in a "production" run are a list {sVal[0..nL-1]} of 
+# images of a scene under different light sources, and a list 
+# dLux[0..nL-1]} with the unit direction vectors of those sources.
+# Each light source {L} is assumed to be point-like and located at infinite
+# distance from the scene in the direction {dLux[L]}. 
+#
+# Output in a "production" run is two images {uNrm} and {wNrm}.
+# Each element {uNrm[x,y]} is a unit 3-vector which is the estimated
+# average surface normal in the pixel {[x,y]}.  The value
+# {wNrm[x,y]} is a non-negative reliability or confidence weight
+# for {uNrm[x,y]}.  A weight of zero means that the photometric stereo
+# failed completely at the pixel {[x,y]}, and therefore {uNrm[x,y]}
+# is meaningless.
+    ...
+    return uNrm, wNrm
+
+def integrate(zApp, wApp, uNrm, wNrm, zSng_ref):
+# The synergistic integration algorithm.
+#
+# Inputs in a "production" run are an approximate height map {zApp} with
+# its weight map {wApp} (as could be produced by {multifocus_stereo} and
+# {mosaic}) and a normal map image {uNrm} with its weight map {wNrm} (as
+# could be produced by {ph_stereo}).
+#
+# Output in a production run is two images {zSng,wSng}.
+# Image {zSng} is a synergistic height map {zSng} for the
+# scene, which is obtained by converting {uNrm} to a slope (gradient)
+# map {sGrd}, and integrating those slopes in {X} and {Y}, using the
+# approximate map {zApp} to fill holes and correct unreliable values in
+# [uNrm}.  Image {wSng} is the 
+#
+# In a test run with sythetic data, the input may include an image
+# {zSng_ref} with the expected outcome of {zSng}. In that case
+# the procedure may output the difference image of the two.
+    ...
+    return zSng, wSng
+
+def synergistic_stereo(nL, nF, sVal, zFoc, dLux, sVal_ref, uNrm_ref, zSng_ref):
+# The synergistic stereo main algorithm.
+# 
+# Input in a "production" run is an array of blurry images {sVal[L][F]}
+# where {L} (the light soruce index) varies in {0..nL-1} and {F} (the
+# focusing index) varies in {0..nF-1}. Each light source {L} is a
+# point-like at infinity in the direction {dLux[L]} . Also input is the
+# {Z} coordinate {zFoc[F]} of the in-focus plane for each focusing index
+# {F}.
+#
+# Output in a "production" run is two images {zSng} and {wSng}.
+# The value of {zSng[x,y]} is the estimated average surface height ({Z} coordinate)
+# in the pixel {[x,y]}.  The value {wSng[x,y]} is the reliability 
+# or confidence weight of that estimate.
+#
+# If the images are generated synthetically for testing purpose, there
+# will be also a sharp image {sVal_ref[L]} for each light {L}, a single
+# reference normal map {uNrm_ref}, and a single reference height map
+# {zSng_ref}, and. These may be used to verify the results of the
+# algorithm, but are not used by it.
+#
+
+    # PART 1. Running the multifocus stereo.
+
+    # Step 1.1. Averaging the light sources for each focusing depth.
+
+    for F in range(nF):
+      sVal_med[F] = average((sVal[L][F] for L in range(nL)))
+    sVal_ref_med = average((sVal_ref[L] for L in range(nL)))
+
+    # Step 1.2. Applying the multifocus algorithm proper.
+
+    iSel, wSel = multifocus_stereo(nF, sVal_med)
+
+    # Step 1.3. Applying the mosaicking algorithm.
+
+    for L in range(nL):
+      sMos[L], zMos[L] = mosaic(nF, iSel, (sVal[L][F] for F in range(nF)), zFoc, sVal_ref[L], zSng_ref):
+    sMos_med, zMos_med = mosaic(nF, iSel, sVal_med, zFoc, sVal_ref_med, zSng_ref):
+    # Note: {zMos[L]} and {zMos_med} should be identical for all {L}.
+
+    # PART 2. Running the photometric stereo: 
+
+    uNrm, wNrm = photometric_stereo(nL, sMos, dLux, uNrm_ref);
+
+    # PART 3. Synergistic integration:
+
+    zSng, wSng = integrate(zMos_med, wSel, uNrm, wNrm, zSng_ref);
+
+    return zSng, wSng
+    
+    
+
