@@ -214,7 +214,7 @@ def read_fni_to_image_array(fni_file: str | Path) -> np.ndarray:
         image_array = np.zeros((ny, nx), dtype=np.float32)
 
     for line in lines:
-        if line.strip() == "" or line.startswith("begin") or line.startswith("end"):
+        if line.strip() == "" or line.startswith("begin") or line.startswith("end") or "=" in line:
             continue
         parts = line.split()
         if len(parts) < 2 + nc:

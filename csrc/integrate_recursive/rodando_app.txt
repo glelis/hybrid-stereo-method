@@ -1,2 +1,13 @@
 # Option 1: Use "zero" as initialization method
-./gus_integrate_recursive -initial zero 0 -outPrefix teste_blabla -normals /home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/hybrid_stereo/20250422_1543_2025-03-08-stQ-melon24-amb0.00-glo0.50/photometric_stereo/normal_map_with_residuals.fni
+./gus_integrate_recursive -initial zero 0 -outPrefix teste_20260329 -normals /home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/hybrid_stereo/20250422_1543_2025-03-08-stQ-melon24-amb0.00-glo0.50/photometric_stereo/normal_map_with_residuals.fni
+
+
+
+
+# Option 2: Use "zero" as initialization method with hints
+./gus_integrate_recursive -initial zero 0 -outPrefix teste_20260329 -normals /home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/hybrid_stereo/20260329_1110_2025-03-08-stQ-melon24-amb0.00-glo0.50/photometric_stereo/normal_map_with_residuals.fni -hints /home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/hybrid_stereo/20260329_1110_2025-03-08-stQ-melon24-amb0.00-glo0.50/multifocus_stereo/average/zMos_with_confidence.fni 0.5
+
+
+
+# Option 3: Use "zero" as initialization method with hints and reference
+./gus_integrate_recursive -initial zero 0 -outPrefix teste_20260329 -normals /home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/hybrid_stereo/20260329_1110_2025-03-08-stQ-melon24-amb0.00-glo0.50/photometric_stereo/normal_map_with_residuals.fni -hints /home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/hybrid_stereo/20260329_1110_2025-03-08-stQ-melon24-amb0.00-glo0.50/multifocus_stereo/average/zMos_with_confidence.fni 0.5 -reference /home/lelis/Documents/Projetos/hybrid-stereo-method/data/raw/hybrid_stereo/2025-03-08-stQ-melon24-amb0.00-glo0.50/stQ-melon14-amb0.00-glo0.50/0512x0384-hs01-kr10/L000/sharp/hAvg.fni

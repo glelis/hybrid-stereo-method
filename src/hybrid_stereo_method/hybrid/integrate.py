@@ -69,6 +69,7 @@ def integrate_normals_to_height(
     hints_weight: float = 0.0,
     reference_map: np.ndarray | None = None,
     hints_fni_path: str | Path | None = None,
+    reference_fni_path: str | Path | None = None,
 ) -> np.ndarray:
     """Integrate a normal map to compute a height map.
     
@@ -137,7 +138,10 @@ def integrate_normals_to_height(
         logger.info(f"Wrote hints map to: {hints_fni_path}")
     
     # Add reference map if provided  
-    if reference_map is not None:
+    if reference_fni_path is not None:
+        cmd.extend(["-reference", str(reference_fni_path)])
+        logger.info(f"Using existing reference map at: {reference_fni_path}")
+    elif reference_map is not None:
         reference_fni_path = output_dir / f"{output_prefix}_reference.fni"
         convert_image_array_to_fni(reference_map, reference_fni_path)
         cmd.extend(["-reference", str(reference_fni_path)])
@@ -216,6 +220,7 @@ def integrate_slopes_to_height(
     hints_map: np.ndarray | None = None,
     hints_weight: float = 0.0,
     reference_map: np.ndarray | None = None,
+    reference_fni_path: str | Path | None = None,
 ) -> np.ndarray:
     """Integrate a slope map to compute a height map.
     
@@ -269,7 +274,9 @@ def integrate_slopes_to_height(
         convert_image_array_to_fni(hints_map, hints_fni_path)
         cmd.extend(["-hints", str(hints_fni_path), str(hints_weight)])
     
-    if reference_map is not None:
+    if reference_fni_path is not None:
+        cmd.extend(["-reference", str(reference_fni_path)])
+    elif reference_map is not None:
         reference_fni_path = output_dir / f"{output_prefix}_reference.fni"
         convert_image_array_to_fni(reference_map, reference_fni_path)
         cmd.extend(["-reference", str(reference_fni_path)])

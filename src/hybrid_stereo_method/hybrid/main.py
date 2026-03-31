@@ -65,6 +65,17 @@ def main(parameters):
     # Log the provided parameters
     log_parameters(parameters)
 
+    # Copy the 'sharp' folder to the output directory
+    input_path = parameters["experiment"]["paths"]["input"]
+    sharp_input_path = os.path.join(input_path, data_foldername, "sharp")
+    if os.path.exists(sharp_input_path):
+        import shutil
+        sharp_output_path = os.path.join(output_path, "sharp")
+        shutil.copytree(sharp_input_path, sharp_output_path, dirs_exist_ok=True)
+        logging.info(f"Copied 'sharp' directory to: {sharp_output_path}")
+    else:
+        logging.warning(f"'sharp' directory not found at: {sharp_input_path}")
+
     # =========================================================================
     # Step 1: Multifocus Stereo
     # =========================================================================
@@ -216,6 +227,21 @@ def main(parameters):
             else:
                 logging.warning(f"Hints map requested but not found at: {hints_file}")
         
+        reference_fni_path = None
+        if integration_params.get("use_reference", False):
+            # Locate hAvg.png inside input/sharp
+            h_avg_path = os.path.join(input_path, data_foldername, "sharp", "hAvg.png")
+            if os.path.exists(h_avg_path):
+                from hybrid_stereo_method.infrastructure.io.image_io import read_image
+                reference_img = read_image(h_avg_path)
+                reference_fni_path = os.path.join(integration_output, "hAvg.fni")
+                if not os.path.exists(integration_output):
+                    os.makedirs(integration_output)
+                convert_image_array_to_fni(reference_img.astype(np.float32), reference_fni_path)
+                logging.info(f"Generated reference map: {reference_fni_path}")
+            else:
+                logging.warning(f"Reference map requested but not found at: {h_avg_path}")
+        
         logging.info("Running surface integration...")
         try:
             height_map = integrate_normals_to_height(
@@ -225,6 +251,7 @@ def main(parameters):
                 config=integration_config,
                 hints_fni_path=hints_fni_path,
                 hints_weight=hints_weight,
+                reference_fni_path=reference_fni_path,
             )
             
             # Save the height map as numpy array
