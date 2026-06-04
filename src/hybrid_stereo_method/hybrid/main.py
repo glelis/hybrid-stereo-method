@@ -265,14 +265,18 @@ def main(parameters):
             logging.info(f"Height map shape: {height_map.shape}")
             logging.info(f"Height map range: [{height_map.min():.4f}, {height_map.max():.4f}]")
             
-        except FileNotFoundError as e:
-            logging.error(f"Integration executable not found: {e}")
+        except FileNotFoundError:
+            logging.error("Integration executable not found.")
             logging.error("Please build the C code: cd csrc/integrate_recursive && make")
+            raise
         except Exception as e:
             logging.error(f"Integration failed: {e}")
+            raise
     else:
-        logging.warning(f"Normal map not found at: {normal_map_path}")
-        logging.warning("Skipping surface integration step")
+        raise FileNotFoundError(
+            f"Normal map not found at: {normal_map_path} — "
+            "photometric stereo did not produce its output, cannot integrate."
+        )
 
     logging.info("=" * 60)
     logging.info("Hybrid stereo pipeline complete!")
