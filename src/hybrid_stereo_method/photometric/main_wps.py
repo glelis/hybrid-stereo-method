@@ -12,6 +12,7 @@ from hybrid_stereo_method.infrastructure.io.image_io import (
     convert_image_array_to_fni,
     find_all_files,
     log_parameters,
+    read_image,
     read_images,
     read_yaml_parameters,
     save_image,
@@ -151,9 +152,20 @@ def main(parameters):
 
     # Evaluate the Result
     if os.path.exists(gt_normal_path):  # Check if ground truth normal map exists
-        N_gt = np.load(filename=gt_normal_path)  # Load ground truth normal map
-        angular_error = evaluate_angular_error(N_gt, normals, mask)  # Calculate angular error
-        mean_error = np.mean(angular_error[:])
+        N_gt = np.load(gt_normal_path)  # Load ground truth normal map
+
+        # evaluate_angular_error expects (p, 3) arrays and optional background indices
+        background = None
+        if os.path.exists(mask_path):
+            mask = read_image(mask_path)
+            if mask.ndim == 3:
+                mask = mask[:, :, 0]
+            background = np.where(mask.reshape(-1) == 0)[0]
+
+        angular_error = evaluate_angular_error(
+            N_gt.reshape(-1, 3), normals.reshape(-1, 3), background
+        )
+        mean_error = np.mean(angular_error)
         logging.info(f"Mean angular error [degrees]: {mean_error:.2f}")
 
     # Results visualization
