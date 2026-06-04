@@ -169,10 +169,18 @@ def main(parameters):
     logging.info("STEP 2: Photometric Stereo")
     logging.info("=" * 60)
     
-    # Configure parameters for the photometric stereo method
+    # Configure parameters for the photometric stereo method.
+    # Select the per-light mosaics (parent dir L*), excluding the 'average' one;
+    # match exact path components, not substrings, so dataset/user paths that
+    # happen to contain "av" cannot break the selection.
     output_files = find_all_files(output_path)
     parameters["sMos_path_list"] = natsorted(
-        [file for file in output_files if "sMos.png" in file and "av" not in file]
+        [
+            file
+            for file in output_files
+            if os.path.basename(file) == "sMos.png"
+            and os.path.basename(os.path.dirname(file)) != "average"
+        ]
     )
     parameters["output_path_photometric"] = os.path.join(output_path, "photometric_stereo")
     parameters["lights_path"] = [file for file in input_files_path if "lights.npy" in file][0]
