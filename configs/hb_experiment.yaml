@@ -13,7 +13,8 @@ experiment:
     output: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/hybrid_stereo/'
     
     # Name of the specific data folder to process
-    data_folder: '2025-03-08-stQ-melon24-amb0.00-glo0.50'
+    data_folder: '2025-03-08-stQ-melon24-amb0.00-glo0 (2).50'
+    #data_folder: 'lamb-gls'
 
   settings:
     # Whether to specific mask
@@ -44,7 +45,7 @@ multifocus:
     
     parameters:
       # Size of the Laplacian kernel (if method is 'laplacian')
-      kernel_size: 15
+      kernel_size: 7
       
       # Radius for Fourier transform frequency masking (if method is 'fourier')
       radius: 0.1
@@ -60,7 +61,7 @@ multifocus:
       spatial_median_filter: False
       
       # Whether to zero out the borders to avoid artifacts
-      zero_border: True
+      zero_border: False
 
   optimization:
     # Parameters for the Fuzzy Argmax algorithm
