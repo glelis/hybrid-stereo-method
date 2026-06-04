@@ -65,6 +65,9 @@ def normalize(x: np.ndarray) -> np.ndarray:
     array([0.  , 0.25, 0.5 , 0.75, 1.  ])
     """
     max_, min_ = np.max(x), np.min(x)
+    if max_ == min_:
+        # Constant array: no range to normalize — return zeros instead of 0/0 nan
+        return np.zeros_like(x, dtype=np.float64)
     return (x - min_) / (max_ - min_)
 
 
