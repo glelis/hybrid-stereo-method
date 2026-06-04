@@ -111,13 +111,21 @@ def read_images(image_paths: list[str], info: bool = False) -> list[np.ndarray]:
     return [read_image(path, info) for path in image_paths]
 
 
-def save_image(save_path: str | Path, save_as: str, img: np.ndarray) -> None:
-    """Save an image to the specified path after normalizing pixel values.
+def save_image(
+    save_path: str | Path, save_as: str, img: np.ndarray, normalize: bool = True
+) -> None:
+    """Save an image to the specified path.
 
     Args:
         save_path: Directory where the image will be saved.
         save_as: Name of the saved image file.
         img: Input image as a NumPy array.
+        normalize: If True (default), min-max stretch the image to [0, 255]
+            for visualization. If False, preserve the original intensity
+            values (clipped to [0, 255]) — required when the saved image
+            carries physical/radiometric meaning (e.g. photometric stereo
+            inputs, where per-image normalization would destroy the
+            cross-image intensity relationships).
 
     Raises:
         ValueError: If the input image is empty or invalid.
@@ -126,9 +134,12 @@ def save_image(save_path: str | Path, save_as: str, img: np.ndarray) -> None:
         raise ValueError("Input image is empty or invalid.")
 
     os.makedirs(save_path, exist_ok=True)
-    img_norm = cv2.normalize(img, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+    if normalize:
+        img_out = cv2.normalize(img, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+    else:
+        img_out = np.clip(img, 0, 255).astype(np.uint8)
     save_full_path = os.path.join(str(save_path), save_as)
-    cv2.imwrite(save_full_path, img_norm)
+    cv2.imwrite(save_full_path, img_out)
 
 
 def convert_image_array_to_fni(image_array: np.ndarray, output_file: str | Path) -> None:

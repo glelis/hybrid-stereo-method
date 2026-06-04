@@ -20,7 +20,7 @@ from hybrid_stereo_method.infrastructure.io.image_io import (
     read_yaml_parameters,
     save_image,
 )
-from hybrid_stereo_method.infrastructure.utils import calculate_avarage_of_images, normalize
+from hybrid_stereo_method.infrastructure.utils import calculate_avarage_of_images
 from hybrid_stereo_method.multifocus.main import main as multifocus_stereo_main
 from hybrid_stereo_method.multifocus.mosaic import mosaic
 from hybrid_stereo_method.photometric.main_wps import main as photometric_stereo_main
@@ -153,9 +153,14 @@ def main(parameters):
         logging.info("...... Generating mosaic from average iSel ...")
         sMos_light, _ = mosaic(iSel_avg, image_stack, zFoc, interpolation_type)
 
-        # Save the mosaic images to the output directory
-        save_image(output_path_multifocus, "sMos.png", sMos_light)
-        convert_image_array_to_fni(normalize(sMos_light), os.path.join(output_path_multifocus, "sMos.fni"))
+        # Save the mosaic images to the output directory.
+        # normalize=False is essential: these mosaics are the photometric stereo
+        # input, and a per-image min-max stretch would destroy the cross-light
+        # intensity relationships that the I = albedo * (L . N) model requires.
+        save_image(output_path_multifocus, "sMos.png", sMos_light, normalize=False)
+        convert_image_array_to_fni(
+            sMos_light / 255.0, os.path.join(output_path_multifocus, "sMos.fni")
+        )
 
     # =========================================================================
     # Step 2: Photometric Stereo
