@@ -88,6 +88,10 @@ def find_index_of_max_sum(focus_values: np.array) -> int:
     Returns:
         int: O índice do valor máximo da soma de três elementos consecutivos.
     """
+    if len(focus_values) < 3:
+        raise ValueError(
+            f"focus_values must contain at least 3 frames, got {len(focus_values)}"
+        )
     max_sum = -np.inf
     for i in range(1, len(focus_values) - 1):
         current_sum = focus_values[i - 1] + focus_values[i] + focus_values[i + 1]
