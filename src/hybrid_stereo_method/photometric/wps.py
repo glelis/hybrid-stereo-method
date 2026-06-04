@@ -2,6 +2,8 @@
 
 import numpy as np
 
+from hybrid_stereo_method.infrastructure.utils import normalize
+
 
 def estimate_normals_argmax(images, light_sources, wps_params=None):
     """
@@ -93,15 +95,16 @@ def estimate_normals_argmax_lstsq(images, light_sources, wps_params=None):
             # Normalize the normal
             normal /= np.linalg.norm(normal)
             normals[i, j, :] = normal
-            residuals[i, j] = residual
+            # lstsq returns an empty residual array when the system is square
+            # (exactly 3 images) or rank-deficient — treat as zero residual
+            residuals[i, j] = residual[0] if residual.size else 0.0
 
             selected_areas[i, j, top_indices] = 255
 
-    # Convert residuals to confidence values
-    confidence = 1 / residuals
-    confidence = (confidence - np.min(confidence)) / (
-        np.max(confidence) - np.min(confidence)
-    )  # Normalize confidence to the range [0, 1]
+    # Convert residuals to confidence values (epsilon avoids division by zero
+    # for exact fits, which would otherwise produce inf/nan), then normalize
+    # to [0, 1] (normalize() guards the constant-confidence case)
+    confidence = normalize(1 / (residuals + epsilon))
 
     return normals, residuals, confidence, selected_areas
 
