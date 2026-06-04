@@ -182,8 +182,13 @@ def estimate_normals_argmax_lstsq_robust(images, light_sources, wps_params=None)
                     break
 
             if len(selected_values) >= 3:
-                # Normalize the normal vector
-                normal /= np.linalg.norm(normal)
+                # Normalize the normal vector (guard against degenerate solutions)
+                norm = np.linalg.norm(normal)
+                if norm == 0:
+                    normals[i, j, :] = np.nan
+                    confidence[i, j] = 0
+                    continue
+                normal /= norm
                 normals[i, j, :] = normal
 
                 # Compute albedo
