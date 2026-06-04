@@ -14,11 +14,11 @@ from hybrid_stereo_method.infrastructure.io.image_io import (
     read_yaml_parameters,
     save_image,
 )
-from hybrid_stereo_method.infrastructure.utils import convert_to_grayscale
+from hybrid_stereo_method.infrastructure.utils import convert_to_grayscale, normalize
 from hybrid_stereo_method.multifocus.argmax_fuzzy import compute_argmax_fuzzy
 from hybrid_stereo_method.multifocus.indicators.applicator import focus_indicator
 from hybrid_stereo_method.multifocus.mosaic import mosaic
-from hybrid_stereo_method.multifocus.utils import calculate_error_image, normalize
+from hybrid_stereo_method.multifocus.utils import calculate_error_image
 
 
 def main(parameters):
@@ -121,7 +121,6 @@ def main(parameters):
     )
 
     logging.info("... Calculating argmax fuzzy ...")
-    logging.info("... Calculating argmax fuzzy ...")
     # Calcula argmax fuzzy e confiança
     fuzzy_params = mf_params["optimization"]
     debug_mode = parameters["experiment"]["settings"]["debug"]
@@ -156,7 +155,6 @@ def main(parameters):
     convert_image_array_to_fni(zMos, os.path.join(output_path, "zMos.fni"))
 
     # Add confidence as a new channel to zMos
-    # confidence_extra_exp = np.expand_dims(wSel, axis=-1)
     zMos_with_confidence = np.stack((zMos, normalize(wSel)), axis=-1)
     convert_image_array_to_fni(
         zMos_with_confidence, os.path.join(output_path, "zMos_with_confidence.fni")

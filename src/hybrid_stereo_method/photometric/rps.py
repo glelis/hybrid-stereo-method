@@ -13,6 +13,7 @@ from sklearn.preprocessing import normalize
 
 import hybrid_stereo_method.photometric.ps_utils as psutil
 import hybrid_stereo_method.photometric.solvers.numerics as rpsnumerics
+import hybrid_stereo_method.photometric.visualization as psviz
 
 
 class RPS:
@@ -97,7 +98,7 @@ class RPS:
         Visualize normal map
         :return: None
         """
-        psutil.disp_normalmap(normal=self.N, height=self.height, width=self.width, delay=delay)
+        psviz.disp_normalmap(normal=self.N, height=self.height, width=self.width, delay=delay)
 
     def save_normalmap(self, filename=None):
         """
@@ -143,8 +144,7 @@ class RPS:
         self.N = np.linalg.lstsq(self.L.T, self.M.T, rcond=None)[0].T
         self.N = normalize(self.N, axis=1)  # normalize to account for diffuse reflectance
         if self.background_ind is not None:
-            for i in range(self.N.shape[1]):
-                self.N[self.background_ind, i] = 0
+            self.N[self.background_ind, :] = 0
 
     def _solve_l1(self):
         """
@@ -189,14 +189,10 @@ class RPS:
         p = Pool(processes=multiprocessing.cpu_count() - 1)
         normal = p.map(self._solve_l1_multicore_impl, indices)
         if self.foreground_ind is None:
-            self.N = np.asarray(normal)
-            self.N = normalize(self.N, axis=1)
+            self.N = normalize(np.asarray(normal), axis=1)
         else:
-            N = np.asarray(normal)
-            N = normalize(N, axis=1)
             self.N = np.zeros((self.M.shape[0], 3))
-            for i in range(N.shape[1]):
-                self.N[self.foreground_ind, i] = N[:, i]
+            self.N[self.foreground_ind, :] = normalize(np.asarray(normal), axis=1)
 
     def _solve_l1_multicore_impl(self, index):
         """
@@ -255,14 +251,10 @@ class RPS:
         p = Pool(processes=multiprocessing.cpu_count() - 1)
         normal = p.map(self._solve_sbl_multicore_impl, indices)
         if self.foreground_ind is None:
-            self.N = np.asarray(normal)
-            self.N = normalize(self.N, axis=1)
+            self.N = normalize(np.asarray(normal), axis=1)
         else:
-            N = np.asarray(normal)
-            N = normalize(N, axis=1)
             self.N = np.zeros((self.M.shape[0], 3))
-            for i in range(self.N.shape[1]):
-                self.N[self.foreground_ind, i] = N[:, i]
+            self.N[self.foreground_ind, :] = normalize(np.asarray(normal), axis=1)
 
     def _solve_sbl_multicore_impl(self, index):
         """
@@ -297,12 +289,10 @@ class RPS:
 
         A, E, ite = rpsnumerics.rpca_inexact_alm(_M)  # RPCA Photometric stereo
 
+        N = np.linalg.lstsq(self.L.T, A, rcond=None)[0].T
+        N = normalize(N, axis=1)  # normalize to account for diffuse reflectance
         if self.foreground_ind is None:
-            self.N = np.linalg.lstsq(self.L.T, A, rcond=None)[0].T
-            self.N = normalize(self.N, axis=1)  # normalize to account for diffuse reflectance
+            self.N = N
         else:
-            N = np.linalg.lstsq(self.L.T, A, rcond=None)[0].T
-            N = normalize(N, axis=1)  # normalize to account for diffuse reflectance
             self.N = np.zeros((self.M.shape[0], 3))
-            for i in range(self.N.shape[1]):
-                self.N[self.foreground_ind, i] = N[:, i]
+            self.N[self.foreground_ind, :] = N

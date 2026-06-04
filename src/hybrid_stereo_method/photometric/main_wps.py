@@ -106,7 +106,6 @@ def main(parameters):
 
     if experiment_type == "hybrid":
         images = read_images(parameters.get("sMos_path_list"))
-        # images = parameters.get('sMos_list')
     else:
         images_paths = find_all_files(images_path)
         images = read_images(images_paths, info=True)
@@ -118,18 +117,12 @@ def main(parameters):
     logging.info("... Loading light sources ...")
     light_sources = np.load(light_path)
 
-    # Load mask
-    # mask = read_image(mask_path, info=True)
-
     # Estimate normals
     logging.info("... Calculating  normals ...")
     start_time = time.time()
-    
+
     wps_params = parameters["photometric"]["solver"]
-    
-    # normals, selected_areas = estimate_normals_argmax(images, light_sources)
-    # normals, residuals, confidence, selected_areas = estimate_normals_argmax_lstsq(images, light_sources)
-    
+
     normals, albedo, confidence, selected_areas = estimate_normals_argmax_lstsq_robust(
         images, light_sources, wps_params
     )
@@ -140,8 +133,6 @@ def main(parameters):
     # Save normal map
     logging.info("... Saving normal map ...")
     np.save(normal_map_path, normals)
-
-    # convert_image_array_to_fni(normals, os.path.join(output_path, "normal_map.fni"))
 
     # Add residuals as a new channel to normals
     confidence_extra_exp = np.expand_dims(confidence, axis=-1)
@@ -166,8 +157,7 @@ def main(parameters):
         logging.info(f"Mean angular error [degrees]: {mean_error:.2f}")
 
     # Results visualization
-    height = normals.shape[0]
-    width = normals.shape[1]
+    height, width = normals.shape[:2]
     disp_normalmap(normal=normals, height=height, width=width, save_path=output_path)
     disp_channels(
         normal_in=normals,

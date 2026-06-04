@@ -49,10 +49,7 @@ def focus_indicator(
             # Apply smoothing kernel
             kernel = np.array([[1, 2, 1], [2, 4, 2], [1, 2, 1]]) / 16
             focus_indicator = cv2.filter2D(focus_indicator, -1, kernel)
-        # if zero_border:
-        #    # Zero out borders (remove edge artifacts)
-        #    focus_indicator = zero_borders(focus_indicator, 40)
-        
+
         if spatial_median_filter:
             # apply spatial median filter using cv2
             focus_indicator = np.float32(focus_indicator)

@@ -143,10 +143,10 @@ def convert_image_array_to_fni(image_array: np.ndarray, output_file: str | Path)
     Raises:
         ValueError: If the input array has invalid shape.
     """
-    if len(image_array.shape) == 2:
+    if image_array.ndim == 2:
         ny, nx = image_array.shape
         nc = 1
-    elif len(image_array.shape) == 3:
+    elif image_array.ndim == 3:
         ny, nx, nc = image_array.shape
     else:
         raise ValueError("image_array must have shape (height, width) or (height, width, channels)")
@@ -158,14 +158,14 @@ def convert_image_array_to_fni(image_array: np.ndarray, output_file: str | Path)
         f.write(f"NY = {ny}\n")
 
         for y in range(ny):
-            for x in range(nx):
-                if nc == 1:
-                    value = image_array[y, x]
-                    f.write(f"{x:5d} {y:5d} {value:+.7e}\n")
-                else:
-                    values = image_array[y, x]
-                    values_str = " ".join(f"{v:+.7e}" for v in values)
-                    f.write(f"{x:5d} {y:5d} {values_str}\n")
+            if nc == 1:
+                row_lines = [f"{x:5d} {y:5d} {image_array[y, x]:+.7e}\n" for x in range(nx)]
+            else:
+                row_lines = [
+                    f"{x:5d} {y:5d} " + " ".join(f"{v:+.7e}" for v in image_array[y, x]) + "\n"
+                    for x in range(nx)
+                ]
+            f.write("".join(row_lines))
             f.write("\n")
         f.write("end float_image_t\n")
 

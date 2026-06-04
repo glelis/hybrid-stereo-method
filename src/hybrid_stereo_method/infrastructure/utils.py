@@ -48,6 +48,26 @@ def normalize_normals(normal_map: np.ndarray) -> np.ndarray:
     return normal_map / norm
 
 
+def normalize(x: np.ndarray) -> np.ndarray:
+    """
+    Normalizes the input array `x` to a range between 0 and 1.
+
+    Parameters:
+    x (numpy.ndarray): The input array to be normalized.
+
+    Returns:
+    numpy.ndarray: The normalized array with values scaled to the range [0, 1].
+
+    Example:
+    >>> import numpy as np
+    >>> x = np.array([1, 2, 3, 4, 5])
+    >>> normalize(x)
+    array([0.  , 0.25, 0.5 , 0.75, 1.  ])
+    """
+    max_, min_ = np.max(x), np.min(x)
+    return (x - min_) / (max_ - min_)
+
+
 def convert_to_grayscale(img: np.ndarray) -> np.ndarray:
     """Convert an RGB/BGR image to grayscale.
 

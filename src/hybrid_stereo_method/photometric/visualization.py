@@ -1,8 +1,10 @@
 import os
+from io import BytesIO
 
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
+from PIL import Image
 
 
 def display_img(caminho_imagem):
@@ -258,73 +260,3 @@ def disp_channels_3d(normal_in=None, height=None, width=None, delay=0, name=None
     if save_path is not None:
         cv2.imwrite(os.path.join(save_path, "Channels_3D.png"), img_array)
     return img_array
-
-
-# import numpy as np
-# import matplotlib.pyplot as plt
-from io import BytesIO
-
-from PIL import Image
-
-# def disp_channels_3d(normal_in=None, height=None, width=None, delay=0, name=None):
-#    """
-#    Plota os canais de uma imagem em 3D e retorna o gráfico como um array NumPy.
-#    :param imagem: Imagem 3D (altura x largura x 3).
-#    :return: Array NumPy representando o gráfico gerado.
-#    """
-#
-#    if normal_in is None:
-#        raise ValueError("Surface normal `normal` is None")
-#
-#    # Reshape para coordenadas de imagem
-#    normal = np.reshape(normal_in, (height, width, 3))
-#
-#    # Trocar canais RGB para BGR
-#    normal[:, :, 0], normal[:, :, 2] = normal[:, :, 2], normal[:, :, 0].copy()  # Swap RGB <-> BGR
-#
-#    # Redimensionar valores para o intervalo [0, 255] (formato de imagem)
-#    normal = ((normal + 1.0) / 2.0 * 255).astype(np.uint8)
-#
-#    fig, axs = plt.subplots(1, 3, figsize=(15, 5), subplot_kw={'projection': '3d'})
-#
-#    x = np.arange(normal.shape[1])
-#    y = np.arange(normal.shape[0])
-#    x, y = np.meshgrid(x, y)
-#
-#    axs[0].plot_surface(x, y, normal[:, :, 0], cmap='viridis')
-#    axs[0].set_title('Canal 0')
-#    axs[0].set_xlabel('X')
-#    axs[0].set_ylabel('Y')
-#    axs[0].set_zlabel('Altura')
-#
-#    axs[1].plot_surface(x, y, normal[:, :, 1], cmap='viridis')
-#    axs[1].set_title('Canal 1')
-#    axs[1].set_xlabel('X')
-#    axs[1].set_ylabel('Y')
-#    axs[1].set_zlabel('Altura')
-#
-#    axs[2].plot_surface(x, y, normal[:, :, 2], cmap='viridis')
-#    axs[2].set_title('Canal 2')
-#    axs[2].set_xlabel('X')
-#    axs[2].set_ylabel('Y')
-#    axs[2].set_zlabel('Altura')
-#
-#    # Salvar o gráfico como uma imagem em memória
-#    buf = BytesIO()
-#    plt.savefig(buf, format='png', bbox_inches='tight')
-#    buf.seek(0)
-#    plt.close(fig)  # Fecha a figura para liberar memória
-#
-#    # Converter a imagem para um array NumPy
-#    img_array = np.array(Image.open(buf))
-#
-#    # Exibir a imagem em uma única janela
-#    if name is None:
-#        name = 'Channel Visualization'
-#    cv2.imshow(name, img_array)
-#    cv2.waitKey(delay)
-#    cv2.destroyWindow(name)
-#    cv2.waitKey(1)    # to deal with frozen window...
-#
-#
-#    return img_array

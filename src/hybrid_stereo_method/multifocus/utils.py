@@ -1,12 +1,24 @@
 import os
+import shutil
+from collections import defaultdict
 
-import cv2
 import numpy as np
 
-# from natsort import natsorted
+from hybrid_stereo_method.infrastructure.utils import convert_to_grayscale, normalize
 
-# import matplotlib.pyplot as plt
-# from mpl_toolkits.mplot3d import Axes3D
+try:
+    from stl import mesh
+
+    HAS_STL = True
+except ImportError:
+    HAS_STL = False
+
+try:
+    from rembg import remove
+
+    HAS_REMBG = True
+except ImportError:
+    HAS_REMBG = False
 
 # General
 WEIGHTS = np.array(
@@ -20,26 +32,6 @@ WEIGHTS = np.array(
         [0, 0, 1, 2, 1, 0, 0],
     ]
 )
-
-
-def convert_img_to_grayscale(img):
-    imGray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    return imGray
-
-
-def convert_stack_to_grayscale(image_stack: np.ndarray) -> np.ndarray:
-    """
-    Converte uma stack de imagens coloridas para escala de cinza.
-
-    Args:
-        image_stack: Um array [kf, kx, ky, 3] de imagens coloridas.
-
-    Returns:
-        Um array [kf, kx, ky] de imagens em escala de cinza.
-    """
-    # Utiliza a função cvtColor do OpenCV para converter todas as imagens de uma vez
-    grayscale_stack = np.array([convert_img_to_grayscale(img) for img in image_stack])
-    return grayscale_stack
 
 
 def zero_borders(img, border_size):
@@ -57,140 +49,18 @@ def zero_borders(img, border_size):
     return img_copy
 
 
-def find_all_files(path):
-    all_files = []
-
-    for root, dirs, files in os.walk(path):
-        for file in files:
-            all_files.append(file)
-
-    return all_files
-
-
-# def read_images_from_path(img_path):
-#    """
-#    Reads and returns a list of images from the specified directory path.
-#    This function traverses the directory tree rooted at `img_path`, reads all image files
-#    in a natural sorted order, and returns them as a list.
-#    Args:
-#        img_path (str): The path to the directory containing the images.
-#    Returns:
-#        list: A list of images read from the specified directory.
-#    """
-#    img_list = []
-#
-#    for root, dirs, files in os.walk(img_path):
-#        for file in natsorted(files):
-#
-#            img_list.append(read_image(root + "/" + file))
-#            print(root + "/" + file)
-#
-#    return img_list
-
-
-def normalize(x: np.array) -> np.array:
-    """
-    Normalizes the input array `x` to a range between 0 and 1.
-
-    Parameters:
-    x (numpy.ndarray): The input array to be normalized.
-
-    Returns:
-    numpy.ndarray: The normalized array with values scaled to the range [0, 1].
-
-    Example:
-    >>> import numpy as np
-    >>> x = np.array([1, 2, 3, 4, 5])
-    >>> normalize(x)
-    array([0.  , 0.25, 0.5 , 0.75, 1.  ])
-    """
-    max_, min_ = np.max(x), np.min(x)
-    normalized = (x - min_) / (max_ - min_)
-    return normalized
-
-
-# def normalize_max(x: np.array) -> np.array:
-#    """
-#    Normalizes the input array `x`from range [0, max] to range [0, 1]
-#
-#    Parameters:
-#    x (numpy.ndarray): The input array to be normalized.
-#
-#    Returns:
-#    numpy.ndarray: The normalized array with values scaled to the range [0, 1].
-#    """
-#    max_ = np.max(x)
-#    normalized = x / max_
-#    return normalized
-#
-
-
-# def exibir_imagem(imagem_np_array):
-#  """
-#  Exibe um np.array que representa uma imagem.
-#
-#  Args:
-#      imagem_np_array: O np.array que contém os dados da imagem.
-#  """
-#
-#  if len(imagem_np_array.shape) == 2:  # Verifica se a imagem é em escala de cinza
-#    plt.imshow(imagem_np_array, cmap='gray')
-#  else:
-#    imagem_np_array = cv2.cvtColor(imagem_np_array, cv2.COLOR_BGR2RGB)
-#    plt.imshow(imagem_np_array, cmap='viridis')
-#
-#  #plt.axis('off')  # Opcional: remove os eixos da imagem
-#  plt.show()
-
-
-# def plot_3d(depth_map, z_scale=1):
-#
-#    #height_map = (255 - (depth_map))/255
-#    height_map = depth_map
-#
-#    # Crie uma grade de coordenadas para os eixos X e Y
-#    x = np.linspace(0, height_map.shape[1] - 1, height_map.shape[1])
-#    y = np.linspace(0, height_map.shape[0] - 1, height_map.shape[0])
-#    x, y = np.meshgrid(x, y)
-#
-#    # Criar a figura 3D
-#    fig = plt.figure(figsize=(10, 7))
-#    ax = fig.add_subplot(111, projection='3d')
-#
-#    # Plotar a superfície 3D
-#    ax.plot_surface(x, y, height_map, cmap='viridis')
-#
-#    ax.set_zlim(np.min(height_map), np.max(height_map) * z_scale)
-#
-#    # Adicionar rótulos aos eixos
-#    ax.set_xlabel('X')
-#    ax.set_ylabel('Y')
-#    ax.set_zlabel('Altura (mm)')
-#
-#    # Exibir a imagem 3D
-#    plt.show()
-
-
-try:
-    from stl import mesh
-
-    HAS_STL = True
-except ImportError:
-    HAS_STL = False
-
-
 def create_stl_from_heightmap(height_map, scale=(1, 1, 1), output_file="output.stl"):
-    if not HAS_STL:
-        raise ImportError(
-            "numpy-stl is required for STL export. Install via: pip install numpy-stl"
-        )
     """
     Cria um arquivo STL baseado em um mapa de altura.
-    
+
     :param height_map: Uma matriz numpy representando o mapa de altura
     :param scale: Um tuplo de 3 valores representando a escala em x, y e z
     :param output_file: O nome do arquivo STL de saída
     """
+    if not HAS_STL:
+        raise ImportError(
+            "numpy-stl is required for STL export. Install via: pip install numpy-stl"
+        )
     rows, cols = height_map.shape
     vertices = []
 
@@ -222,31 +92,7 @@ def create_stl_from_heightmap(height_map, scale=(1, 1, 1), output_file="output.s
     print(f"STL gerado e salvo em {output_file}")
 
 
-# def negativo_imagem(imagem):
-#    # Converte a imagem de um array NumPy para uma imagem PIL
-#    imagem_pil = Image.fromarray(imagem.astype('uint8'))
-#
-#    # Faz o negativo da imagem
-#    negativo = Image.eval(imagem_pil, lambda x: 255 - x)
-#
-#    # Converte a imagem negativa de volta para um array NumPy
-#    negativo_np = np.array(negativo)
-#
-#    return negativo_np
-#
-import numpy as np
-
-try:
-    from rembg import remove
-
-    HAS_REMBG = True
-except ImportError:
-    HAS_REMBG = False
-
-
 def aplicar_mascara(imagem, img_referencia):
-    if not HAS_REMBG:
-        raise ImportError("rembg is required for this function. Install via: pip install rembg")
     """
     Aplica uma máscara a uma imagem.
 
@@ -254,6 +100,8 @@ def aplicar_mascara(imagem, img_referencia):
     :param referencia: numpy.ndarray, da imagem referencia que ira fornecer a mascara (mesma forma que a imagem)
     :return: numpy.ndarray, imagem resultante após aplicação da máscara
     """
+    if not HAS_REMBG:
+        raise ImportError("rembg is required for this function. Install via: pip install rembg")
     # retira a mascara
     mascara = remove(img_referencia, only_mask=True)
     mascara = np.where(mascara < 10, 0, 1)
@@ -279,14 +127,9 @@ def calculate_error_image(reference_image, depth_map):
     Returns:
         The error image.
     """
-    reference_image_normalized = normalize(convert_img_to_grayscale(reference_image))
+    reference_image_normalized = normalize(convert_to_grayscale(reference_image))
     depth_map_normalized = normalize(depth_map)
-    error_image = reference_image_normalized - depth_map_normalized
-    return error_image
-
-
-import shutil
-from collections import defaultdict
+    return reference_image_normalized - depth_map_normalized
 
 
 def reorganize_repository(base_path, output_path):
@@ -315,17 +158,3 @@ def reorganize_repository(base_path, output_path):
                 grouped_files[base_name].append(new_file_path)
 
     return grouped_files
-
-
-# def compute_fuzzynes(img_fuzzy):
-#    height, width = img_fuzzy.shape
-#    s = 0
-#    for i in range(height):
-#        for j in range (width):
-#            p = img_fuzzy[i, j]
-#            d = p - floor(p+0.5)
-#            s = s + abs(d)
-#
-#    return s/(height*width)
-
-

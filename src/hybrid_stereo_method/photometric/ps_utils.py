@@ -63,22 +63,19 @@ def load_images(foldername=None, ext=None, scale=1.0):
     if foldername is None or ext is None:
         raise ValueError("filename/ext is None")
 
-    M = None
     height = 0
     width = 0
+    columns = []
     for fname in sorted(glob.glob(foldername + "*." + ext)):
         im = cv2.imread(fname).astype(np.float64)
         if im.ndim == 3:
             # Assuming that RGBA will not be an input
-            # im = np.mean(im, axis=2)   # RGB -> Gray
-            im = converter_npy_para_cinza(im)  # importar essa funcao
+            im = converter_npy_para_cinza(im)
             im = im * scale
-        if M is None:
+        if not columns:
             height, width = im.shape
-            M = im.reshape((-1, 1))
-
-        else:
-            M = np.append(M, im.reshape((-1, 1)), axis=1)
+        columns.append(im.reshape(-1))
+    M = np.column_stack(columns) if columns else None
     return M, height, width
 
 
@@ -92,22 +89,18 @@ def load_npyimages(foldername=None, scale=1.0):
     if foldername is None:
         raise ValueError("filename is None")
 
-    M = None
     height = 0
     width = 0
+    columns = []
     for fname in sorted(glob.glob(foldername + "*.npy")):
         im = np.load(fname)
-        # print(im.shape,im.min(),im.max())
         if im.ndim == 3:
-            # im = np.mean(im, axis=2)
-            im = converter_npy_para_cinza(im)  # importar essa funcao
+            im = converter_npy_para_cinza(im)
             im = im * scale
-        if M is None:
+        if not columns:
             height, width = im.shape
-            M = im.reshape((-1, 1))
-
-        else:
-            M = np.append(M, im.reshape((-1, 1)), axis=1)
+        columns.append(im.reshape(-1))
+    M = np.column_stack(columns) if columns else None
     return M, height, width
 
 
@@ -148,24 +141,6 @@ def evaluate_angular_error(gtnormal=None, normal=None, background=None):
     if background is not None:
         ae[background] = 0
     return ae
-
-
-###################################################################################################
-###################################################################################################
-
-
-# def converter_npy_para_cinza(matriz):
-#    """
-#    Esta função recebe uma matriz em formato .npy e a converte para escala de cinza.
-#
-#    Parâmetros:
-#    matriz (numpy.ndarray): A matriz a ser convertida.
-#
-#    Retorna:
-#    numpy.ndarray: A matriz em escala de cinza.
-#    """
-#    return 0.3 * matriz[:, :, 0] + 0.59 * matriz[:, :, 1] + 0.11 * matriz[:, :, 2]
-#
 
 
 def converter_npy_para_cinza(matriz):
@@ -298,11 +273,9 @@ def calculate_gradient_consistency(gradient_map: np.ndarray) -> np.ndarray:
     nx, ny = gradient_map.shape[:2]
     consistency_map = np.zeros((nx, ny))
 
-    for x in range(1, nx - 1):
-        for y in range(1, ny - 1):
-            DGxDy = (gradient_map[x, y + 1, 0] - gradient_map[x, y - 1, 0]) / 2
-            DGyDx = (gradient_map[x + 1, y, 1] - gradient_map[x - 1, y, 1]) / 2
-            consistency_map[x, y] = DGxDy - DGyDx
+    DGxDy = (gradient_map[1:-1, 2:, 0] - gradient_map[1:-1, :-2, 0]) / 2
+    DGyDx = (gradient_map[2:, 1:-1, 1] - gradient_map[:-2, 1:-1, 1]) / 2
+    consistency_map[1:-1, 1:-1] = DGxDy - DGyDx
 
     return consistency_map
 
@@ -320,9 +293,7 @@ def convert_normal_map_to_gradient_map(normal_map):
     nx, ny = normal_map.shape[:2]
     gradient_map = np.zeros((nx, ny, 2))
 
-    for x in range(nx):
-        for y in range(ny):
-            gradient_map[x, y, 0] = normal_map[x, y, 0] / normal_map[x, y, 2]
-            gradient_map[x, y, 1] = normal_map[x, y, 1] / normal_map[x, y, 2]
+    gradient_map[..., 0] = normal_map[..., 0] / normal_map[..., 2]
+    gradient_map[..., 1] = normal_map[..., 1] / normal_map[..., 2]
 
     return gradient_map

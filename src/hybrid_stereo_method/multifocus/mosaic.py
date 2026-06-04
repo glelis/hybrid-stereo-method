@@ -38,57 +38,39 @@ def mosaic(iSel, image_stack: np.array, zFoc: list, interpolation_type: str):
     sMos = np.zeros((height, width, chanels))
     zMos = np.zeros((height, width))
 
+    if interpolation_type == "crop":
+        interpolate = None
+    elif interpolation_type == "quadratic_interpolation":
+        interpolate = quadratic_interpolation
+    elif interpolation_type == "linear_interpolation":
+        interpolate = linear_interpolation
+    else:
+        raise ValueError(f"Unknown interpolation_type: {interpolation_type}")
+
     # Calculo da imagem all_in_focus
     for i in range(height):  # linha
         for j in range(width):  # coluna
-            if interpolation_type == "crop":
-                K_indice = int(iSel[i, j])
-                if K_indice < 0:
-                    zMos[i, j] = zFoc[0]
-                    sMos[i, j, :] = image_stack[0, i, j, :]
+            k_fuzzy = iSel[i, j]
 
-                elif K_indice >= n_frames:
-                    zMos[i, j] = zFoc[n_frames - 1]
-                    sMos[i, j, :] = image_stack[n_frames - 1, i, j, :]
+            if interpolate is None:  # crop: usa o frame mais próximo, sem interpolação
+                K_indice = min(max(int(k_fuzzy), 0), n_frames - 1)
+                zMos[i, j] = zFoc[K_indice]
+                sMos[i, j, :] = image_stack[K_indice, i, j, :]
+                continue
 
-                else:
-                    zMos[i, j] = zFoc[K_indice]
-                    sMos[i, j, :] = image_stack[K_indice, i, j, :]
+            i0 = int(np.floor(k_fuzzy))
 
-            elif interpolation_type == "quadratic_interpolation":
-                k_fuzzy = iSel[i, j]
-                i0 = int(np.floor(k_fuzzy))
-                i1 = i0 + 1
+            if i0 < 0:
+                zMos[i, j] = zFoc[0]
+                sMos[i, j, :] = image_stack[0, i, j, :]
 
-                if i0 < 0:
-                    zMos[i, j] = zFoc[0]
-                    sMos[i, j, :] = image_stack[0, i, j, :]
+            elif i0 + 1 >= n_frames:
+                zMos[i, j] = zFoc[n_frames - 1]
+                sMos[i, j, :] = image_stack[n_frames - 1, i, j, :]
 
-                elif i1 >= n_frames:
-                    zMos[i, j] = zFoc[n_frames - 1]
-                    sMos[i, j, :] = image_stack[n_frames - 1, i, j, :]
-
-                else:
-                    zMos[i, j] = quadratic_interpolation(zFoc, k_fuzzy)
-                    for c in range(3):
-                        sMos[i, j, c] = quadratic_interpolation(image_stack[:, i, j, c], k_fuzzy)
-
-            elif interpolation_type == "linear_interpolation":
-                k_fuzzy = iSel[i, j]
-                i0 = int(np.floor(k_fuzzy))
-                i1 = i0 + 1
-
-                if i0 < 0:
-                    zMos[i, j] = zFoc[0]
-                    sMos[i, j, :] = image_stack[0, i, j, :]
-
-                elif i1 >= n_frames:
-                    zMos[i, j] = zFoc[n_frames - 1]
-                    sMos[i, j, :] = image_stack[n_frames - 1, i, j, :]
-
-                else:
-                    zMos[i, j] = linear_interpolation(zFoc, k_fuzzy)
-                    for c in range(3):
-                        sMos[i, j, c] = linear_interpolation(image_stack[:, i, j, c], k_fuzzy)
+            else:
+                zMos[i, j] = interpolate(zFoc, k_fuzzy)
+                for c in range(chanels):
+                    sMos[i, j, c] = interpolate(image_stack[:, i, j, c], k_fuzzy)
 
     return sMos, zMos

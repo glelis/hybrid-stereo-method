@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+import shutil
 from datetime import datetime
 
 import numpy as np
@@ -14,14 +15,14 @@ from hybrid_stereo_method.infrastructure.io.image_io import (
     convert_image_array_to_fni,
     find_all_files,
     log_parameters,
+    read_image,
     read_images,
     read_yaml_parameters,
     save_image,
 )
-from hybrid_stereo_method.infrastructure.utils import calculate_avarage_of_images
+from hybrid_stereo_method.infrastructure.utils import calculate_avarage_of_images, normalize
 from hybrid_stereo_method.multifocus.main import main as multifocus_stereo_main
 from hybrid_stereo_method.multifocus.mosaic import mosaic
-from hybrid_stereo_method.multifocus.utils import normalize
 from hybrid_stereo_method.photometric.main_wps import main as photometric_stereo_main
 
 
@@ -69,7 +70,6 @@ def main(parameters):
     input_path = parameters["experiment"]["paths"]["input"]
     sharp_input_path = os.path.join(input_path, data_foldername, "sharp")
     if os.path.exists(sharp_input_path):
-        import shutil
         sharp_output_path = os.path.join(output_path, "sharp")
         shutil.copytree(sharp_input_path, sharp_output_path, dirs_exist_ok=True)
         logging.info(f"Copied 'sharp' directory to: {sharp_output_path}")
@@ -84,18 +84,15 @@ def main(parameters):
     logging.info("=" * 60)
     
     # Find all files in the input directory
-    input_path = parameters["experiment"]["paths"]["input"]
     input_files_path = find_all_files(os.path.join(input_path, data_foldername))
 
     # Process images to calculate the average for each 'zf' directory
     zf_directories = sorted(
-        set(
-            [
-                os.path.basename(os.path.dirname(path))
-                for path in input_files_path
-                if os.path.basename(os.path.dirname(path)).startswith("zf")
-            ]
-        )
+        {
+            os.path.basename(os.path.dirname(path))
+            for path in input_files_path
+            if os.path.basename(os.path.dirname(path)).startswith("zf")
+        }
     )
 
     average_images_paths = []
@@ -123,13 +120,11 @@ def main(parameters):
 
     # Process images for each light directory 'L'
     light_directories = sorted(
-        set(
-            [
-                os.path.basename(os.path.dirname(path))
-                for path in input_files_path
-                if os.path.basename(os.path.dirname(path)).startswith("L")
-            ]
-        )
+        {
+            os.path.basename(os.path.dirname(path))
+            for path in input_files_path
+            if os.path.basename(os.path.dirname(path)).startswith("L")
+        }
     )
 
     # Extract configuration for the mosaic
@@ -155,7 +150,7 @@ def main(parameters):
         image_stack = np.asarray(image_list)
 
         # Generate the mosaic for this light, given the mapping `iSel_avg` and configuration `zFoc`
-        logging.info(f"...... Generating mosaic from average iSel ...")
+        logging.info("...... Generating mosaic from average iSel ...")
         sMos_light, _ = mosaic(iSel_avg, image_stack, zFoc, interpolation_type)
 
         # Save the mosaic images to the output directory
@@ -232,7 +227,6 @@ def main(parameters):
             # Locate hAvg.png inside input/sharp
             h_avg_path = os.path.join(input_path, data_foldername, "sharp", "hAvg.png")
             if os.path.exists(h_avg_path):
-                from hybrid_stereo_method.infrastructure.io.image_io import read_image
                 reference_img = read_image(h_avg_path)
                 reference_fni_path = os.path.join(integration_output, "hAvg.fni")
                 if not os.path.exists(integration_output):
@@ -261,7 +255,7 @@ def main(parameters):
             
             # Save as image for visualization
             save_image(integration_output, "height_map.png", height_map)
-            logging.info(f"Height map visualization saved")
+            logging.info("Height map visualization saved")
             
             logging.info(f"Height map shape: {height_map.shape}")
             logging.info(f"Height map range: [{height_map.min():.4f}, {height_map.max():.4f}]")

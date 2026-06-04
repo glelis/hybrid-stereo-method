@@ -23,7 +23,7 @@ def calculate_laplacian_focus_indicator(
     """
     # Normalize to [0,1]
     image = image / 255.0
-    0
+
     # Validate kernel size
     if laplacian_kernel_size % 2 == 0:
         raise ValueError("Laplacian kernel size must be odd")
@@ -32,12 +32,5 @@ def calculate_laplacian_focus_indicator(
     laplacian = cv2.Laplacian(image, cv2.CV_64F, ksize=laplacian_kernel_size)
 
     # Take absolute value to measure magnitude of edges
-    focus_map = laplacian
-    focus_map = np.abs(laplacian)
-    # focus_map = focus_map ** 2
-
-    # normalização deve ser feita no stack de imagens
-    # Normalize to 0-255 range for visualization and further processing
-    # laplacian_norm = cv2.normalize(focus_map, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
-
-    return focus_map
+    # (normalização deve ser feita no stack de imagens)
+    return np.abs(laplacian)
