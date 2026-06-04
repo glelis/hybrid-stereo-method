@@ -118,6 +118,14 @@ def main(parameters):
     logging.info("... Loading light sources ...")
     light_sources = np.load(light_path)
 
+    # Images and lights are paired positionally — the counts must match.
+    if len(images) != light_sources.shape[0]:
+        raise ValueError(
+            f"Number of images ({len(images)}) does not match number of light "
+            f"directions ({light_sources.shape[0]}) in {light_path}. "
+            "Images are paired with lights.npy rows by (natural) sort order."
+        )
+
     # Estimate normals
     logging.info("... Calculating  normals ...")
     start_time = time.time()
