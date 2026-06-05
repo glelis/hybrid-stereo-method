@@ -276,13 +276,54 @@ que injetam os nomes `L*`. O dataset sintético, por ser limpo, expõe a fragili
   validação de contagem antes de qualquer `imshow`); confirmam apenas que a importação de
   `main_wps` funciona headless.
 
+### Variante com workaround MF-14
+
+- **Comando:** `pytest tests/test_e2e_hybrid.py -v -s`
+- **Teste:** `test_hybrid_pipeline_end_to_end_with_workaround` (novo; NÃO leva o mark `_mf14_xfail`).
+  Contorna o MF-14 gravando um arquivo marcador (`marker.txt`) diretamente sob cada `L<n>/` — pai
+  imediato `L*`, sem `sVal.png` no nome — exatamente o tipo de arquivo avulso que faz a detecção
+  funcionar **por acidente** nos datasets reais. Isso permite que a cadeia complete ponta a ponta e
+  mede a **LINHA DE BASE** do restante (mosaicos por luz → PS → integração C).
+- **Resultado:** `1 passed, 1 xfailed in 3.52s` (o teste limpo original continua `xfailed` strict,
+  intocado quanto à lógica). Runtime de parede da suíte: **~4,2 s** (`/usr/bin/time -v`).
+
+BASELINE line verbatim:
+
+```
+=== BASELINE E2E (workaround MF-14) === affine-fit RMSE = 0.0742 (std gt = 0.9780), a = 1.0030, b = 3.1279, pearson r = 0.9971
+```
+
+**Interpretação (explícita por número):**
+
+- **`a = 1.0030` (escala, ≈ +1):** o fator de escala do fit afim entre altura estimada e gt. O
+  **sinal positivo** indica que a cadeia mosaico → PS → integração **preserva a orientação** (não
+  inverte z) **para luzes no mesmo referencial das normais**. O **módulo ≈ 1** diz que, neste setup
+  sintético, a altura recuperada já está praticamente nas unidades de `z_foc` do gt — diferente da
+  expectativa genérica de CONV-4 (`|a| ≠ 1`, slopes por-pixel em unidades de `z_foc`); aqui não há
+  reescala apreciável a corrigir. Apenas uma observação do caso sintético, não fecha CONV-4.
+- **`b = 3.1279` (offset):** o integrador resolve altura a menos de constante; o offset global é
+  absorvido pelo fit afim. Esperado e sem significado físico.
+- **`pearson r = 0.9971` (≈ +1):** correlação quase perfeita ⇒ a **estrutura** é recuperada com a
+  orientação correta atravessando as luzes **no frame sintético**. **NÃO decide o frame do
+  `lights.npy` real** (metade real de CONV-2) — ver caveat abaixo.
+- **`RMSE = 0.0742` vs `std gt = 0.9780`:** o resíduo após o fit afim é ~7,6 % do desvio-padrão do
+  sinal de gt — recuperação estrutural boa. **É linha de base, não gate de qualidade.**
+
+**Caveat sintético (reiterado para CONV-2):** as luzes vêm de `ring_lights` construídas **no MESMO
+referencial numpy das normais** (`synthetic_utils.py`). Portanto o `r ≈ +1` confirma apenas que a
+**cadeia interna do pipeline** não inverte orientação **quando luzes e normais já estão no mesmo
+frame**; **não** reproduz a questão real de CONV-2 (referencial-y do `lights.npy` real, y-up
+POV-Ray, vs. eixos da imagem). A metade real de CONV-2 **continua aberta** e só é decidível com
+`lights.npy` real + ground truth de altura real. Não há atalho sintético.
+
 ### Achados decididos/atualizados por esta Task
 
 | Achado | Status anterior | Status após Task 12 |
 |--------|-----------------|---------------------|
-| MF-14 (detecção `L*` só pelo pai imediato) | — (novo) | **crítico, confirmado por execução** (`test_e2e_hybrid`, XFAIL strict) |
-| CONV-1 (sinal-z físico end-to-end) | suspeita / refutada só no integrador | **permanece aberta** — E2E não completou; não decidível por luzes sintéticas no frame numpy |
-| CONV-2 (metade real: frame luzes reais) | em aberto | **permanece em aberto** — luzes sintéticas no frame numpy NÃO reproduzem a questão POV-Ray; requer `lights.npy` real |
+| MF-14 (detecção `L*` só pelo pai imediato) | — (novo) | **crítico, confirmado por execução** (`test_e2e_hybrid`, XFAIL strict); workaround com marcador sob `L*` mede a baseline (`*_with_workaround`, PASS) |
+| CONV-1 (sinal-z físico end-to-end) | suspeita / refutada só no integrador | **permanece aberta na metade real** — a variante workaround completa com `a > 0`/`r ≈ +1` (cadeia interna não inverte z), mas só com luzes no frame numpy; não decide o sinal físico com `lights.npy` real |
+| CONV-2 (metade real: frame luzes reais) | em aberto | **permanece em aberto** — `r ≈ +1` é no frame sintético; luzes POV-Ray reais NÃO reproduzidas; requer `lights.npy` real |
+| CONV-4 (escala/unidades) | suspeita | **observação sintética** — fit afim deu `|a| ≈ 1` (sem reescala apreciável neste caso); não exercita as unidades reais; permanece suspeita |
 | CONV-6 (pareamento por contagem) | suspeita | **reforçada** (a guarda de contagem pegou 0 vs 6); ainda suspeita p/ N trocados |
 
 ---

@@ -21,8 +21,8 @@ Convenção de veredito:
 
 | # | Convenção | Produtor (file:line) | Consumidor (file:line) | Veredito | Evidência (curta) |
 |---|---|---|---|---|---|
-| 1 | Eixo z / profundidade (direção + unidade) | dataset `zf*` → `z_foc` YAML (`configs/hb_experiment.yaml:39`) → `zMos` (`mosaic.py:57,72`) | hints C (`hybrid/main.py:231`→`pst_integrate.c:308-323`) → `height_map.npy` (`hybrid/main.py:266`) | unidade: **inconsistente** (INT-04); sinal-integrador: **REFUTADO** (preservado) | sinal de `Z` no round-trip numpy↔C é preservado: `test_ramp_normals_decide_convention` PASSED (vencedor `+ax*x+ay*y`, RMSE `5.2e-5` vs `1.025` do invertido). Unidade `z_foc` vs altura-por-pixel segue = INT-04. Sinal-físico `zMos`(hints) vs `Z`: **em aberto** — Task 12 (E2E) não completou (MF-14) e luzes sintéticas no frame numpy não decidiriam; requer dados reais |
-| 2 | Normais e luzes (frame / y-up vs y-down) | `lights.npy` = tuplas POV-Ray `<x,y,z>` (`data/raw/photometric_stereo/ex19_povball-txF/2025-01-15-glelis-pov/make_images.py:44-58`) → normais wps no mesmo frame (`wps.py:165,194`) | normal→slope C (`pst_basic.c:49-50`) → grade de integração (`pst_integrate.c`) | eixo-y do **integrador**: **REFUTADO** (preservado); luzes vs imagem: **EM ABERTO** | `test_ramp_normals_decide_convention` PASSED: `y` do numpy preservado no round-trip (`+ax*x+ay*y` vence; flip-y `+ax*x-ay*y` rejeitado, RMSE `0.381` vs `5.2e-5`). A reconciliação y-up(`lights.npy`)↔y-down(imagem) no PS é elo separado, **ainda aberto**. Task 12 (E2E) NÃO o fechou: pipeline aborta antes do PS (MF-14) e, por construção, luzes sintéticas estão no mesmo frame numpy das normais → não reproduz a questão POV-Ray; requer dados reais |
+| 1 | Eixo z / profundidade (direção + unidade) | dataset `zf*` → `z_foc` YAML (`configs/hb_experiment.yaml:39`) → `zMos` (`mosaic.py:57,72`) | hints C (`hybrid/main.py:231`→`pst_integrate.c:308-323`) → `height_map.npy` (`hybrid/main.py:266`) | unidade: **inconsistente** (INT-04); sinal-integrador: **REFUTADO** (preservado) | sinal de `Z` no round-trip numpy↔C é preservado: `test_ramp_normals_decide_convention` PASSED (vencedor `+ax*x+ay*y`, RMSE `5.2e-5` vs `1.025` do invertido). Unidade `z_foc` vs altura-por-pixel segue = INT-04. Sinal-físico `zMos`(hints) vs `Z`: **em aberto** — Task 12 (E2E) não completou (MF-14) e luzes sintéticas no frame numpy não decidiriam; requer dados reais. Task 12-ext (workaround MF-14): cadeia completa com `a=+1.003`/`r=0.997` → não inverte z **no frame sintético** (não fecha a metade física) |
+| 2 | Normais e luzes (frame / y-up vs y-down) | `lights.npy` = tuplas POV-Ray `<x,y,z>` (`data/raw/photometric_stereo/ex19_povball-txF/2025-01-15-glelis-pov/make_images.py:44-58`) → normais wps no mesmo frame (`wps.py:165,194`) | normal→slope C (`pst_basic.c:49-50`) → grade de integração (`pst_integrate.c`) | eixo-y do **integrador**: **REFUTADO** (preservado); luzes vs imagem: **EM ABERTO** | `test_ramp_normals_decide_convention` PASSED: `y` do numpy preservado no round-trip (`+ax*x+ay*y` vence; flip-y `+ax*x-ay*y` rejeitado, RMSE `0.381` vs `5.2e-5`). A reconciliação y-up(`lights.npy`)↔y-down(imagem) no PS é elo separado, **ainda aberto**. Task 12 (E2E) NÃO o fechou: pipeline aborta antes do PS (MF-14) e, por construção, luzes sintéticas estão no mesmo frame numpy das normais → não reproduz a questão POV-Ray; requer dados reais. Task 12-ext (workaround MF-14): cadeia completa com `r=0.997` → orientação preservada **no frame sintético**; metade real (POV-Ray) segue aberta |
 | 3 | Origem/orientação da imagem (round-trip FNI) | writer FNI Python (`image_io.py:171-178`) → C (`float_image`/`tire_read_fni_file`) | writer C `-end-Z.fni` → reader Python (`image_io.py:227-241`) | **consistente** (indexação Task 8; orientação Task 9-ext) | round-trip preserva o array sem flip (`test_fni_roundtrip` 4/4, Task 8); a rampa via `-normals` confirma que orientação **e** sinal são preservados ponta a ponta (`test_ramp_normals_decide_convention` PASSED, RMSE `5.2e-5`) — não afeta a constante de integração (ajuste sobre `z-z.mean()`) |
 | 4 | Escala dos gradientes (slope adimensional vs z físico) | slope `dZdX=-nx/nz` adimensional (`pst_basic.c:49-50`) | sistema de altura-por-pixel + hints em `z_foc` (`pst_integrate.c:308-323`) | **inconsistente** | INT-04/INT-05; `slopes_scale` default `(1,1)` (`integrate.py:53`) **nunca** configurado pelo híbrido → **CONV-4** consolida |
 | 5 | Radiometria entre etapas (linearidade) | `sVal.png` uint8 → médias por-zf re-esticadas (`hybrid/main.py:111`) e mosaicos uint8 clipados (`hybrid/main.py:160`) | foco multifocus (`multifocus/main.py:96`); grayscale→PS (`main_wps.py:115,136`) | **inconsistente** | cadeia quebra linearidade em 3 pontos (IO-05, MF-12, PS-07/PS-08) → **CONV-5** consolida a sequência |
@@ -50,6 +50,15 @@ sintéticas são todas construídas no mesmo referencial numpy (`synthetic_utils
 acoplamento POV-Ray `zFoc`↔geometria-de-câmera que origina o desacordo. CONV-1 **permanece
 com o sinal-físico em aberto** (refutado apenas no integrador via `-normals`, Task 9-ext);
 decisão requer E2E com dados reais (com hints) e ground-truth de altura real.
+
+**Atualização Task 12-ext (workaround MF-14, 2026-06-05):** A variante
+`test_hybrid_pipeline_end_to_end_with_workaround` (marcador sob cada `L*` contorna MF-14)
+**completa a cadeia ponta a ponta** e produz baseline `affine-fit RMSE = 0.0742` (std gt
+`0.9780`), `a = 1.0030` (escala **positiva** ≈ +1), `b = 3.1279`, `pearson r = 0.9971`. O
+`a > 0` e `r ≈ +1` são **evidência** de que a cadeia interna mosaico→PS→integração **não
+inverte z** — mas **só para luzes no mesmo frame numpy das normais** (luzes sintéticas). A
+metade física (frame real `lights.npy` POV-Ray) **continua aberta**: este número não a
+decide. Verbatim e interpretação em `06-test-results.md`.
 
 **Atualização Task 9-ext (2026-06-04):** A rampa reenviada pelo caminho `-normals`
 (`test_ramp_normals_decide_convention`, PASSED) **decide** o sinal: a cadeia
@@ -116,6 +125,15 @@ baixo]`. **Recomendação:** a metade real de CONV-2 só pode ser decidida com `
 real + ground-truth de altura real (comparando orientação do mapa integrado com/sem flip do
 eixo-y das luzes); não há atalho sintético neste frame. CONV-2 (metade real) **permanece em
 aberto**.
+
+**Atualização Task 12-ext (workaround MF-14, 2026-06-05):** A variante
+`test_hybrid_pipeline_end_to_end_with_workaround` agora **completa** a cadeia (contornando
+MF-14) e dá `pearson r = 0.9971`, `a = 1.0030` (positivo). Isso confirma que a cadeia
+mosaico→PS→integração **preserva a orientação para luzes no mesmo frame numpy das normais** —
+uma linha de evidência sobre o elo interno, **mas não fecha a metade real**: as luzes
+sintéticas continuam no frame numpy, não no frame POV-Ray real. CONV-2 (metade real)
+**continua em aberto** — só decidível com `lights.npy` real + gt de altura real. Verbatim em
+`06-test-results.md`.
 
 **Atualização Task 9-ext (2026-06-04):** A rampa via `-normals`
 (`test_ramp_normals_decide_convention`, PASSED) decide o eixo-y **do integrador**: o `y` do
