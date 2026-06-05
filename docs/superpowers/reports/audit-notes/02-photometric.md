@@ -25,7 +25,7 @@ os achados são "suspeita", salvo quando o código por si só prova o defeito
 
 - **Localização:** `src/hybrid_stereo_method/photometric/wps.py:198`
 - **Tipo:** conceitual
-- **Severidade:** alto
+- **Severidade:** baixo
 - **Status:** suspeita (decide: `tests/test_photometric_synthetic.py` — albedo-vs-número-de-luzes)
 
 **Descrição:** No modelo `I = ρ·(L·n̂)`, a solução de mínimos quadrados de `L · m = I` dá um
@@ -39,6 +39,13 @@ válidas** `N` (mais termos não-negativos na soma sob a raiz) e com a geometria
 selecionadas. Logo o "albedo" é uma grandeza dependente de `N` e da configuração de luz, sem
 significado fotométrico. O albedo correto seria a norma de `m` **antes** da normalização
 (ou `ρ = ||m||` a partir do `lstsq`).
+
+O defeito é **latente**: o `albedo` retornado por `estimate_normals_argmax_lstsq_robust` é
+desempacotado em `main_wps.py:135` mas **nunca é salvo nem consumido** em nenhum ponto do
+pacote (verificado por grep — não vai para FNI, nem para a integração, nem para o canal de
+confiança). A severidade sobe para alto/crítico se o albedo passar a ser reportado ou
+consumido (ex.: figuras da tese, mapa de reflectância), momento em que o viés dependente de
+`N` se torna um erro mensurável nos resultados.
 
 **Evidência:** `lstsq(selected_lights, selected_values)` em `wps.py:165` devolve `normal`
 não-normalizado; `wps.py:194` faz `normal /= norm` (perde `||m||`); `wps.py:198` recomputa
@@ -120,23 +127,27 @@ enviesadas quando a saturação infla `r_avg`.
 
 - **Localização:** `src/hybrid_stereo_method/photometric/wps.py:163-176`, `203-206`
 - **Tipo:** implementação
-- **Severidade:** médio
-- **Status:** suspeita (decide: inspeção do fluxo do laço + teste sintético de confiança)
+- **Severidade:** baixo
+- **Status:** verificado por inspeção de fluxo — risco de manutenção
 
-**Descrição:** Na iteração final do laço (a que dá `break` em `wps.py:175-176` porque
-`mask` mantém todos), `residuals` foi computado **sobre o conjunto já filtrado**, então
-nesse caso `residual_std` (`wps.py:203`) é coerente. Porém o vetor `residuals` usado em
-`wps.py:203` é o **último calculado dentro do laço** e corresponde ao `normal` da **última
-solução**; já `selected_lights`/`selected_values` foram potencialmente reduzidos na mesma
-iteração apenas se houve `break` por `<3` — caso descartado pelo guard. O ponto frágil
-adicional é o item PS-05 (escala). Combinado com PS-01/PS-02, a confiança herda a
-dependência de `N` e de escala. Registrado como risco de consistência: a confiança e o
-`residual_std` precisam ser recomputados a partir do `normal` final e do conjunto final,
-o que o código faz por coincidência do ponto de `break`, mas não por construção explícita.
+**Descrição:** A análise de fluxo mostra que **todos** os caminhos que alcançam o bloco de
+confiança (guard `>= 3`) chegam com `residuals`, `normal` e `selected_*` mutuamente
+alinhados: o único ponto de saída válido do laço é o `break` em `wps.py:175-176`, que só
+dispara quando `mask` mantém todos os elementos (`sum(mask) == len`), garantindo que
+`residuals` foi computado exatamente sobre o conjunto atual. O código está, portanto,
+**correto por construção hoje**.
+
+O achado é de **fragilidade a refatoração futura**: há acoplamento implícito entre o ponto
+de `break` e a validade de `residual_std` — qualquer alteração na estrutura do laço (ex.:
+adicionar um segundo critério de convergência, reorganizar a atribuição de `residuals`)
+pode silenciosamente desalinhar os vetores sem que haja nenhuma asserção ou comentário que
+proteja essa invariante. Combinado com PS-01/PS-02, a confiança ainda herda a dependência de
+`N` e de escala, mas isso é contabilizado nesses achados, não aqui.
 
 **Evidência:** `residuals` reatribuído a cada volta (`wps.py:168`); `break` só ocorre quando
 `mask` mantém todos (`wps.py:175`), de modo que `residuals` e `selected_*` estão alinhados
-no ponto de saída normal. Sem teste, não dá para afirmar bug — daí "suspeita".
+no ponto de saída normal. O alinhamento é garantido pela topologia do laço, não por uma
+invariante explícita.
 
 **Sugestão de correção:** recomputar `residuals` explicitamente a partir do `normal` final
 e do conjunto final antes de derivar confiança, removendo a dependência da ordem do
@@ -164,7 +175,11 @@ com exposições diferentes. Pior: como `L·n̂` (com `n̂` unitário) e `I` (�
 de escala albedo≠1 — ver PS-01. Consequência a jusante: o canal de confiança vai para
 `normal_map_with_residuals.fni` (`main_wps.py:147-151`) e, no pipeline híbrido, a confiança
 do *multifocus* (não esta) é que alimenta os hints; mesmo assim, qualquer uso desta
-confiança como peso herda o viés de escala.
+confiança como peso herda o viés de escala. Assim como PS-01 (albedo), o canal de confiança
+fotométrica **não tem consumidor ativo** — `normal_map_with_residuals.fni` não é lido pela
+integração (hints vêm do multifocus via `hybrid/main.py:231`), o que limita o impacto atual
+a relatório; a severidade do viés de escala sobe se a confiança passar a ser usada como peso
+na integração ou em fusão de dados.
 
 **Evidência:** `residual_std = np.std(residuals)` (`wps.py:203`) sobre resíduos em unidade de
 `I`; `confidence = (N/M) * (1/(1+residual_std))` (`wps.py:204-205`). `n̂` unitário
@@ -272,24 +287,25 @@ entrada se os PNGs forem gamma-encoded). NÃO aplicar.
 
 - **Localização:** `src/hybrid_stereo_method/infrastructure/utils.py:74-85`; chamada em `main_wps.py:115`
 - **Tipo:** implementação
-- **Severidade:** médio
+- **Severidade:** baixo
 - **Status:** confirmado (por inspeção, item de robustez) / coeficientes: suspeita
 
 **Descrição:** `convert_to_grayscale` chama `cv2.cvtColor(img, COLOR_BGR2GRAY)`
 incondicionalmente. (1) **Robustez:** se a imagem de entrada já for **mono-canal**
 (2D), `cvtColor(BGR2GRAY)` **lança exceção** ("Invalid number of channels", reproduzido
-nesta auditoria). No fluxo híbrido, `sMos.png` tem o nº de canais do `image_stack`; como
-`mosaic` desempacota `n,h,w,chanels` (`mosaic.py:32`), o stack precisa ser 4D (sVal.png
-coloridas), então hoje `sMos.png` é 3-canais e a conversão **funciona** — mas a função é
-frágil a qualquer dataset com sVal.png em tons de cinza (entrada mono → crash). (2)
-**Coeficientes/convenção:** `cv2.COLOR_BGR2GRAY` usa pesos Rec.601 `0.299R+0.587G+0.114B`
-sobre a ordem **BGR do cv2**, o que está correto para imagens lidas por cv2. Porém o
-**outro** caminho (`rps.py` via `ps_utils.converter_npy_para_cinza`, `ps_utils.py:146-156`)
-usa pesos `0.3R+0.59G+0.11B` e **detecta RGB vs BGR por média de canais** (heurística
-`mean(canal0) > mean(canal2)`), que pode classificar errado dependendo da cena — duas
-políticas de grayscale diferentes entre `main.py` e `main_wps.py` (ver também CONV).
-`convert_to_grayscale` aceita float (converte float64→float32, `utils.py:83-84`) e uint8,
-mas não trata entrada já 2D.
+nesta auditoria). No fluxo híbrido, esse crash é **inalcançável** com os dados atuais:
+`sMos.png` tem sempre 3 canais porque `mosaic` desempacota `n,h,w,chanels` (`mosaic.py:32`)
+exigindo stack 4D — os `sVal.png` são sempre coloridos no dataset-alvo. O crash é um
+**caso de borda para datasets futuros** com `sVal.png` em tons de cinza (entrada mono →
+stack 3D → mosaico 2D → `sMos.png` mono-canal → crash em `convert_to_grayscale`). (2)
+**Coeficientes/convenção (CONV):** `cv2.COLOR_BGR2GRAY` usa pesos Rec.601
+`0.299R+0.587G+0.114B` sobre a ordem **BGR do cv2**, o que está correto para imagens lidas
+por cv2. Porém o **outro** caminho (`rps.py` via `ps_utils.converter_npy_para_cinza`,
+`ps_utils.py:146-156`) usa pesos `0.3R+0.59G+0.11B` e **detecta RGB vs BGR por média de
+canais** (heurística `mean(canal0) > mean(canal2)`), que pode classificar errado dependendo
+da cena — divergência de convenção (Rec.601 vs heurística de ps_utils) entre os dois entry
+points, observada como achado cruzado CONV. `convert_to_grayscale` aceita float (converte
+float64→float32, `utils.py:83-84`) e uint8, mas não trata entrada já 2D.
 
 **Evidência:** `cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)` (`utils.py:85`) — reprodução com PNG
 mono lançou `Bad number of channels ... scn is 1`. Heurística divergente em
