@@ -232,7 +232,7 @@ de pixel — uma quimera de duas escalas, exatamente o mecanismo previsto. **Ach
 cada nível — hints **nunca** ancoram o nível absoluto (verificado: `z.mean() = 0.0` exato
 para qualquer peso), apenas a forma/níveis relativos.
 
-**Correção aplicada:** PENDING_SHA (2026-06-05) — novo parâmetro
+**Correção aplicada:** `aa772ed` (2026-06-05) — novo parâmetro
 `hybrid.integration.pixel_size` (tamanho lateral de 1 pixel nas mesmas unidades de
 `z_foc`); o helper `build_integration_config` (`hybrid/main.py`) deriva
 `slopes_scale = (pixel_size, pixel_size)`, então o C multiplica os slopes pelo passo

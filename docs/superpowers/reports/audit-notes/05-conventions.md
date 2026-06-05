@@ -228,7 +228,7 @@ rampa com hints (Task 9/12) mede o viés de escala resultante.
 `z_foc`→altura-por-pixel (fator = passo de `z_foc` em px), tornando hints e gradientes
 comensuráveis; ou converter `zMos` para unidade de pixel antes de gravar os hints. NÃO aplicar.
 
-**Correção aplicada:** PENDING_SHA (2026-06-05) — `hybrid.integration.pixel_size`
+**Correção aplicada:** `aa772ed` (2026-06-05) — `hybrid.integration.pixel_size`
 (tamanho lateral de 1 pixel em unidades de `z_foc`) é o ponto de costura escolhido: o
 helper `build_integration_config` (`hybrid/main.py`) deriva `slopes_scale = (pixel_size,
 pixel_size)` e o `scale` passa a ser emitido ao binário (o mecanismo `integrate.py:104-105`
