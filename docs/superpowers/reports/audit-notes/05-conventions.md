@@ -22,7 +22,7 @@ Convenção de veredito:
 | # | Convenção | Produtor (file:line) | Consumidor (file:line) | Veredito | Evidência (curta) |
 |---|---|---|---|---|---|
 | 1 | Eixo z / profundidade (direção + unidade) | dataset `zf*` → `z_foc` YAML (`configs/hb_experiment.yaml:39`) → `zMos` (`mosaic.py:57,72`) | hints C (`hybrid/main.py:231`→`pst_integrate.c:308-323`) → `height_map.npy` (`hybrid/main.py:266`) | **inconsistente** + **decidido-por-teste** | unidade física `z_foc` vs altura-por-pixel já é INT-04; **direção/sinal** de `Z` (cresce p/ câmera?) não decidida estaticamente → **CONV-1** + teste rampa |
-| 2 | Normais e luzes (frame / y-up vs y-down) | `lights.npy` = tuplas POV-Ray `<x,y,z>` (`data/.../make_images.py:44-58`) → normais wps no mesmo frame (`wps.py:165,194`) | normal→slope C (`pst_basic.c:49-50`) → grade de integração (`pst_integrate.c`) | **inconsistente (não documentada)** + **decidido-por-teste** | y das luzes = y-up POV-Ray (left-handed); imagem numpy = y-down (linha 0 = topo). Convenção **não documentada** em lugar nenhum → **CONV-2**; sinal final pelo teste rampa |
+| 2 | Normais e luzes (frame / y-up vs y-down) | `lights.npy` = tuplas POV-Ray `<x,y,z>` (`data/raw/photometric_stereo/ex19_povball-txF/2025-01-15-glelis-pov/make_images.py:44-58`) → normais wps no mesmo frame (`wps.py:165,194`) | normal→slope C (`pst_basic.c:49-50`) → grade de integração (`pst_integrate.c`) | **inconsistente (não documentada)** + **decidido-por-teste** | y das luzes = y-up POV-Ray (left-handed); imagem numpy = y-down (linha 0 = topo). Convenção **não documentada** em lugar nenhum → **CONV-2**; sinal final pelo teste rampa |
 | 3 | Origem/orientação da imagem (round-trip FNI) | writer FNI Python (`image_io.py:171-178`) → C (`float_image`/`tire_read_fni_file`) | writer C `-end-Z.fni` → reader Python (`image_io.py:227-241`) | **consistente** (indexação) / **decidido-por-teste** (sinal dZ/dY) | round-trip preserva o array (sem flip), cf. INT (03) e IO (04); sinal físico dZ/dY → CONV-2/CONV-1 + teste rampa |
 | 4 | Escala dos gradientes (slope adimensional vs z físico) | slope `dZdX=-nx/nz` adimensional (`pst_basic.c:49-50`) | sistema de altura-por-pixel + hints em `z_foc` (`pst_integrate.c:308-323`) | **inconsistente** | INT-04/INT-05; `slopes_scale` default `(1,1)` (`integrate.py:53`) **nunca** configurado pelo híbrido → **CONV-4** consolida |
 | 5 | Radiometria entre etapas (linearidade) | `sVal.png` uint8 → médias por-zf re-esticadas (`hybrid/main.py:111`) e mosaicos uint8 clipados (`hybrid/main.py:160`) | foco multifocus (`multifocus/main.py:96`); grayscale→PS (`main_wps.py:115,136`) | **inconsistente** | cadeia quebra linearidade em 3 pontos (IO-05, MF-12, PS-07/PS-08) → **CONV-5** consolida a sequência |
@@ -36,36 +36,34 @@ Convenção de veredito:
 
 ## CONV-1: Direção do eixo z não é fixada/verificada ponta a ponta (z_foc cresce ↔ sinal de Z integrado)
 
-- **Localização:** dataset `zf*` → `z_foc` (`configs/hb_experiment.yaml:39`) → `mosaic.py:57,72` → hints (`hybrid/main.py:231`) → `Z` do C (`gus_integrate_recursive.c:457-459`) → `height_map.npy` (`hybrid/main.py:266`)
+- **Localização:** dataset `zf*` (pastas `organized_by_focus/zf*/`, reorganização pós-geração; o gerador emite pastas `F00/F01/...` por luz, não `zf*` diretamente) → `z_foc` (`configs/hb_experiment.yaml:39`) → `mosaic.py:57,72` → hints (`hybrid/main.py:231`) → `Z` do C (`gus_integrate_recursive.c:457-459`) → `height_map.npy` (`hybrid/main.py:266`)
 - **Tipo:** conceitual
 - **Severidade:** alto
 - **Status:** suspeita (decide: `tests/test_convention_integration.py::test_constant_slopes_recover_ramp_and_decide_convention`, Task 9)
 
 **Descrição:** A direção de crescimento de `z` **não é fixada nem verificada** em nenhum elo
 da cadeia. No dataset gerado por POV-Ray, `zFoc` cresce do fundo da cena (`zScene_min`) para
-a frente (`data/.../make_images.py:88-100`: `zFoc = zFoc_min + kfoc/(nfoc-1)*(zFoc_max -
-zFoc_min)`), de modo que **`z_foc` maior = plano focal mais distante da câmera** (mais ao
-fundo). O multifocus grava `zMos[i,j] = z_foc[k_sel]` (`mosaic.py:57,72`) preservando essa
-direção física (alturas em unidades de `z_foc`, "mais fundo = maior"). Já a altura integrada
-`Z` do solver C resulta da integração do campo de slope `dZdX=-nx/nz` (`pst_basic.c:49-50`),
-cuja constante de integração é **arbitrária por componente conexa**
-(`gus_integrate_recursive.c:138-143`) e cujo sinal de crescimento depende da convenção de
-normal do PS — i.e. `Z` cresce na direção `+nz` (em direção à câmera, se `nz>0` aponta para
-fora da superfície em direção ao observador). Assim, **`zMos` (mais-fundo = maior) e `Z`
-(mais-perto-da-câmera = maior, por convenção de normal) podem ter sinais opostos**: quando o
-híbrido usa `zMos_with_confidence.fni` como *hints* no mesmo sistema (INT-04), um eventual
-desacordo de sinal puxa a superfície na direção errada (não só desloca a constante). A
-direção é decidida apenas empiricamente pela geometria do dataset, sem nenhuma asserção,
-documentação ou conversão de sinal no código. Como o erro de **unidade** (z_foc físico vs
-altura-por-pixel) já é INT-04, este achado isola o eixo **sinal/direção**, que a leitura
-estática não resolve.
+a frente (`data/raw/photometric_stereo/ex19_povball-txF/2025-01-15-glelis-pov/make_images.py:98-100`:
+`zFoc = zFoc_min + kfoc/(nfoc-1)*(zFoc_max - zFoc_min)`; `zScene_min=0.0`, `zScene_max=2.0`
+em `make_images.py:62-63`), de modo que **`z_foc` maior = plano focal mais distante da
+câmera** (mais ao fundo). A inferência direcional ("z_foc maior = mais longe da câmera")
+apoia-se em `cam_dir=<0,0,1>` com a câmera no lado −z (convenção bcamlight), cena z∈[0,2] —
+não mostrado nas linhas citadas, mas verificado no gerador (`main.pov:292`). O multifocus
+grava `zMos[i,j] = z_foc[k_sel]` (`mosaic.py:57,72`) preservando essa direção física (alturas
+em unidades de `z_foc`, "mais fundo = maior"). Já a altura integrada `Z` do solver C resulta
+da integração do campo de slope `dZdX=-nx/nz` (`pst_basic.c:49-50`), cuja constante de
+integração é **arbitrária por componente conexa** (`gus_integrate_recursive.c:138-143`) e
+cujo sinal de crescimento depende da convenção de normal do PS — i.e. `Z` cresce na direção
+`+nz` (em direção à câmera, se `nz>0` aponta para fora da superfície em direção ao
+observador). Assim, **`zMos` (mais-fundo = maior) e `Z` (mais-perto-da-câmera = maior, por
+convenção de normal) podem ter sinais opostos**: quando o híbrido usa
+`zMos_with_confidence.fni` como *hints* no mesmo sistema (INT-04), um eventual desacordo de
+sinal puxa a superfície na direção errada (não só desloca a constante). A direção é decidida
+apenas empiricamente pela geometria do dataset, sem nenhuma asserção, documentação ou
+conversão de sinal no código. Como o erro de **unidade** (z_foc físico vs altura-por-pixel)
+já é INT-04, este achado isola o eixo **sinal/direção**, que a leitura estática não resolve.
 
-**Evidência:** `zFoc` crescente p/ frente da cena (`make_images.py:88-100`); `zMos[i,j] =
-zFoc[...]` (`mosaic.py:57,72`); slope `-nx/nz`,`-ny/nz` (`pst_basic.c:49-50`); constante de
-integração arbitrária (`gus_integrate_recursive.c:138-143`); hints somados a `Z` no mesmo
-sistema (`pst_integrate.c:308-323` via `hybrid/main.py:231`). Nenhuma asserção de sinal em
-todo o caminho. O teste de rampa de slope constante conhecido (Task 9) recupera o sinal de
-`Z` e decide se ele concorda com a direção de `zMos`.
+**Evidência:** `zFoc` crescente p/ frente da cena (`data/raw/photometric_stereo/ex19_povball-txF/2025-01-15-glelis-pov/make_images.py:98-100`; números de linha variam entre as cópias de make_images.py; o lights.npy do dataset híbrido reproduz byte-a-byte as tuplas `light_dirs` deste gerador — proveniência por igualdade de valores); `zMos[i,j] = zFoc[...]` (`mosaic.py:57,72`); slope `-nx/nz`,`-ny/nz` (`pst_basic.c:49-50`); constante de integração arbitrária (`gus_integrate_recursive.c:138-143`); hints somados a `Z` no mesmo sistema (`pst_integrate.c:308-323` via `hybrid/main.py:231`). Nenhuma asserção de sinal em todo o caminho. O teste de rampa de slope constante conhecido (Task 9) recupera o sinal de `Z` e decide se ele concorda com a direção de `zMos`.
 
 **Sugestão de correção:** documentar e fixar a convenção de direção de `z` ponta a ponta;
 inserir asserção/conversão de sinal entre `zMos` (hints) e a altura integrada antes de
@@ -75,17 +73,20 @@ combiná-los. NÃO aplicar.
 
 ## CONV-2: Convenção do eixo Y das luzes (lights.npy) vs. imagem numpy não é documentada nem reconciliada
 
-- **Localização:** `lights.npy` (gerado fora do pacote — tuplas POV-Ray em `data/raw/photometric_stereo/*/make_images.py:44-58`) → `np.load` (`main_wps.py:119`) → `wps.py:165,194` → `normal_map.npy` → `pst_basic.c:49-50` (`dZdY=-ny/nz`) → grade de integração C
+- **Localização:** `lights.npy` (gerado fora do pacote — tuplas POV-Ray em `data/raw/photometric_stereo/ex19_povball-txF/2025-01-15-glelis-pov/make_images.py:44-58`) → `np.load` (`main_wps.py:119`) → `wps.py:165,194` → `normal_map.npy` → `pst_basic.c:49-50` (`dZdY=-ny/nz`) → grade de integração C
 - **Tipo:** conceitual
 - **Severidade:** alto
 - **Status:** suspeita (decide: `tests/test_convention_integration.py::test_constant_slopes_recover_ramp_and_decide_convention`, Task 9)
 
 **Descrição:** O modelo Lambertiano resolve `I = ρ·(L·n̂)`, logo as normais estimadas vivem
 **no mesmo frame de coordenadas das luzes** `lights.npy` (por construção do `lstsq` em
-`wps.py:165`; PS-02). As `lights.npy` reais são **exatamente** as tuplas `light_dir =
-<x,y,z>` declaradas no gerador POV-Ray (verificado: as 12 linhas de
-`data/raw/hybrid_stereo/.../lights.npy` reproduzem `make_images.py:44-58`, na mesma ordem
-L00..L11), com **z>0** (luz acima do plano, na direção da câmera). POV-Ray usa sistema
+`wps.py:165`; PS-02). As `lights.npy` reais são **exatamente** as tuplas da lista `light_dirs`
+declarada no gerador POV-Ray (`data/raw/photometric_stereo/ex19_povball-txF/2025-01-15-glelis-pov/make_images.py:44-58`;
+o escalar `light_dir` em `make_images.py:169` é a declaração POV da cena por frame, distinto
+da lista `light_dirs`) — verificado: as 12 linhas de `lights.npy` do dataset híbrido
+reproduzem byte-a-byte as tuplas `light_dirs` deste gerador — proveniência por igualdade de
+valores, na mesma ordem L00..L11, com **z>0** (luz acima do plano, na direção da câmera).
+POV-Ray usa sistema
 **left-handed com +y para cima**. Já a imagem que alimenta o PS é um array numpy
 `[linha, coluna]` com **linha 0 = topo** (y crescendo **para baixo**, cf. writer/reader FNI
 `image_io.py:171,239`). O passo normal→slope no C faz `dZdY = -ny/nz` (`pst_basic.c:49-50`) e
@@ -95,7 +96,7 @@ cima" das luzes e o "y para baixo" das linhas da imagem.** Se as duas convençõ
 sinal (o que é o caso típico entre POV-Ray y-up e numpy row-down), as normais ficam
 **espelhadas em Y** e a superfície integrada sai invertida na vertical (ou com o sinal de
 `dZ/dY` trocado). O integrador C oferece o escape `scale {sx} {sy}` com `sy` negativo
-(`gus_integrate_recursive.c:213-216`) justamente para essa reconciliação, mas o Python passa
+(`gus_integrate_recursive.c:214-216`) justamente para essa reconciliação, mas o Python passa
 `slopes_scale` default `(1,1)` e **nunca** o configura (`integrate.py:53,104-105`;
 `hybrid/main.py` não seta `slopes_scale`), assumindo implicitamente que luzes e linhas têm a
 mesma orientação de Y — premissa **não verificada**. Procurei documentação/geração que fixe a
@@ -104,14 +105,16 @@ convenção: **nenhuma** existe no pacote (`src/`), nos configs ou nos specs (gr
 auditoria). Registro a convenção como **NÃO DOCUMENTADA** e o risco resultante como sinal de
 `dZ/dY` indeterminado estaticamente.
 
-**Evidência:** `lights.npy` = tuplas POV-Ray (`make_images.py:44-58`; conteúdo idêntico
-verificado em `data/raw/hybrid_stereo/2025-02-11-.../lights.npy`, coluna y = `[-0.554,
--0.794, ...]`); POV-Ray = left-handed +y-up. Array da imagem com linha 0 = topo
-(`image_io.py:171` escreve `y=0` primeiro; reader mapeia `image_array[y,x]`,
-`image_io.py:239`). `dZdY=-ny/nz` (`pst_basic.c:49-50`). `slopes_scale=(1,1)` default
-(`integrate.py:53`), nunca alterado pelo híbrido. Nenhum decode de convenção de Y em `src/`
-(grep vazio). O teste de rampa (slope `dZ/dY` constante conhecido, Task 9) decide o sinal
-físico de Y e se o pipeline o trata corretamente.
+**Evidência:** `lights.npy` = tuplas da lista `light_dirs` do gerador POV-Ray
+(`data/raw/photometric_stereo/ex19_povball-txF/2025-01-15-glelis-pov/make_images.py:44-58`;
+números de linha variam entre as cópias de make_images.py; o lights.npy do dataset híbrido
+reproduz byte-a-byte as tuplas `light_dirs` deste gerador — proveniência por igualdade de
+valores; coluna y = `[-0.554, -0.794, ...]`); POV-Ray = left-handed +y-up. Array da imagem
+com linha 0 = topo (`image_io.py:171` escreve `y=0` primeiro; reader mapeia
+`image_array[y,x]`, `image_io.py:239`). `dZdY=-ny/nz` (`pst_basic.c:49-50`).
+`slopes_scale=(1,1)` default (`integrate.py:53`), nunca alterado pelo híbrido. Nenhum decode
+de convenção de Y em `src/` (grep vazio). O teste de rampa (slope `dZ/dY` constante
+conhecido, Task 9) decide o sinal físico de Y e se o pipeline o trata corretamente.
 
 **Sugestão de correção:** documentar a convenção de eixo das `lights.npy` (y-up POV-Ray) e,
 no boundary numpy↔C, ou negar a coluna y das luzes, ou passar `scale 1 -1` ao solver, de modo
@@ -254,7 +257,7 @@ contando só com a coincidência de ordenação. (2) e (3) são cross-refs (MF-0
 posicional + checagem só de contagem (`main_wps.py:122-127,135`); `sorted(zf_directories)`
 lexicográfico (`hybrid/main.py:90`, MF-02); `z_foc` posicional (`mosaic.py:57`); `demand` de
 tamanho de vértices para hints (`gus_integrate_recursive.c:519`) + expansão célula→vértice
-(INT-05). Lights reais em ordem de declaração (`make_images.py:44-58`), pastas `L000..L011`
+(INT-05). Lights reais em ordem de declaração (`data/raw/photometric_stereo/ex19_povball-txF/2025-01-15-glelis-pov/make_images.py:44-58`), pastas `L000..L011`
 zero-padded (verificado no dataset). O teste end-to-end com luzes/planos rotulados (Task 12)
 detecta desalinhamentos que a contagem não pega.
 
