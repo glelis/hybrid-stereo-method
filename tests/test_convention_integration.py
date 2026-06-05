@@ -10,7 +10,7 @@ impresso É o achado (CONV-xx).
 import numpy as np
 import pytest
 
-from synthetic_utils import affine_fit_rmse, gaussian_bump, normals_from_height
+from synthetic_utils import affine_fit_rmse, gaussian_bump, normals_from_height, ramp
 
 from hybrid_stereo_method.hybrid.integrate import (
     DEFAULT_EXECUTABLE,
@@ -26,7 +26,15 @@ needs_binary = pytest.mark.skipif(
 pytestmark = [needs_binary, pytest.mark.slow]
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="INT-08: integrate_slopes_to_height com 2 canais aborta o binário — "
+    "pst_integrate_iterative.c:47 exige 3 canais; XPASS = bug corrigido, reavaliar CONV via -slopes",
+)
 def test_constant_slopes_recover_ramp_and_decide_convention(tmp_path):
+    """Intenção original: decidir CONV-1/CONV-2 — hoje serve de guarda de regressão
+    do crash INT-08; a decisão de convenção foi feita por test_ramp_normals_decide_convention.
+    """
     size, ax, ay = 32, 0.05, 0.02
     slopes = np.zeros((size, size, 2))
     slopes[..., 0] = ax  # canal 0: dZ/dX (conforme docstring de integrate.py)
@@ -50,6 +58,7 @@ def test_constant_slopes_recover_ramp_and_decide_convention(tmp_path):
         print(f"  {v:12.6f}  {k}")
 
     # 1) o integrador integra: o melhor candidato ajusta bem
+    # 5% do slope máximo × tamanho da grade (≈22% do std da rampa); integrador quebrado (saída nula) daria ~46%
     assert errs[best] < 0.05 * (abs(ax) + abs(ay)) * size, errs
     # 2) convenção presumida pelo lado Python (docstrings/numpy): falha = achado CONV
     assert best == "z = +ax*x + ay*y (y do numpy, para baixo)", (
@@ -64,7 +73,7 @@ def test_normals_path_recovers_bump_shape(tmp_path):
     z_gt = gaussian_bump(size, amplitude=4.0)
     normals = normals_from_height(z_gt)
     z = integrate_normals_to_height(normals, tmp_path, "bump")
-    est = z[:size, :size]  # grade de vértices (H+1) -> recorte comparável
+    est = z[:size, :size]  # o integrador devolve grade de vértices (H+1,W+1); recorta para comparar com o gt em células (meio-pixel absorvido pelo fit afim)
     rmse, (a, b) = affine_fit_rmse(est, z_gt)
     print(f"\nbump: affine-fit rmse={rmse:.4f}, a={a:.4f}, b={b:.4f}, std(gt)={z_gt.std():.4f}")
     assert np.isfinite(est).all()
@@ -77,7 +86,6 @@ def test_ramp_normals_decide_convention(tmp_path):
     Se o assert de convenção falhar, NÃO conserte o teste: o candidato vencedor
     impresso É o achado."""
     size, ax, ay = 32, 0.05, 0.02
-    from synthetic_utils import ramp
 
     z_gt = ramp(size, ax=ax, ay=ay)
     normals = normals_from_height(z_gt)
@@ -99,6 +107,7 @@ def test_ramp_normals_decide_convention(tmp_path):
     for k, v in sorted(errs.items(), key=lambda kv: kv[1]):
         print(f"  {v:12.6f}  {k}")
 
+    # 5% do slope máximo × tamanho da grade (≈22% do std da rampa); integrador quebrado (saída nula) daria ~46%
     assert errs[best] < 0.05 * (abs(ax) + abs(ay)) * size, errs
     assert best == "z = +ax*x + ay*y (y do numpy, para baixo)", (
         f"convencao real do C: '{best}' — registrar/atualizar CONV-xx com a tabela impressa"
