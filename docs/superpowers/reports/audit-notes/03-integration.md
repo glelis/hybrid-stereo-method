@@ -382,6 +382,11 @@ do retorno). Consequência transversal: o teste da rampa não pôde decidir CONV
   (`gus_integrate_recursive.c:213-216`); Python passa `sy=+1` por default ⇒ assume a mesma
   orientação de Y do writer FNI. Se a convenção de Y do PS divergir, isto vira erro de
   convenção — **lead para CONV-3**, decidido pelo teste de rampa (Task 9).
+  **Confirmado empiricamente (Task 9-ext):** a conversão normal→slope é consistente no
+  round-trip — uma rampa `z=ax·x+ay·y` enviada como normal constante e re-integrada recupera
+  exatamente `+ax·x+ay·y` (RMSE `5.2e-5`; flip-de-y `+ax·x-ay·y` rejeitado a `0.381`),
+  i.e. `dZdX=-nx/nz`/`dZdY=-ny/nz` + integração preservam sinal e orientação com `sy=+1`
+  (`tests/test_convention_integration.py::test_ramp_normals_decide_convention`, PASSED).
 - **Equação por célula é o balanço de fluxo ponderado padrão (Poisson com pesos).**
   `pst_integrate_build_system` minimiza Σ de termos `wrs·(d_rs − (Z[viz] − Z[xy]))²`
   (axiais + diagonais) por mínimos quadrados, derivando a equação de equilíbrio

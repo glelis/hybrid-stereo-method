@@ -75,6 +75,28 @@ bump: affine-fit rmse=0.0732, a=0.9989, b=1.1207, std(gt)=1.0384
 - O crash confirma empiricamente a análise de **INT-02**: um `demand` de canais falho aborta o binário com retorno != 0, `subprocess.run(check=True)` levanta `CalledProcessError` **antes** do fallback `-ini-Z.fni` — o fallback **não** é alcançado num crash (apesar de o `ramp-ini-Z.fni` ter sido escrito em disco, ele nunca é lido).
 - **Achado novo de implementação:** `integrate_slopes_to_height` com 2 canais é inutilizável (topo aceita 2/3, solver iterativo exige 3) — documentação do wrapper (`integrate.py:261-263`) incorreta para o caso de 2 canais.
 
+### Extensão: rampa via -normals
+
+Como o caminho `-slopes`/2-canais crasha (INT-08), a rampa foi reenviada pelo caminho **`-normals`**, que funciona (bump passou). Um plano inclinado `z = ax·x + ay·y` tem normal constante `n ∝ (-ax, -ay, 1)`; integrar essa normal e comparar a altura recuperada contra os 5 candidatos de orientação decide a convenção real do eixo-y/sinal do integrador.
+
+- **Comando:** `pytest tests/test_convention_integration.py::test_ramp_normals_decide_convention -v -s -o addopts=""`
+- **Resultado:** `1 passed in 0.15s` (ambos os asserts passaram: o melhor candidato ajusta bem **e** coincide com a convenção presumida pelo lado Python).
+- **Tabela (verbatim):**
+```
+RMSE por candidato de convenção (rampa via -normals):
+      0.000052  z = +ax*x + ay*y (y do numpy, para baixo)
+      0.380857  z = +ax*x - ay*y (y invertido: para cima)
+      0.403960  z = +ay*x + ax*y (eixos trocados)
+      0.952142  z = -ax*x + ay*y
+      1.025489  z = -ax*x - ay*y (tudo invertido)
+```
+- **Interpretação — o que isto DECIDE:**
+  - O candidato vencedor é `z = +ax*x + ay*y (y do numpy, para baixo)` com RMSE `0.000052`, ~3-4 ordens de grandeza abaixo do segundo colocado (`0.38`, o flip de y). A separação é nítida — a rampa assimétrica resolve o sinal/orientação sem ambiguidade.
+  - **CONV-1 (sinal end-to-end):** REFUTADO como inconsistência para o caminho `-normals`. A cadeia completa numpy→FNI→C→FNI→numpy preserva o sinal de ponta a ponta (não há inversão global; `-ax*x-ay*y` é o pior candidato).
+  - **CONV-2 (direção do eixo-y do integrador):** REFUTADO como inconsistência **apenas no que toca ao eixo-y do integrador**. O `y` do numpy (para baixo) é preservado no round-trip; qualquer convenção interna y-up do C **cancela** na ida-e-volta (o flip de y, `+ax*x-ay*y`, é fortemente rejeitado). Eixos NÃO estão trocados (`+ay*x+ax*y` rejeitado).
+  - **Escopo / o que permanece em aberto:** este teste decide a convenção do eixo-y **do integrador** (caminho `-normals`). A outra metade de CONV-2 — o referencial-y do `lights.npy` (luzes vs. eixos da imagem durante o PS) — é um elo **separado** e NÃO é exercido aqui; permanece em aberto, a ser sondado pelo teste end-to-end da Task 12 (que cobre a cadeia completa incluindo as luzes).
+  - **convention-3 (origem/offset):** não afetada — o ajuste é feito sobre `z - z.mean()` (a constante de integração arbitrária é removida), consistente com o que já era esperado.
+
 ---
 
 ## Bloqueios

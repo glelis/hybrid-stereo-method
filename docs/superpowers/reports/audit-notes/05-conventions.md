@@ -21,9 +21,9 @@ Convenção de veredito:
 
 | # | Convenção | Produtor (file:line) | Consumidor (file:line) | Veredito | Evidência (curta) |
 |---|---|---|---|---|---|
-| 1 | Eixo z / profundidade (direção + unidade) | dataset `zf*` → `z_foc` YAML (`configs/hb_experiment.yaml:39`) → `zMos` (`mosaic.py:57,72`) | hints C (`hybrid/main.py:231`→`pst_integrate.c:308-323`) → `height_map.npy` (`hybrid/main.py:266`) | **inconsistente** + **indecidido por teste (rampa crashou)** | unidade `z_foc` vs altura-por-pixel = INT-04; **sinal** de `Z` segue não decidido: o teste rampa (Task 9) crashou antes de integrar (`-slopes` 2-canais vs `pst_integrate_iterative.c:47` exige 3) → CONV-1 suspeita não refutada |
-| 2 | Normais e luzes (frame / y-up vs y-down) | `lights.npy` = tuplas POV-Ray `<x,y,z>` (`data/raw/photometric_stereo/ex19_povball-txF/2025-01-15-glelis-pov/make_images.py:44-58`) → normais wps no mesmo frame (`wps.py:165,194`) | normal→slope C (`pst_basic.c:49-50`) → grade de integração (`pst_integrate.c`) | **inconsistente (não documentada)** + **indecidido por teste (rampa crashou)** | y das luzes = y-up POV-Ray; imagem numpy = y-down. Convenção **não documentada** → CONV-2; o teste rampa (Task 9) crashou antes de medir o sinal de `dZ/dY` — suspeita não refutada |
-| 3 | Origem/orientação da imagem (round-trip FNI) | writer FNI Python (`image_io.py:171-178`) → C (`float_image`/`tire_read_fni_file`) | writer C `-end-Z.fni` → reader Python (`image_io.py:227-241`) | **consistente** (indexação; round-trip FNI testado Task 8) / sinal dZ/dY ainda **indecidido por teste** | round-trip preserva o array sem flip (`test_fni_roundtrip` 4/4, Task 8); o caminho `-normals` integra e produz `-end-Z.fni` (bump PASSED, Task 9); sinal físico dZ/dY não medido (rampa crashou) → CONV-1/CONV-2 |
+| 1 | Eixo z / profundidade (direção + unidade) | dataset `zf*` → `z_foc` YAML (`configs/hb_experiment.yaml:39`) → `zMos` (`mosaic.py:57,72`) | hints C (`hybrid/main.py:231`→`pst_integrate.c:308-323`) → `height_map.npy` (`hybrid/main.py:266`) | unidade: **inconsistente** (INT-04); sinal-integrador: **REFUTADO** (preservado) | sinal de `Z` no round-trip numpy↔C é preservado: `test_ramp_normals_decide_convention` PASSED (vencedor `+ax*x+ay*y`, RMSE `5.2e-5` vs `1.025` do invertido). Unidade `z_foc` vs altura-por-pixel segue = INT-04. Sinal-físico `zMos`(hints) vs `Z` → Task 12 |
+| 2 | Normais e luzes (frame / y-up vs y-down) | `lights.npy` = tuplas POV-Ray `<x,y,z>` (`data/raw/photometric_stereo/ex19_povball-txF/2025-01-15-glelis-pov/make_images.py:44-58`) → normais wps no mesmo frame (`wps.py:165,194`) | normal→slope C (`pst_basic.c:49-50`) → grade de integração (`pst_integrate.c`) | eixo-y do **integrador**: **REFUTADO** (preservado); luzes vs imagem: **EM ABERTO** | `test_ramp_normals_decide_convention` PASSED: `y` do numpy preservado no round-trip (`+ax*x+ay*y` vence; flip-y `+ax*x-ay*y` rejeitado, RMSE `0.381` vs `5.2e-5`). A reconciliação y-up(`lights.npy`)↔y-down(imagem) no PS é elo separado, **ainda aberto** → Task 12 |
+| 3 | Origem/orientação da imagem (round-trip FNI) | writer FNI Python (`image_io.py:171-178`) → C (`float_image`/`tire_read_fni_file`) | writer C `-end-Z.fni` → reader Python (`image_io.py:227-241`) | **consistente** (indexação Task 8; orientação Task 9-ext) | round-trip preserva o array sem flip (`test_fni_roundtrip` 4/4, Task 8); a rampa via `-normals` confirma que orientação **e** sinal são preservados ponta a ponta (`test_ramp_normals_decide_convention` PASSED, RMSE `5.2e-5`) — não afeta a constante de integração (ajuste sobre `z-z.mean()`) |
 | 4 | Escala dos gradientes (slope adimensional vs z físico) | slope `dZdX=-nx/nz` adimensional (`pst_basic.c:49-50`) | sistema de altura-por-pixel + hints em `z_foc` (`pst_integrate.c:308-323`) | **inconsistente** | INT-04/INT-05; `slopes_scale` default `(1,1)` (`integrate.py:53`) **nunca** configurado pelo híbrido → **CONV-4** consolida |
 | 5 | Radiometria entre etapas (linearidade) | `sVal.png` uint8 → médias por-zf re-esticadas (`hybrid/main.py:111`) e mosaicos uint8 clipados (`hybrid/main.py:160`) | foco multifocus (`multifocus/main.py:96`); grayscale→PS (`main_wps.py:115,136`) | **inconsistente** | cadeia quebra linearidade em 3 pontos (IO-05, MF-12, PS-07/PS-08) → **CONV-5** consolida a sequência |
 | 6 | Contratos de arquivo (pareamento/ordem/shape) | `natsorted(sMos_path_list)` (`hybrid/main.py:177`); `sorted(zf_directories)` (`hybrid/main.py:90`); `zMos_with_confidence.fni` `(H,W,2)` | linhas de `lights.npy` (só contagem, `main_wps.py:122-127`); `z_foc` posicional (`mosaic.py:57`); `-hints` espera vértices `(H+1,W+1)` (`gus_integrate_recursive.c:519`) | **inconsistente** | pareamento luz↔mosaico só por contagem (não por L→linha); ordem zf vs z_foc é MF-02; shape células→vértices é INT-05 → **CONV-6** consolida + risco novo de pareamento |
@@ -39,7 +39,14 @@ Convenção de veredito:
 - **Localização:** dataset `zf*` (pastas `organized_by_focus/zf*/`, reorganização pós-geração; o gerador emite pastas `F00/F01/...` por luz, não `zf*` diretamente) → `z_foc` (`configs/hb_experiment.yaml:39`) → `mosaic.py:57,72` → hints (`hybrid/main.py:231`) → `Z` do C (`gus_integrate_recursive.c:457-459`) → `height_map.npy` (`hybrid/main.py:266`)
 - **Tipo:** conceitual
 - **Severidade:** alto
-- **Status:** suspeita — **indecidido por teste** (Task 9: `tests/test_convention_integration.py::test_constant_slopes_recover_ramp_and_decide_convention` **crashou antes de integrar**; ver abaixo)
+- **Status:** **REFUTADO (caminho `-normals`)** — sinal end-to-end preservado (teste: `tests/test_convention_integration.py::test_ramp_normals_decide_convention`, PASSED; rampa via normais, vencedor `z = +ax*x + ay*y`, RMSE `0.000052` vs `1.025` do candidato totalmente invertido). A via `-slopes`/2-canais segue indecidida-por-essa-via porque crashou (INT-08; `test_constant_slopes_recover_ramp_and_decide_convention`). Ressalva: isto decide o sinal/orientação do **integrador** no round-trip numpy↔C; o sinal-físico `zMos` (hints) vs. `Z` permanece sondado pela Task 12.
+
+**Atualização Task 9-ext (2026-06-04):** A rampa reenviada pelo caminho `-normals`
+(`test_ramp_normals_decide_convention`, PASSED) **decide** o sinal: a cadeia
+numpy→FNI→C→FNI→numpy preserva o sinal de ponta a ponta — `z = +ax*x + ay*y` vence com
+RMSE `0.000052`, ~4 ordens de grandeza abaixo de `-ax*x-ay*y` (`1.025489`). Não há inversão
+global de `Z` no integrador. Tabela completa em `06-test-results.md`. (A via `-slopes`
+abaixo continua bloqueada por INT-08.)
 
 **Atualização Task 9 (2026-06-04):** O teste da rampa **não conseguiu decidir** o sinal de `Z`.
 O caminho `integrate_slopes_to_height` com mapa de 2 canais aborta o binário antes da
@@ -86,12 +93,21 @@ combiná-los. NÃO aplicar.
 - **Localização:** `lights.npy` (gerado fora do pacote — tuplas POV-Ray em `data/raw/photometric_stereo/ex19_povball-txF/2025-01-15-glelis-pov/make_images.py:44-58`) → `np.load` (`main_wps.py:119`) → `wps.py:165,194` → `normal_map.npy` → `pst_basic.c:49-50` (`dZdY=-ny/nz`) → grade de integração C
 - **Tipo:** conceitual
 - **Severidade:** alto
-- **Status:** suspeita — **indecidido por teste** (Task 9: o teste da rampa crashou antes de integrar; ver abaixo)
+- **Status:** **REFUTADO apenas no eixo-y do integrador** (teste: `tests/test_convention_integration.py::test_ramp_normals_decide_convention`, PASSED; vencedor `z = +ax*x + ay*y`, o flip-de-y `+ax*x-ay*y` rejeitado com RMSE `0.380857` vs `0.000052`). O `y` do numpy é preservado no round-trip via `-normals`. **PERMANECE EM ABERTO** a outra metade de CONV-2: o referencial-y do `lights.npy` (y-up POV-Ray) vs. eixos da imagem durante o PS — elo separado, não exercido por este teste, a ser sondado pela Task 12 (cadeia E2E com luzes).
+
+**Atualização Task 9-ext (2026-06-04):** A rampa via `-normals`
+(`test_ramp_normals_decide_convention`, PASSED) decide o eixo-y **do integrador**: o `y` do
+numpy (para baixo) é preservado na ida-e-volta numpy→FNI→C→FNI→numpy. O candidato com y
+invertido (`+ax*x-ay*y`) é fortemente rejeitado (RMSE `0.380857` vs `0.000052` do vencedor);
+eixos não estão trocados (`+ay*x+ax*y` rejeitado, `0.403960`). Qualquer convenção interna
+y-up do C **cancela** no round-trip. **Mas isto NÃO toca no referencial das luzes:** a
+reconciliação y-up(`lights.npy`)↔y-down(imagem) durante o PS é um elo distinto, não exercido
+aqui — segue em aberto para a Task 12. Tabela em `06-test-results.md`.
 
 **Atualização Task 9 (2026-06-04):** Idem CONV-1 — o teste da rampa (`-slopes`, 2 canais)
 abortou o binário em `pst_integrate_iterative.c:47` (slope map exige 3 canais) antes de medir
 o sinal de `dZ/dY`. A reconciliação y-up(luzes)↔y-down(numpy) **continua não verificada
-empiricamente**; segue suspeita não refutada. Ver `06-test-results.md`.
+empiricamente** por essa via; ver `06-test-results.md`.
 
 **Descrição:** O modelo Lambertiano resolve `I = ρ·(L·n̂)`, logo as normais estimadas vivem
 **no mesmo frame de coordenadas das luzes** `lights.npy` (por construção do `lstsq` em

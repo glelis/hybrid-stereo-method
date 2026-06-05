@@ -69,3 +69,37 @@ def test_normals_path_recovers_bump_shape(tmp_path):
     print(f"\nbump: affine-fit rmse={rmse:.4f}, a={a:.4f}, b={b:.4f}, std(gt)={z_gt.std():.4f}")
     assert np.isfinite(est).all()
     assert rmse < 0.15 * z_gt.std(), f"forma não recuperada: rmse={rmse:.4f}"
+
+
+def test_ramp_normals_decide_convention(tmp_path):
+    """Decide CONV-1/CONV-2 pela rampa via -normals (o caminho -slopes de 2
+    canais crasha no C — INT-08). Plano inclinado: n constante ∝ (-ax, -ay, 1).
+    Se o assert de convenção falhar, NÃO conserte o teste: o candidato vencedor
+    impresso É o achado."""
+    size, ax, ay = 32, 0.05, 0.02
+    from synthetic_utils import ramp
+
+    z_gt = ramp(size, ax=ax, ay=ay)
+    normals = normals_from_height(z_gt)
+    z = integrate_normals_to_height(normals, tmp_path, "ramp_n")
+    assert z.shape == (size + 1, size + 1)
+
+    y, x = np.mgrid[0 : size + 1, 0 : size + 1].astype(np.float64)
+    candidates = {
+        "z = +ax*x + ay*y (y do numpy, para baixo)": ax * x + ay * y,
+        "z = +ax*x - ay*y (y invertido: para cima)": ax * x - ay * y,
+        "z = -ax*x - ay*y (tudo invertido)": -(ax * x + ay * y),
+        "z = -ax*x + ay*y": -ax * x + ay * y,
+        "z = +ay*x + ax*y (eixos trocados)": ay * x + ax * y,
+    }
+    z0 = z - z.mean()
+    errs = {k: float(np.sqrt(np.mean((z0 - (v - v.mean())) ** 2))) for k, v in candidates.items()}
+    best = min(errs, key=errs.get)
+    print("\nRMSE por candidato de convenção (rampa via -normals):")
+    for k, v in sorted(errs.items(), key=lambda kv: kv[1]):
+        print(f"  {v:12.6f}  {k}")
+
+    assert errs[best] < 0.05 * (abs(ax) + abs(ay)) * size, errs
+    assert best == "z = +ax*x + ay*y (y do numpy, para baixo)", (
+        f"convencao real do C: '{best}' — registrar/atualizar CONV-xx com a tabela impressa"
+    )
