@@ -10,8 +10,11 @@ Numere sequencialmente dentro de cada prefixo.
 
 - **Localização:** `caminho/arquivo.py:linha`
 - **Tipo:** conceitual | implementação
+  - conceitual: a fórmula, modelo ou premissa está matematicamente/fisicamente errada (citar teoria)
+  - implementação: o modelo pretendido é correto, mas o código não o realiza (bug de lógica/fluxo)
 - **Severidade:** crítico | alto | médio | baixo
 - **Status:** suspeita | confirmado (ref. ao teste) | refutado (ref. ao teste)
+  - Na Fase 1 (leitura), registre como "suspeita"; os testes da Fase 3 atualizam para confirmado/refutado quando aplicável
 
 **Descrição:** o que está errado e por quê (1 parágrafo; cite a teoria quando o tipo
 for conceitual).
