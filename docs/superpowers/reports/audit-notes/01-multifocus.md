@@ -26,8 +26,10 @@ O teste `f"{zf_dir}" in file` é substring, não componente de caminho exato. Co
 planos (todos os configs reais usam 12: `zf1..zf12`), `zf_dir == "zf1"` casa também com
 `.../zf10/...`, `.../zf11/...` e `.../zf12/...`. Logo a "média do zf1" mistura imagens de
 quatro planos focais distintos, corrompendo a curva de foco que alimenta toda a seleção
-de profundidade. O commit 505d262 corrigiu exatamente este padrão para os diretórios
-`L*` (usando componente de caminho), mas o mesmo defeito permanece aqui para `zf*`.
+de profundidade. O commit 505d262 corrigiu um bug estruturalmente idêntico de substring
+em outro ponto do mesmo arquivo — a seleção de mosaicos por luz (`sMos.png`, hoje
+`hybrid/main.py:177-182`) —, mas a mesma classe de defeito (substring em vez de componente
+de caminho exato) permanece aqui para `zf*`.
 
 **Evidência:** reprodução direta —
 `[p for p in paths if "zf1" in p and "sVal.png" in p]` retornou
@@ -58,9 +60,11 @@ valor de profundidade errado (o frame na posição 1 do stack é o zf10, mas rec
 seja agregado por média, a ordenação dos *diretórios* é o vetor que importa.
 
 **Evidência:** `sorted({'zf1','zf2','zf10','zf11','zf12'})` =
-`['zf1','zf10','zf11','zf12','zf2']`. `main.py:131-132` lê `z_foc` em ordem natural do
+`['zf1','zf10','zf11','zf12','zf2']`. `hybrid/main.py:131` lê `z_foc` em ordem natural do
 YAML e o passa a `mosaic`, que faz `zMos[i,j] = zFoc[K]` por posição
-(`mosaic.py:57,72`). Não há reordenação intermediária que reconcilie as duas ordens.
+(`mosaic.py:57,72`). `hybrid/main.py` não possui verificação de comprimento de `z_foc` — a
+validação `len(zFoc) != image_stack.shape[0]` está em `multifocus/main.py:132-135`. Não
+há reordenação intermediária que reconcilie as duas ordens.
 
 **Sugestão de correção:** ordenar os diretórios `zf` por chave numérica (ex.: `natsorted`
 ou `key=lambda s: int(s[2:])`), garantindo correspondência posicional com `z_foc`.
@@ -80,7 +84,8 @@ confiança 0. Teoricamente, regiões sem textura não têm profundidade observá
 shape-from-focus e deveriam ser marcadas como inválidas (e descartadas/interpoladas a
 jusante). Em vez disso recebem um índice plausível (`n/2`) com confiança 0 — mas o
 `mosaic` usa `iSel` **sem consultar a confiança** (ver MF-04), então esses pixels entram
-no `zMos` como se válidos, com profundidade `z_foc[n/2]` (≈70 nos configs). Isso introduz
+no `zMos` como se válidos, com profundidade `z_foc[n/2]` (= 75 nos configs, pois n=12 e
+z_foc[6]=75). Isso introduz
 um plano falso "do meio" em todas as áreas lisas. Além disso, `n/2` é float (ex.: 6.0) e
 será interpolado normalmente, parecendo um valor sub-pixel legítimo.
 
@@ -218,8 +223,8 @@ dividido e o stack permanece zero — caso tratado a jusante por MF-03, porém s
 
 **Evidência:** `p1 = np.percentile(stack, 1); stack = np.clip(stack, p1, inf)`
 (linhas 83-84); `if min_val < 0` / `if max_val > 0` (linhas 90-92). Indicadores retornam
-`np.abs(...)` (laplacian.py:36, fourier.py:36, wavelet.py:19) → sempre ≥ 0, logo o ramo
-de subtração praticamente nunca executa.
+magnitude ≥ 0: `np.abs(...)` em laplacian.py:36 e fourier.py:36; `np.sqrt(cH**2 + cV**2 +
+cD**2)` em wavelet.py:19 — logo o ramo de subtração praticamente nunca executa.
 
 **Sugestão de correção:** decidir explicitamente o piso (subtrair `min_val`
 incondicionalmente após clip, ou não clipar o fundo) e tratar `max_val == 0` com aviso/
@@ -349,7 +354,9 @@ exatamente para o pico em z. Se `z_foc` for **não-uniforme**, o mapa índice→
 e o vértice da parábola em índice **não** corresponde, em geral, ao pico de nitidez em
 coordenadas z (a estimativa de profundidade fica enviesada na direção do lado de maior
 espaçamento). O código não impõe uniformidade: `z_foc` é uma lista livre no YAML
-(`main.py:131`, validada apenas em comprimento, `main.py:132-133`) e o próprio `mosaic`
+(`hybrid/main.py:131`, sem verificação de comprimento — a validação `len(zFoc) !=
+image_stack.shape[0]` está em `multifocus/main.py:132-135`; `hybrid/main.py` não possui
+essa guarda) e o próprio `mosaic`
 interpola sobre `zFoc` como se espaçamento arbitrário fosse esperado
 (`linear_interpolation`/`quadratic_interpolation` recebem `zFoc`, `mosaic.py:72`).
 
