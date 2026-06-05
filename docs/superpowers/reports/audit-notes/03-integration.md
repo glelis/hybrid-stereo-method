@@ -72,7 +72,7 @@ validar que `initial_method=="hints"` ⇒ `use_hints` verdadeiro antes de invoca
 
 - **Localização:** `src/hybrid_stereo_method/hybrid/integrate.py:171-180`
 - **Tipo:** implementação
-- **Severidade:** alto
+- **Severidade:** médio
 - **Status:** suspeita (decide: teste end-to-end forçando saída não-convergente / ausência do end-Z, Task 12)
 
 **Descrição:** Após a execução, o Python procura `{PREFIX}-00-end-Z.fni` (`integrate.py:171`).
@@ -98,6 +98,15 @@ chute" + "sem checagem de convergência" é frágil.
 chute pré-iteração (`gus_integrate_recursive.c:559-562`). Nenhum parse do status de
 convergência (o C imprime "gave up"/"converged" só em stderr, `pst_imgsys_solve.c:117,121`).
 
+**Nota sobre severidade:** A revisão técnica recalibra para **médio**. O caminho perigoso
+(returncode 0 sem end-Z) não ocorre no código atual: `pst_imgsys_solve.c:124` chama o report
+final (`reportHeights`) **incondicionalmente** ao concluir, e aborts disparam `exit != 0`
+capturado por `check=True`. Os riscos vivos (erro silencioso futuro, `-ini-Z.fni` de execução
+anterior persistindo se `output_prefix`/`cwd` divergirem) são especulativos — fragilidade
+latente que devolveria resultado errado **se** disparada, mas inalcançável no fluxo atual.
+Severidade **médio** é consistente com INT-07 (também inalcançável) = baixo, pois o impacto
+potencial é maior que INT-07, mas o caminho de disparo está atualmente bloqueado.
+
 **Sugestão de correção:** remover o fallback para `-ini-Z.fni` (é semanticamente o chute, não
 o resultado); se o end-Z faltar, sempre erro. Opcionalmente, parsear o stderr para detectar
 não-convergência e avisar. NÃO aplicar.
@@ -115,28 +124,51 @@ não-convergência e avisar. NÃO aplicar.
 com `f"{v:+.7e}"` (`image_io.py:173,176`), produzindo a string textual `+nan` para
 `NaN`. O parser C (`float_image_read`, via `fget`/`nget`) lê com `strtod`/`fget_double`, que
 em libc POSIX **aceita** `"nan"`/`"+nan"` e devolve `NAN` (a leitura não falha). O NaN então
-**não contamina a malha**, ao contrário do receio do PS-06: em
-`pst_normal_map_to_slope_map`, para cada pixel calcula `grd = pst_slope_from_normal(nrm)`
-(NaN→NaN) e, crucialmente, `mag = r3_L_inf_norm(&nrm)`; se `! isfinite(grd.c[0]) ||
-! isfinite(mag) || mag==0`, então `w = 0` (`pst_normal_map.c:240-242`). Logo o pixel NaN entra
-no mapa de slopes com **peso zero**. No construtor do sistema, `append_edge_term` só adiciona
-a aresta se `fabs(wD) >= FLUFF=1e-140` (`pst_integrate.c:277`); arestas de peso zero são
-**excluídas** (`pst_slope_map_get_edge_data` devolve `w=0, d=NAN` e o termo é descartado). Um
-vértice cercado só por arestas de peso zero recebe um "fudge term" que o puxa a 0 com peso 1
-(`pst_integrate.c:212-216,326-339`), evitando diagonal nula no Gauss-Seidel
-(`pst_imgsys_solve.c:90`). Portanto **NaN não propaga NaN** — o defeito remanescente é
-**conceitual/de robustez**: pixels sombreados são **silenciosamente zerados/excluídos** sem
-que o PS comunique uma máscara de foreground; regiões grandes de sombra viram buracos de peso
-0 cuja altura é determinada apenas pelo fudge-to-zero ou pela vizinhança via termos diagonais,
-podendo introduzir vieses de borda. A premissa "o solver ignora NaN com graça" depende de a
-libc aceitar `+nan` no parse — a confirmar no teste (round-trip FNI, Task 8) por ser
-dependente de plataforma/locale.
+**não contamina a malha**, ao contrário do receio do PS-06. O mecanismo real de contenção é
+duplo:
 
-**Evidência:** `w = 0` quando `!isfinite(grd)`/`mag==0` (`pst_normal_map.c:240-242`);
-exclusão de aresta `fabs(wD) >= FLUFF` (`pst_integrate.c:277`); fudge-to-zero
-(`pst_integrate.c:326-339`); `demand(cf_k != 0.0, "...zero in the diagonal")`
-(`pst_imgsys_solve.c:90`) — só seria violado se um vértice ficasse sem nenhum termo, o que o
-fudge impede.
+(a) **Guarda de linha 241** (`pst_normal_map.c:240-242`): `if (! isfinite(grd.c[0]) ||
+! isfinite(mag) || mag==0)` → `w = 0`. Esta guarda inspeciona apenas `grd.c[0]` (= `−nx/nz`)
+e `mag = r3_L_inf_norm(&nrm)`. Ela **não é suficiente por si só**: se somente `ny` fosse NaN
+enquanto `nx` e `nz` fossem finitos, `grd.c[0] = −nx/nz` seria finito; além disso,
+`r3_L_inf_norm` (`r3.c:116-125`) percorre os componentes com comparação `> d`, e como
+`NaN > d` é sempre falsa em IEEE 754, o componente NaN é **silenciosamente pulado** — `mag`
+seria calculado sem ele e a guarda da linha 241 **não** zeraria esse pixel.
+
+(b) **Backstop real**: `pst_map_ensure_pixel_consistency(G, 2)` em
+`gus_integrate_recursive.c:451` percorre todos os canais (dados + peso) via
+`pst_ensure_pixel_consistency` (`pst_basic.c:59`): se **qualquer** canal for não-finito ou o
+peso for zero, zera o peso e NaN-iza todos os canais de dados. Esse é o verdadeiro "NaN → peso
+0" para todos os padrões de NaN parcial.
+
+Na prática do pipeline real, o resultado não muda: `wps.py:155,183,191` sempre escreve NaN
+nos **3 componentes** em simultâneo para pixels inválidos, logo `grd.c[0]` é NaN e a guarda
+da linha 241 também captura o pixel. Portanto o NaN entra no mapa de slopes com **peso zero**,
+e a garantia é sólida por esta combinação — mas o backstop `pst_map_ensure_pixel_consistency`
+é o mecanismo correto a citar (ver entrada "Verificado" sobre sanitização pixel-consistency).
+
+No construtor do sistema, `append_edge_term` só adiciona a aresta se `fabs(wD) >= FLUFF=1e-140`
+(`pst_integrate.c:277`); arestas de peso zero são **excluídas** (`pst_slope_map_get_edge_data`
+devolve `w=0, d=NAN` e o termo é descartado). Um vértice cercado só por arestas de peso zero
+recebe um "fudge term" que o puxa a 0 com peso 1 (`pst_integrate.c:212-216,326-339`),
+evitando diagonal nula no Gauss-Seidel (`pst_imgsys_solve.c:90`). Portanto **NaN não propaga
+NaN** — o defeito remanescente é **conceitual/de robustez**: pixels sombreados são
+**silenciosamente zerados/excluídos** sem que o PS comunique uma máscara de foreground;
+regiões grandes de sombra viram buracos de peso 0 cuja altura é determinada apenas pelo
+fudge-to-zero ou pela vizinhança via termos diagonais, podendo introduzir vieses de borda. A
+premissa "o solver ignora NaN com graça" depende de a libc aceitar `+nan` no parse — a
+confirmar no teste (round-trip FNI, Task 8) por ser dependente de plataforma/locale.
+
+**Evidência:** Guarda parcial `!isfinite(grd.c[0]) || !isfinite(mag) || mag==0` →
+`w = 0` (`pst_normal_map.c:240-242`); limitação: inspeciona só `grd.c[0]` e `r3_L_inf_norm`
+silencia NaN parcial (`r3.c:116-125`). Backstop real: `pst_map_ensure_pixel_consistency(G, 2)`
+(`gus_integrate_recursive.c:451`) via `pst_basic.c:59` — zera peso e NaN-iza todos os canais
+se qualquer componente for não-finito (ver entrada "Verificado" sobre pixel-consistency).
+Pipeline real: `wps.py:155,183,191` NaN-iza os 3 componentes simultaneamente → `grd.c[0]` é
+NaN → guarda da linha 241 também atinge o pixel. Exclusão de aresta `fabs(wD) >= FLUFF`
+(`pst_integrate.c:277`); fudge-to-zero (`pst_integrate.c:326-339`);
+`demand(cf_k != 0.0, "...zero in the diagonal")` (`pst_imgsys_solve.c:90`) — só seria
+violado se um vértice ficasse sem nenhum termo, o que o fudge impede.
 
 **Sugestão de correção:** PS deve emitir um canal de peso explícito (normal_map (H,W,4)) com
 0 nos sombreados em vez de NaN, e/ou propagar uma máscara; documentar que sombras viram
@@ -172,8 +204,10 @@ peso `H[1]` (confiança do multifocus) entra direto sem normalização de escala
 (`pst_integrate.c:111-113,318-323`); `-hints` sem `scale` (`integrate.py:108-114`) ⇒
 `hints_scale=1.0`; hints em `z_foc` (multifocus) vs `Z` em altura-por-pixel (slopes
 adimensionais integrados sobre células unitárias). A docstring de `integrate_normals_to_height`
-chama hints de `(H+1,W+1)` "grade de vértices" (`integrate.py:217`), mas o arquivo
-`zMos_with_confidence.fni` é de células `(H,W,2)` — ver INT-05.
+chama hints de `(H+1,W+1)` "grade de vértices" (`integrate.py:217`), mas essa docstring
+documenta o caminho in-memory `hints_map`, que o pipeline híbrido **não usa** (usa
+`hints_fni_path`, `hybrid/main.py:231`); o contrato de shape `(H+1,W+1)` não é verificado em
+nenhum dos dois caminhos. O arquivo `zMos_with_confidence.fni` é de células `(H,W,2)` — ver INT-05.
 
 **Sugestão de correção:** converter os hints para a mesma unidade das alturas integradas
 (passar `-hints path scale Hsz weight` com `Hsz` = fator z_foc→pixel) antes de integrar; ou
@@ -221,7 +255,8 @@ aceitar o erro de meia-célula como tolerável; alinhar a docstring. NÃO aplica
 - **Status:** suspeita (decide: teste de rampa com reference conhecido, Task 9)
 
 **Descrição:** Quando `use_reference` é verdadeiro, `hAvg.png` é lido com `read_image`
-(`IMREAD_UNCHANGED` ⇒ uint8 0-255, `image_io.py:90`), convertido a `float32`
+(`IMREAD_UNCHANGED` ⇒ uint8 para PNG de 8 bits; `IMREAD_UNCHANGED` preserva a profundidade do
+arquivo — um PNG de 16 bits retornaria uint16; `image_io.py:90`), convertido a `float32`
 (`main.py:247`) e gravado como FNI de reference `R`. O `-reference` é montado **sem** `scale`
 (`integrate.py:118-119` passa só o path; `tire_parse_scale` fixa `reference_scale=1.0`,
 `gus_integrate_recursive.c:754,825`). O C compara `E = Z - R` célula a célula
@@ -239,7 +274,7 @@ interpretável** a menos que `hAvg` esteja, por convenção do dataset, já em u
 comensuráveis com `Z`. A análise é apenas diagnóstica (não realimenta o solve), limitando a
 severidade a "médio".
 
-**Evidência:** `read_image(hAvg.png)` ⇒ uint8 (`image_io.py:90`), `astype(np.float32)`
+**Evidência:** `read_image(hAvg.png)` ⇒ uint8 para PNG de 8 bits (uint16 para 16 bits; `IMREAD_UNCHANGED`, `image_io.py:90`), `astype(np.float32)`
 (`main.py:247`), `-reference` sem `scale` (`integrate.py:118-119`) ⇒ `reference_scale=1.0`.
 `E=Z-R` cru (`pst_map_compare.c:96-97`); `E` deslocado a média zero (`:225`); `devE` em torno
 da média (`:153,163`); resumo em `:235-243`. `Z` em altura-por-pixel com constante de
@@ -260,7 +295,10 @@ reportar erro. NÃO aplicar.
 
 **Descrição:** No parser, o ramo que define o default de `maxLevel` quando `-maxLevel` é
 omitido atribui `o->maxLevel = DEFAULT_MAX_ITER` (=100000, `gus_integrate_recursive.c:783`),
-em vez de `DEFAULT_MAX_LEVEL` (=30, definido em `:84` e documentado como o default em `:266`).
+em vez de `DEFAULT_MAX_LEVEL` (=30, definido em `:84` mas **nunca usado** no parser). O help
+de `-maxLevel` (linhas 265-269) documenta o comportamento "recursão até um único pixel", não
+um default numérico fixo de 30 — o que reforça o diagnóstico de copy-paste: `DEFAULT_MAX_LEVEL`
+foi definido mas jamais conectado ao parser.
 É um **copy-paste bug**: a recursão usaria até 100000 níveis se `-maxLevel` faltasse. O
 critério de parada real também é `trivial = (NX_G<=3 && NY_G<=3)`
 (`pst_integrate_recursive.c:27,92`), então a recursão pararia ao chegar a ~3×3 muito antes de
@@ -270,8 +308,9 @@ fluxo Python o bug é **inalcançável**: `integrate.py:130` sempre passa `-maxL
 registrado como erro latente do binário (corretude do default documentado vs implementado).
 
 **Evidência:** `o->maxLevel = DEFAULT_MAX_ITER;` no `else` de `-maxLevel`
-(`gus_integrate_recursive.c:783`); `DEFAULT_MAX_LEVEL` =30 (`:84`) nunca usado no parser.
-`integrate.py:130` sempre fornece `-maxLevel`, neutralizando o ramo.
+(`gus_integrate_recursive.c:783`); `DEFAULT_MAX_LEVEL` =30 (`:84`) definido mas nunca usado
+no parser; help de `-maxLevel` (`:265-269`) descreve comportamento "até pixel único" sem
+mencionar default 30. `integrate.py:130` sempre fornece `-maxLevel`, neutralizando o ramo.
 
 **Sugestão de correção:** trocar `DEFAULT_MAX_ITER` por `DEFAULT_MAX_LEVEL` na linha 783. NÃO
 aplicar.
