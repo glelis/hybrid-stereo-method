@@ -330,6 +330,44 @@ por teste sintético comparando curva de foco float vs. uint8.
 
 ---
 
+## MF-13: Ajuste parabólico em espaço de índice + conversão índice→z só é exato se `z_foc` for uniforme
+
+- **Localização:** `src/hybrid_stereo_method/multifocus/argmax_fuzzy.py:156,180`; conversão em `src/hybrid_stereo_method/multifocus/mosaic.py:72`
+- **Tipo:** conceitual
+- **Severidade:** baixo
+- **Status:** suspeita
+
+**Descrição:** `compute_argmax_fuzzy_1d` ajusta a parábola sobre as posições inteiras dos
+frames (`x_list = list(range(k0, k1+1))`, linha 156) e devolve o vértice no **espaço de
+índice** (`k_fuzzy = -B/(2A)`, linha 180). A profundidade física só é obtida depois, em
+`mosaic.py:72`, via `zMos[i,j] = interpolate(zFoc, k_fuzzy)`, ou seja, mapeando o índice
+sub-pixel para z por interpolação na lista `z_foc`. A composição "ajustar-em-índice +
+interpolar-em-z" só é equivalente a "ajustar-em-z" quando o mapa índice→z é **afim**, isto
+é, quando `z_foc` é uniformemente espaçado (`z_k = z_0 + Δ·k`): uma reparametrização afim
+de uma quadrática preserva a posição do vértice, logo o vértice em índice mapeia
+exatamente para o pico em z. Se `z_foc` for **não-uniforme**, o mapa índice→z é não-linear
+e o vértice da parábola em índice **não** corresponde, em geral, ao pico de nitidez em
+coordenadas z (a estimativa de profundidade fica enviesada na direção do lado de maior
+espaçamento). O código não impõe uniformidade: `z_foc` é uma lista livre no YAML
+(`main.py:131`, validada apenas em comprimento, `main.py:132-133`) e o próprio `mosaic`
+interpola sobre `zFoc` como se espaçamento arbitrário fosse esperado
+(`linear_interpolation`/`quadratic_interpolation` recebem `zFoc`, `mosaic.py:72`).
+
+**Evidência:** ajuste em índice — `x_list = list(range(k0, k1 + 1))` (linha 156),
+vértice `k_fuzzy = -B / (2 * A)` (linha 180). Conversão tardia para z —
+`zMos[i, j] = interpolate(zFoc, k_fuzzy)` (mosaic.py:72). Todos os configs reais usam
+espaçamento **uniforme** (`z_foc: [15, 25, 35, ..., 125]`, passo 10:
+`configs/hb_experiment.yaml:39`, `configs/ms_experiment.yaml:40`,
+`configs/test_ms.yaml:18`), caso em que o mapa é afim e não há viés — por isso a
+severidade é **baixa** (defeito latente, só se manifesta se algum experimento adotar
+`z_foc` não-uniforme).
+
+**Sugestão de correção:** se `z_foc` puder ser não-uniforme, ajustar a parábola
+diretamente em z (`x_list = z_foc[k0:k1+1]` e vértice já em z), ou validar/assertir
+espaçamento uniforme de `z_foc` na entrada (e documentar a premissa). NÃO aplicar.
+
+---
+
 ## Verificado sem achado
 
 - **Laplaciano é local e com normalização prévia coerente** — `cv2.Laplacian` é um kernel
