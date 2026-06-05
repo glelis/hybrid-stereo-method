@@ -26,7 +26,9 @@ os achados são "suspeita", salvo quando o código por si só prova o defeito
 - **Localização:** `src/hybrid_stereo_method/photometric/wps.py:198`
 - **Tipo:** conceitual
 - **Severidade:** baixo
-- **Status:** suspeita (decide: `tests/test_photometric_synthetic.py` — albedo-vs-número-de-luzes)
+- **Status:** confirmado (teste: `tests/test_photometric_synthetic.py::test_wps_albedo_recovers_true_albedo`)
+
+**Evidência de execução:** com ρ=200 e dados sintéticos limpos, albedo mediano = **1.7** para 4 luzes e **2.4** para 8 luzes. Ratio `med / sqrt(n_lights)` constante = 0.8526 em ambos — confirma exatamente a lei de escala `albedo ≈ sqrt(N) × f(geometria)` prevista. Teste marcado `@pytest.mark.xfail(strict=True)` após captura da falha bruta. xfail aplicado DEPOIS de capturar as medições.
 
 **Descrição:** No modelo `I = ρ·(L·n̂)`, a solução de mínimos quadrados de `L · m = I` dá um
 vetor `m` **não-normalizado** cuja **norma é o albedo** `ρ` (e cuja direção é `n̂`). O código
@@ -64,7 +66,9 @@ deve mostrar o "albedo" crescendo com o nº de luzes — confirmando o defeito.
 - **Localização:** `src/hybrid_stereo_method/photometric/wps.py:151-152` (default em `:135`)
 - **Tipo:** implementação
 - **Severidade:** alto
-- **Status:** suspeita (decide: `tests/test_photometric_synthetic.py` — shadow handling)
+- **Status:** suspeita (teste sintético não confirmou — permanece suspeita para dados 8-bit reais; ver Task 10)
+
+**Evidência de execução (Task 10):** `test_wps_shadowed_pixels_flagged_not_garbage` PASSED — 100% pixels válidos, 0.00° de erro nos válidos. Com dados sintéticos float (I=0 exato nas sombras), a razão `epsilon/v_max ≪ 1e-3` acidentalmente funciona: sombras totais são descartadas. O problema prático de PS-02 é para dados 8-bit (mínimo não-nulo = 1/255 ≈ 3.9e-3 > 1e-3), onde o threshold não rejeita sombras parciais — esse caminho não é exercitado pelo teste sintético float.
 
 **Descrição:** A rejeição de sombra usa `pixel_values / v_max > shadow_threshold` com
 `shadow_threshold` default `1e-3` (`wps.py:135`) e `v_max` o **máximo daquele pixel**. Com
@@ -99,7 +103,9 @@ para saturação/highlight. NÃO aplicar.
 - **Localização:** `src/hybrid_stereo_method/photometric/wps.py:163-185`
 - **Tipo:** implementação
 - **Severidade:** médio
-- **Status:** suspeita (decide: `tests/test_photometric_synthetic.py` — saturation robustness)
+- **Status:** confirmado (teste: `tests/test_photometric_synthetic.py::test_wps_robust_to_saturation`)
+
+**Evidência de execução:** com 2 das 8 luzes saturadas em 60% do máximo, erro angular médio = **15.13°** (limiar do teste: 5°). O mascaramento clássico (a média dos resíduos é inflada pelos outliers, elevando o limiar até não rejeitar nada) se manifesta claramente. Teste marcado `@pytest.mark.xfail(strict=True)` após captura da falha bruta.
 
 **Descrição:** O critério de outlier é `residuals <= outlier_threshold_multiplier *
 mean(|residuals|)` com multiplicador default 3 (`wps.py:136,174`). Dois problemas: (1) a
@@ -390,7 +396,9 @@ aplicar.
 - **`np.linalg.lstsq(..., rcond=None)` no solver robusto** — uso de `lstsq` (não `inv`) com
   `rcond=None` em `wps.py:165` é adequado para o sistema sobre-determinado `L·n̂=I` com ≥3
   luzes; a normalização posterior (`wps.py:194`) trata o fator de escala. (O defeito está em
-  *o que* se faz com a magnitude — PS-01 — não no solver.)
+  *o que* se faz com a magnitude — PS-01 — não no solver.) **Confirmado por execução:**
+  `test_wps_recovers_normals_clean_data` (Task 10) obteve erro angular médio 0.004°, p95 0.013°
+  em dados limpos — validando a formulação Woodham do solver robusto.
 - **Guard de norma zero antes de normalizar a normal** — `if norm == 0: nan` em
   `wps.py:189-193` evita divisão por zero ao normalizar soluções degeneradas.
 - **Guard de nº mínimo de luzes** — `if np.sum(valid_indices) < 3` (`wps.py:154`) e

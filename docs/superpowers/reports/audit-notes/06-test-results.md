@@ -99,6 +99,73 @@ RMSE por candidato de convenção (rampa via -normals):
 
 ---
 
+## test_photometric_synthetic (Task 10)
+
+- **Comando:** `pytest tests/test_photometric_synthetic.py -v -s`
+- **Resultado (1ª execução, antes do xfail):** `2 failed, 2 passed in 0.92s`
+- **Resultado final (com xfail em PS-01 e PS-03):** `2 passed, 2 xfailed in 1.01s`
+
+### Saída verbatim (1ª execução)
+
+```
+tests/test_photometric_synthetic.py::test_wps_recovers_normals_clean_data
+limpo: erro angular médio = 0.004°, p95 = 0.013°
+PASSED
+
+tests/test_photometric_synthetic.py::test_wps_albedo_recovers_true_albedo
+n_lights=4: albedo mediano = 1.7 (verdadeiro: 200.0)
+FAILED
+AssertionError: albedo mediano 1.7 != 200.0 com 4 luzes — se cresce com sqrt(n_lights), confirma o achado do albedo
+
+tests/test_photometric_synthetic.py::test_wps_robust_to_saturation
+saturado: erro angular médio = 15.127°
+FAILED
+AssertionError: robustez insuficiente a saturação: 15.13°
+
+tests/test_photometric_synthetic.py::test_wps_shadowed_pixels_flagged_not_garbage
+sombras: válidos = 100.0%, erro médio nos válidos = 0.00°
+PASSED
+```
+
+### Análise adicional: albedo por nº de luzes (sonda extra após captura)
+
+```
+n_lights=4: albedo mediano = 1.7051, ratio med/sqrt(n_lights) = 0.8526
+n_lights=8: albedo mediano = 2.4114, ratio med/sqrt(n_lights) = 0.8526
+```
+
+O ratio `med / sqrt(n_lights)` é **constante** (0.8526) para 4 e 8 luzes, confirmando exatamente a lei de escala `albedo ≈ sqrt(N) × const(geometria)` prevista por PS-01. O valor verdadeiro ρ = 200 não é sequer aproximado (med/ρ ≈ 0.009 em ambos os casos).
+
+### Interpretação — o que cada teste decide
+
+#### test_wps_recovers_normals_clean_data — PASSED
+- Erro angular médio = **0.004°**, p95 = **0.013°** com 6 luzes e dados sintéticos limpos (ρ=200, sem ruído).
+- **Confirma:** a matemática Woodham (formulação `L·n̂=I`, `lstsq`, normalização posterior) está **correta** para dados sem perturbação. Valida o item "Verificado sem achado — `np.linalg.lstsq(..., rcond=None)` no solver robusto" de `02-photometric.md`. Os erros abaixo de 0.1° são devidos apenas a arredondamento float32 e `epsilon=1e-6`, sem erro sistemático.
+
+#### test_wps_albedo_recovers_true_albedo — XFAIL (confirma PS-01)
+- 4 luzes: albedo mediano = **1.7** (verdadeiro: 200); 8 luzes: **2.4**.
+- O ratio `med / sqrt(n_lights)` é **constante = 0.8526**, confirmando a lei de escala `albedo ≈ sqrt(N) × f(geometria)`.
+- **PS-01 CONFIRMADO:** `wps.py:198` computa `albedo = ||L_sel @ n̂||` (norma das intensidades preditas com normal unitária), que é `sqrt(Σ_k cos²θ_k)` — não o albedo ρ. A quantidade cresce com sqrt(N) conforme previsto. O xfail foi aplicado APÓS captura da falha bruta com as medições acima registradas.
+
+#### test_wps_robust_to_saturation — XFAIL (confirma PS-03)
+- Erro angular médio = **15.13°** com 2 das 8 luzes saturadas (cap a 60% do máximo), acima do limiar de 5° esperado para um solver robusto.
+- **PS-03 CONFIRMADO:** o loop de outliers com `3 × mean(|residuals|)` falha quando a saturação afeta 25% das luzes. A média dos resíduos é inflada pelas luzes saturadas, elevando o limiar a ponto de não rejeitar nada (mascaramento clássico previsto em PS-03). O xfail foi aplicado APÓS captura da falha.
+
+#### test_wps_shadowed_pixels_flagged_not_garbage — PASSED
+- Luz rasante (tilt 75°), 5 luzes: **100% pixels válidos**, erro angular médio nos válidos = **0.00°**.
+- **Interpretação PS-02:** com tilt 75° e bump de amplitude 10 σ=0.15, a superfície inclinada *tinha* regiões com n·l < 0, mas o `render_lambertian` as satura em 0 (via `max(0, n·l)`); o threshold relativo `1e-3` (PS-02) descartou essas entradas zero do `lstsq` — por acidente, o threshold quase nulo *funcionou* aqui porque os pixels sombreados têm exatamente I=0 em todas as luzes (ou em todas mas uma), resultando em `valid_indices` que seleciona apenas luzes iluminadas. **PS-02 não confirmado por este teste** para o caso sintético puro (luminância 0 é exatamente 0 + epsilon; v_max é grande; razão = tiny < 1e-3 só quando todas as luzes são sombra). Impacto prático da fraqueza de PS-02 permanece como suspeita para dados quantizados a 8 bits (onde sombras parciais produzem I=1/255 > 1/1000 = 1e-3).
+
+### Achados decididos por esta Task
+
+| Achado | Status anterior | Status após Task 10 |
+|--------|----------------|---------------------|
+| PS-01 | suspeita | **confirmado** (teste xfail; med 1.7/2.4 vs ρ=200; ratio sqrt-N constante) |
+| PS-02 | suspeita | **não confirmado** pelo teste sintético (permanece suspeita para 8-bit) |
+| PS-03 | suspeita | **confirmado** (teste xfail; 15.13° com 2/8 luzes saturadas) |
+| Woodham correto | verificado sem achado (estático) | **confirmado por execução** (0.004° em dados limpos) |
+
+---
+
 ## Bloqueios
 
 ### Build do C (`make`) falha — NÃO bloqueante para Task 9 (binário pré-compilado versionado)
