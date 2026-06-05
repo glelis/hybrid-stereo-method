@@ -68,21 +68,31 @@ deve mostrar o "albedo" crescendo com o nº de luzes — confirmando o defeito.
 - **Severidade:** alto
 - **Status:** suspeita (teste sintético não confirmou — permanece suspeita para dados 8-bit reais; ver Task 10)
 
-**Evidência de execução (Task 10):** `test_wps_shadowed_pixels_flagged_not_garbage` PASSED — 100% pixels válidos, 0.00° de erro nos válidos. Com dados sintéticos float (I=0 exato nas sombras), a razão `epsilon/v_max ≪ 1e-3` acidentalmente funciona: sombras totais são descartadas. O problema prático de PS-02 é para dados 8-bit (mínimo não-nulo = 1/255 ≈ 3.9e-3 > 1e-3), onde o threshold não rejeita sombras parciais — esse caminho não é exercitado pelo teste sintético float.
+**Evidência de execução (Task 10):** `test_wps_shadowed_pixels_flagged_not_garbage` PASSED — 100% pixels válidos, 0.00° de erro nos válidos. O teste exercita sombras attached (~10.9% das entradas (pixel,luz) com n·l<0 foram corretamente rejeitadas por entrada; 32.9% dos pixels com ao menos uma luz sombreada). O threshold `pixel_values / v_max > shadow_threshold` é avaliado **por entrada** (por luz): uma luz sombreada (I ≈ eps) é rejeitada sempre que o pixel tem ao menos uma luz iluminada (v_max grande), independentemente de quantas outras luzes estão em sombra. A rejeição funciona como projetada neste regime porque o render float produz zeros exatos nas sombras (I = eps → razão ≈ eps/v_max ≪ 1e-3). A fraqueza do threshold 1e-3 é específica para valores de sombra próximos-mas-não-zero — que o render float não produz. Verificação independente do revisor: substituindo os zeros exatos pelo piso 8-bit (1/255 ≈ 3.9e-3 > 1e-3), o erro angular sobe de 0.004° para 3.6° médio / 20° máximo — confirmando que PS-02 permanece suspeita para dados reais de 8 bits.
 
 **Descrição:** A rejeição de sombra usa `pixel_values / v_max > shadow_threshold` com
-`shadow_threshold` default `1e-3` (`wps.py:135`) e `v_max` o **máximo daquele pixel**. Com
-entrada quantizada a 8 bits (PS-07), o menor valor não-nulo possível é `1/255 ≈ 3.9e-3`, já
-maior que `1e-3`. Além disso, `images = images + epsilon` (`wps.py:139`) soma `1e-6` a tudo,
-então mesmo pixels exatamente 0 viram `1e-6`, e a razão `1e-6 / v_max` só fica abaixo de
-`1e-3` se `v_max > 1e-3`. Resultado prático: salvo pixels em sombra **literalmente total**
-(0 em todas as luzes, caso em que `v_max ≈ 1e-6` e a razão de todos vira ~1, não rejeitando
-nada), o critério **não rejeita sombras reais** — uma intensidade de `5/255` sob uma luz e
-`250/255` sob outra produz razão `0.02 > 1e-3` e o ponto sombreado entra no `lstsq`.
+`shadow_threshold` default `1e-3` (`wps.py:135`) e `v_max` o **máximo daquele pixel**. O
+critério é avaliado **por entrada (por luz)**: para um dado pixel, cada luz é testada
+individualmente — uma luz sombreada (I ≈ eps) é rejeitada quando o pixel tem ao menos uma
+luz iluminada (v_max grande); não é necessário que *todas* as luzes estejam em sombra.
+Com render float (zeros exatos nas sombras), `epsilon/v_max ≈ 1e-6/v_max ≪ 1e-3` para
+qualquer pixel com ao menos uma luz iluminada — a rejeição funciona como projetada.
+
+A fraqueza é específica para **dados 8-bit**: com entrada quantizada (PS-07), o menor valor
+não-nulo possível é `1/255 ≈ 3.9e-3`, já maior que `1e-3`. Uma luz parcialmente sombreada
+(`5/255 ≈ 0.02`) sobre um pixel também parcialmente iluminado (`250/255`) produz razão
+`0.02 > 1e-3` — o ponto sombreado entra no `lstsq`. O mesmo ocorre com luz ambiente ou
+qualquer piso de intensidade acima de `1e-3 × v_max`. Além disso, `images = images + epsilon`
+(`wps.py:139`) soma `1e-6` a tudo, mas isso só ajuda a evitar `v_max=0` (divisão por zero),
+não resolve o limiar muito baixo para dados 8-bit. Caso todos os pixels de um pixel sejam
+exatamente 0 (sombra total), `v_max ≈ 1e-6` e a razão de todas as luzes vira ~1, não
+rejeitando nada — mas esse caso patológico é secundário ao problema principal do limiar 8-bit.
+
 Sombras (regiões onde `L·n̂ ≤ 0`, ou attached/cast shadows) violam o modelo Lambertiano e
 enviesam a normal; deixá-las entrar contradiz o propósito declarado do solver "robusto".
-Além disso o threshold ser **relativo** ao próprio pixel (e não absoluto/à dinâmica da cena)
-torna-o praticamente um no-op. Highlights/saturação **nunca** são tratados por este passo —
+O threshold ser **relativo** ao máximo do próprio pixel (e não absoluto/à dinâmica da cena)
+torna-o ineficaz para sombras com valores próximos-mas-não-zero típicos de dados 8-bit.
+Highlights/saturação **nunca** são tratados por este passo —
 ficam inteiramente a cargo do loop de outliers (PS-03), que pode falhar quando a saturação
 afeta a maioria das luzes.
 
