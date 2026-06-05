@@ -221,6 +221,29 @@ nenhum dos dois caminhos. O arquivo `zMos_with_confidence.fni` é de células `(
 (passar `-hints path scale Hsz weight` com `Hsz` = fator z_foc→pixel) antes de integrar; ou
 documentar e impor que `zMos` já esteja em unidades de pixel. NÃO aplicar.
 
+**Evidência executável (2026-06-05):** rampa sintética física com pixel de tamanho 2.5 em
+unidades de z_foc: integração com escala default dá fit afim `a = 2.5003` contra o gt
+físico (alturas em unidade de pixel — viés exatamente igual ao tamanho do pixel); com
+`slopes_scale=(2.5, 2.5)` dá `a = 1.0001`. Com hints na escala de z_foc e peso moderado
+(`w=0.1`, o default do config), a amplitude de grande escala da solução é ditada pelos
+hints (`a` salta de 2.5 para ~1.04), enquanto o detalhe fino segue os slopes em escala
+de pixel — uma quimera de duas escalas, exatamente o mecanismo previsto. **Achado anexo:**
+`szero = TRUE` hard-coded (`pst_integrate_iterative.c:75`) força a solução a soma zero a
+cada nível — hints **nunca** ancoram o nível absoluto (verificado: `z.mean() = 0.0` exato
+para qualquer peso), apenas a forma/níveis relativos.
+
+**Correção aplicada:** PENDING_SHA (2026-06-05) — novo parâmetro
+`hybrid.integration.pixel_size` (tamanho lateral de 1 pixel nas mesmas unidades de
+`z_foc`); o helper `build_integration_config` (`hybrid/main.py`) deriva
+`slopes_scale = (pixel_size, pixel_size)`, então o C multiplica os slopes pelo passo
+físico do pixel e `Z` sai em unidades de `z_foc` — comensurável com os hints, que entram
+sem escala própria. Warning logado quando `use_hints=True` sem `pixel_size` configurado.
+O parâmetro está documentado (comentado) em `configs/hb_experiment.yaml` — o valor é
+geométrico e precisa ser medido por dataset. 10 testes em
+`tests/test_integration_units.py` (derivação do config, warning, unidades físicas via
+binário: `a≈1` com pixel_size vs `a≈2.5` default, consistência hints+slopes escalados
+com rms demeaned 0,14% do std a peso 1000). Ver CONV-4 (mesma correção).
+
 ---
 
 ## INT-05: hints `(H,W,2)` (células) entregues a um alvo `(H+1,W+1)` (vértices) — C expande com `expand_by_one`, deslocando os hints meia-célula

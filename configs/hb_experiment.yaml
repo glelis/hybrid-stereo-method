@@ -110,10 +110,19 @@ hybrid:
   integration:
     # Integration method (starting point)
     initial_method: "zero"
-    
+
     # Initial noise level
     initial_noise: 0.0
-    
+
+    # Lateral size of one pixel in the SAME physical units as z_foc above.
+    # The solver multiplies the slopes by this factor, so the integrated
+    # heights come out in z_foc units — commensurable with the multifocus
+    # hints (zMos). If unset, heights stay in pixel units while hints are in
+    # z_foc units (incommensurable — INT-04/CONV-4) and a warning is logged
+    # when use_hints is true. Measure it from the scene/camera geometry, e.g.
+    # if one pixel spans 0.5 z_foc units laterally, set pixel_size: 0.5.
+    # pixel_size: 1.0
+
     # Whether to use the depth map from multifocus as hints
     use_hints: True
     

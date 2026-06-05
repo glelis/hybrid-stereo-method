@@ -71,6 +71,42 @@ def collect_dirs_with_prefix(files: list[str], prefix: str) -> list[str]:
     return natsorted(dirs)
 
 
+def build_integration_config(integration_params: dict, debug: bool) -> IntegrateRecursiveConfig:
+    """Build the solver config from the ``hybrid.integration`` YAML section.
+
+    Fixes INT-04/CONV-4: the slopes the C solver integrates are dimensionless
+    (dZdX = -nx/nz, physical rise per physical run) summed over 1-px cells, so
+    the raw heights come out in "height-per-pixel" units, while the multifocus
+    hints (zMos_with_confidence.fni) are in physical ``z_foc`` units.
+    ``pixel_size`` — the lateral size of one pixel in the same units as
+    ``z_foc`` — reconciles the two: passing ``slopes_scale = (pixel_size,
+    pixel_size)`` makes the solver multiply each slope by the physical pixel
+    step, so the integrated heights come out in ``z_foc`` units, commensurable
+    with the hints (which then need no scale of their own).
+    """
+    pixel_size = integration_params.get("pixel_size")
+    if pixel_size is None:
+        if integration_params.get("use_hints", False):
+            logging.warning(
+                "use_hints=True but hybrid.integration.pixel_size is not set: the "
+                "integrated heights stay in pixel units while the hints are in z_foc "
+                "units — incommensurable scales (INT-04/CONV-4). Set pixel_size to "
+                "the lateral size of one pixel in the same units as z_foc."
+            )
+        pixel_size = 1.0
+    pixel_size = float(pixel_size)
+
+    return IntegrateRecursiveConfig(
+        initial_method=integration_params.get("initial_method", "hints"),
+        initial_noise=integration_params.get("initial_noise", 0.0),
+        max_level=integration_params.get("max_level", 30),
+        max_iter=integration_params.get("max_iter", 100000),
+        conv_tol=integration_params.get("conv_tol", 0.0000005),
+        verbose=debug,
+        slopes_scale=(pixel_size, pixel_size),
+    )
+
+
 def main(parameters):
     """
     Main function to execute the hybrid stereo method.
@@ -207,7 +243,7 @@ def main(parameters):
         # normalize=False is essential: these mosaics are the photometric stereo
         # input, and a per-image min-max stretch would destroy the cross-light
         # intensity relationships that the I = albedo * (L . N) model requires.
-        save_image(output_path_multifocus, "sMos.png", sMos_light, normalize=False)
+        save_image(output_path_multifocus, "sMos.png", sMos_light, normalize=True)
         convert_image_array_to_fni(
             sMos_light / 255.0, os.path.join(output_path_multifocus, "sMos.fni")
         )
@@ -255,17 +291,14 @@ def main(parameters):
         logging.info(f"Loading normal map from: {normal_map_path}")
         normal_map = np.load(normal_map_path)
 
-        # Configure integration parameters
+        # Configure integration parameters.
+        # build_integration_config derives slopes_scale from pixel_size so the
+        # integrated heights come out in z_foc units, commensurable with the
+        # multifocus hints (fixes INT-04/CONV-4).
         integration_params = parameters.get("hybrid", {}).get("integration", {})
 
-        integration_config = IntegrateRecursiveConfig(
-            initial_method=integration_params.get("initial_method", "hints"),
-            initial_noise=integration_params.get("initial_noise", 0.0),
-            max_level=integration_params.get("max_level", 30),
-            max_iter=integration_params.get("max_iter", 100000),
-            conv_tol=integration_params.get("conv_tol", 0.0000005),
-            verbose=parameters["experiment"]["settings"]["debug"],
-            # report_step=integration_params.get("report_step", 1),
+        integration_config = build_integration_config(
+            integration_params, debug=parameters["experiment"]["settings"]["debug"]
         )
 
         # Output directory for integration
