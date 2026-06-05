@@ -446,13 +446,28 @@ dataset que contenha **apenas** os stacks `sVal.png` (como o sintético desta ta
 conjunto `light_directories` fica **vazio**: o laço `134-163` não executa, nenhum
 `multifocus_stereo/L*/sMos.png` é escrito e o Passo 2 (fotométrico) aborta em
 `photometric/main_wps.py:123` com `ValueError: Number of images (0) does not match number
-of light directions (6)`. Nos datasets **reais** a detecção funciona **por acidente**:
-existem arquivos avulsos diretamente sob `L<n>/` (ex.: `L000/selected-pixels.png`,
-`L000/sharp/...` cujo pai-de-pai é `L000`, e em especial `L000/selected-pixels.png` cujo
-pai imediato É `L000`), que injetam os nomes `L*` no conjunto. A correção do commit 505d262
-(seleção de `sMos.png` por componente exato) cobriu o *consumo* dos mosaicos, mas a
-*detecção* das luzes a montante continua dependendo de detritos no diretório, não dos
-stacks.
+of light directions (6)`. O modo de falha é **alto e claro** (ValueError explícito com
+mensagem informativa) — não corrupção silenciosa.
+
+Verificação independente do revisor sobre os **11 datasets reais** em `data/raw/hybrid_stereo/`
+executando a mesma lógica de detecção: apenas **3/11 detectam alguma luz** — exatamente os três
+com `selected-pixels.png` diretamente sob `L*/` (`...glo0 (2).50`, `...glo0.50`, `lamb-gls`).
+Os outros **8/11 detectam ZERO luzes** e falhariam com o mesmo ValueError — incluindo os
+datasets "melon" que seguem o layout `L*/zf*/sVal.png` sem arquivo avulso sob `L*/`. Portanto
+a narrativa "os dados reais funcionam por acidente" é parcialmente incorreta: a **maioria dos
+dados reais também falha** com este bug; apenas os 3 datasets com detritos de filesystem sob
+`L*/` são poupados — e nesses, a detecção depende de arquivos acidentais, não dos stacks.
+
+A correção do commit 505d262 (seleção de `sMos.png` por componente exato) cobriu o *consumo*
+dos mosaicos, mas a *detecção* das luzes a montante continua dependendo de detritos no
+diretório, não dos stacks.
+
+**Justificativa da severidade `crítico`:** (a) o pipeline é inutilizável no layout documentado
+limpo — a maioria dos datasets reais (8/11) falha com o mesmo ValueError que o sintético; (b)
+nos 3 datasets onde "funciona", a seleção de luzes é dirigida por arquivos acidentais,
+criando risco real de associação luz↔mosaico errada (ver CONV-6); o modo de falha observado
+é ALTO e claro (ValueError em `main_wps.py:123`), mas os itens (a)+(b) sustentam o rótulo
+`crítico` independentemente da ausência de corrupção silenciosa.
 
 **Evidência:** reprodução direta da detecção sobre `L0/zf0/sVal.png ...`:
 `light_directories = []`, `zf_directories = ['zf0','zf1','zf2']` (o ramo `zf*` funciona

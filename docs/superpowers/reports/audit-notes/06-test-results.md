@@ -247,9 +247,14 @@ layout `L<n>/zf<m>/sVal.png` é sempre um `zf*` — nunca um `L*`. Num dataset l
 `01-multifocus.md` como **MF-14 (crítico, confirmado por execução)**.
 
 Reprodução direta da detecção: `light_directories = []`, `zf_directories = ['zf0','zf1','zf2']`.
-Inspeção dos dados reais mostra que a detecção só funciona **por acidente** lá: há arquivos
-avulsos diretamente sob `L<n>/` (ex.: `L000/selected-pixels.png`, cujo pai imediato É `L000`)
-que injetam os nomes `L*`. O dataset sintético, por ser limpo, expõe a fragilidade.
+Verificação independente do revisor sobre os **11 datasets reais** em `data/raw/hybrid_stereo/`:
+apenas **3/11 detectam alguma luz** — exatamente os três com `selected-pixels.png` diretamente
+sob `L*/` (`...glo0 (2).50`, `...glo0.50`, `lamb-gls`). Os outros **8/11 detectam ZERO luzes**
+e falhariam com o mesmo ValueError — incluindo os datasets "melon" que seguem o layout
+`L*/zf*/sVal.png` sem arquivo avulso. A narrativa "os dados reais funcionam por acidente"
+aplica-se apenas a esses 3; a maioria dos dados reais **também falha** com este bug. O dataset
+sintético, por ser limpo (sem detritos), simplesmente expõe o mesmo defeito que já atinge 8/11
+dos datasets reais.
 
 ### Interpretação (o que esta task decide e o que NÃO decide)
 
@@ -297,10 +302,15 @@ BASELINE line verbatim:
 
 - **`a = 1.0030` (escala, ≈ +1):** o fator de escala do fit afim entre altura estimada e gt. O
   **sinal positivo** indica que a cadeia mosaico → PS → integração **preserva a orientação** (não
-  inverte z) **para luzes no mesmo referencial das normais**. O **módulo ≈ 1** diz que, neste setup
-  sintético, a altura recuperada já está praticamente nas unidades de `z_foc` do gt — diferente da
-  expectativa genérica de CONV-4 (`|a| ≠ 1`, slopes por-pixel em unidades de `z_foc`); aqui não há
-  reescala apreciável a corrigir. Apenas uma observação do caso sintético, não fecha CONV-4.
+  inverte z) **para luzes no mesmo referencial das normais**. O **módulo ≈ 1** é uma coincidência
+  **por construção do setup sintético**: o passo de `z_foc` no sintético é 1.0 (cada frame avança
+  1 unidade) e o passo de pixel também é 1 amostra — logo profundidade-em-z_foc e
+  altura-em-pixels **coincidem numericamente por construção**, tornando `a ≈ 1` obrigatório neste
+  caso. Esse `a ≈ 1` carrega **zero informação** sobre o comportamento em dados reais, onde o passo
+  de `z_foc` é ~10 por frame (ex.: `[15, 25, ..., 125]`), e `a ≈ 1` **não seria esperado** — o
+  desacordo de escala previsto por CONV-4 (slopes adimensionais vs hints em unidades físicas de
+  `z_foc`) não é exercitado aqui. Não ler `a ≈ 1` como evidência positiva sobre o tratamento de
+  escala: **CONV-4 permanece aberto**.
 - **`b = 3.1279` (offset):** o integrador resolve altura a menos de constante; o offset global é
   absorvido pelo fit afim. Esperado e sem significado físico.
 - **`pearson r = 0.9971` (≈ +1):** correlação quase perfeita ⇒ a **estrutura** é recuperada com a
