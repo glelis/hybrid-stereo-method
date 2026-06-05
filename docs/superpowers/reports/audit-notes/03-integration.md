@@ -73,7 +73,15 @@ validar que `initial_method=="hints"` ⇒ `use_hints` verdadeiro antes de invoca
 - **Localização:** `src/hybrid_stereo_method/hybrid/integrate.py:171-180`
 - **Tipo:** implementação
 - **Severidade:** médio
-- **Status:** suspeita (decide: teste end-to-end forçando saída não-convergente / ausência do end-Z, Task 12)
+- **Status:** suspeita — comportamento de crash **confirmado por teste** (Task 9); fallback obsoleto/silencioso segue suspeita (decide: Task 12)
+
+**Atualização Task 9 (2026-06-04):** O teste da rampa fez o binário abortar por `demand` de
+canais (`pst_integrate_iterative.c:47`), retorno != 0. Observado empiricamente: `subprocess.run(
+check=True)` levanta `CalledProcessError` (→ `RuntimeError` em `integrate.py:167`) **antes** de
+o fallback `-ini-Z.fni` (`integrate.py:175`) ser alcançado — **confirma** a "Nota sobre
+severidade" abaixo: num crash o fallback não é exercido. Notar que o `ramp-ini-Z.fni` **foi
+escrito** em disco pelo binário (antes do abort), mas nunca é lido. O caminho `-normals` (bump,
+PASSED) produziu `bump-00-end-Z.fni` normalmente. Ver `06-test-results.md`.
 
 **Descrição:** Após a execução, o Python procura `{PREFIX}-00-end-Z.fni` (`integrate.py:171`).
 Se não existir, faz **fallback silencioso** para `{PREFIX}-ini-Z.fni` (`integrate.py:175`) e
@@ -314,6 +322,37 @@ mencionar default 30. `integrate.py:130` sempre fornece `-maxLevel`, neutralizan
 
 **Sugestão de correção:** trocar `DEFAULT_MAX_ITER` por `DEFAULT_MAX_LEVEL` na linha 783. NÃO
 aplicar.
+
+---
+
+## INT-08: `integrate_slopes_to_height` com 2 canais crasha — topo aceita 2/3 canais, solver iterativo exige 3
+
+- **Localização:** `src/hybrid_stereo_method/hybrid/integrate.py:261-263` (docstring "shape (H, W, 2) or (H, W, 3)"); `csrc/integrate_recursive/gus_integrate_recursive.c:503` (aceita 2 ou 3); `csrc/integrate_recursive/lib-src/pst_integrate_iterative.c:47` (exige 3)
+- **Tipo:** implementação
+- **Severidade:** médio
+- **Status:** confirmado (teste: `tests/test_convention_integration.py::test_constant_slopes_recover_ramp_and_decide_convention`, Task 9 — crash reproduzido)
+
+**Descrição:** O caminho `-slopes` com um mapa de **2 canais** (dZ/dX, dZ/dY), exatamente o que
+`integrate_slopes_to_height` grava e o que sua docstring documenta como aceitável
+(`integrate.py:261-263`), **aborta o binário**. O entry-point de topo aceita 2 **ou** 3 canais
+(`demand((NC_G==2)||(NC_G==3), "gradient map {G} must have 2 or 3 channels")`,
+`gus_integrate_recursive.c:503`) mas o solver iterativo interno exige **exatamente 3**
+(`demand(NC_G==3, "slope map {G} must have 3 channels")`, `lib-src/pst_integrate_iterative.c:47`),
+e o topo **não promove** 2→3 (não acrescenta um canal de peso) antes de recursar. O abort ocorre
+no nível 0, após escrever `-ini-Z.fni` e os `-NN-beg-G.fni`. O caminho `-normals` não sofre disso
+(normais entram com 3 canais Nx,Ny,Nz e `pst_normal_map_to_slope_map` produz um mapa de slope com
+peso). No fluxo híbrido real o integrador é invocado via `-normals` (`hybrid/main.py`), então o
+caminho quebrado é inalcançável **no pipeline atual** — mas a API pública `integrate_slopes_to_height`
+está quebrada para o caso de 2 canais documentado.
+
+**Evidência (Task 9):** crash reproduzido com `slopes` `(32,32,2)`: `pst_integrate_iterative.c:47:
+** (pst_integrate_iterative) slope map {G} must have 3 channels` (stderr verbatim em
+`06-test-results.md`); a tabela de candidatos de convenção do teste nunca foi impressa (crash antes
+do retorno). Consequência transversal: o teste da rampa não pôde decidir CONV-1/CONV-2 por esta via.
+
+**Sugestão de correção:** no wrapper, gravar slopes como 3 canais (dZ/dX, dZ/dY, peso=1) para o
+`-slopes`; ou no C, promover 2→3 no topo antes de recursar; e corrigir a docstring de
+`integrate.py:261-263`. NÃO aplicar.
 
 ---
 

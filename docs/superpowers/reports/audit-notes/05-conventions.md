@@ -21,9 +21,9 @@ Convenção de veredito:
 
 | # | Convenção | Produtor (file:line) | Consumidor (file:line) | Veredito | Evidência (curta) |
 |---|---|---|---|---|---|
-| 1 | Eixo z / profundidade (direção + unidade) | dataset `zf*` → `z_foc` YAML (`configs/hb_experiment.yaml:39`) → `zMos` (`mosaic.py:57,72`) | hints C (`hybrid/main.py:231`→`pst_integrate.c:308-323`) → `height_map.npy` (`hybrid/main.py:266`) | **inconsistente** + **decidido-por-teste** | unidade física `z_foc` vs altura-por-pixel já é INT-04; **direção/sinal** de `Z` (cresce p/ câmera?) não decidida estaticamente → **CONV-1** + teste rampa |
-| 2 | Normais e luzes (frame / y-up vs y-down) | `lights.npy` = tuplas POV-Ray `<x,y,z>` (`data/raw/photometric_stereo/ex19_povball-txF/2025-01-15-glelis-pov/make_images.py:44-58`) → normais wps no mesmo frame (`wps.py:165,194`) | normal→slope C (`pst_basic.c:49-50`) → grade de integração (`pst_integrate.c`) | **inconsistente (não documentada)** + **decidido-por-teste** | y das luzes = y-up POV-Ray (left-handed); imagem numpy = y-down (linha 0 = topo). Convenção **não documentada** em lugar nenhum → **CONV-2**; sinal final pelo teste rampa |
-| 3 | Origem/orientação da imagem (round-trip FNI) | writer FNI Python (`image_io.py:171-178`) → C (`float_image`/`tire_read_fni_file`) | writer C `-end-Z.fni` → reader Python (`image_io.py:227-241`) | **consistente** (indexação) / **decidido-por-teste** (sinal dZ/dY) | round-trip preserva o array (sem flip), cf. INT (03) e IO (04); sinal físico dZ/dY → CONV-2/CONV-1 + teste rampa |
+| 1 | Eixo z / profundidade (direção + unidade) | dataset `zf*` → `z_foc` YAML (`configs/hb_experiment.yaml:39`) → `zMos` (`mosaic.py:57,72`) | hints C (`hybrid/main.py:231`→`pst_integrate.c:308-323`) → `height_map.npy` (`hybrid/main.py:266`) | **inconsistente** + **indecidido por teste (rampa crashou)** | unidade `z_foc` vs altura-por-pixel = INT-04; **sinal** de `Z` segue não decidido: o teste rampa (Task 9) crashou antes de integrar (`-slopes` 2-canais vs `pst_integrate_iterative.c:47` exige 3) → CONV-1 suspeita não refutada |
+| 2 | Normais e luzes (frame / y-up vs y-down) | `lights.npy` = tuplas POV-Ray `<x,y,z>` (`data/raw/photometric_stereo/ex19_povball-txF/2025-01-15-glelis-pov/make_images.py:44-58`) → normais wps no mesmo frame (`wps.py:165,194`) | normal→slope C (`pst_basic.c:49-50`) → grade de integração (`pst_integrate.c`) | **inconsistente (não documentada)** + **indecidido por teste (rampa crashou)** | y das luzes = y-up POV-Ray; imagem numpy = y-down. Convenção **não documentada** → CONV-2; o teste rampa (Task 9) crashou antes de medir o sinal de `dZ/dY` — suspeita não refutada |
+| 3 | Origem/orientação da imagem (round-trip FNI) | writer FNI Python (`image_io.py:171-178`) → C (`float_image`/`tire_read_fni_file`) | writer C `-end-Z.fni` → reader Python (`image_io.py:227-241`) | **consistente** (indexação; round-trip FNI testado Task 8) / sinal dZ/dY ainda **indecidido por teste** | round-trip preserva o array sem flip (`test_fni_roundtrip` 4/4, Task 8); o caminho `-normals` integra e produz `-end-Z.fni` (bump PASSED, Task 9); sinal físico dZ/dY não medido (rampa crashou) → CONV-1/CONV-2 |
 | 4 | Escala dos gradientes (slope adimensional vs z físico) | slope `dZdX=-nx/nz` adimensional (`pst_basic.c:49-50`) | sistema de altura-por-pixel + hints em `z_foc` (`pst_integrate.c:308-323`) | **inconsistente** | INT-04/INT-05; `slopes_scale` default `(1,1)` (`integrate.py:53`) **nunca** configurado pelo híbrido → **CONV-4** consolida |
 | 5 | Radiometria entre etapas (linearidade) | `sVal.png` uint8 → médias por-zf re-esticadas (`hybrid/main.py:111`) e mosaicos uint8 clipados (`hybrid/main.py:160`) | foco multifocus (`multifocus/main.py:96`); grayscale→PS (`main_wps.py:115,136`) | **inconsistente** | cadeia quebra linearidade em 3 pontos (IO-05, MF-12, PS-07/PS-08) → **CONV-5** consolida a sequência |
 | 6 | Contratos de arquivo (pareamento/ordem/shape) | `natsorted(sMos_path_list)` (`hybrid/main.py:177`); `sorted(zf_directories)` (`hybrid/main.py:90`); `zMos_with_confidence.fni` `(H,W,2)` | linhas de `lights.npy` (só contagem, `main_wps.py:122-127`); `z_foc` posicional (`mosaic.py:57`); `-hints` espera vértices `(H+1,W+1)` (`gus_integrate_recursive.c:519`) | **inconsistente** | pareamento luz↔mosaico só por contagem (não por L→linha); ordem zf vs z_foc é MF-02; shape células→vértices é INT-05 → **CONV-6** consolida + risco novo de pareamento |
@@ -39,7 +39,17 @@ Convenção de veredito:
 - **Localização:** dataset `zf*` (pastas `organized_by_focus/zf*/`, reorganização pós-geração; o gerador emite pastas `F00/F01/...` por luz, não `zf*` diretamente) → `z_foc` (`configs/hb_experiment.yaml:39`) → `mosaic.py:57,72` → hints (`hybrid/main.py:231`) → `Z` do C (`gus_integrate_recursive.c:457-459`) → `height_map.npy` (`hybrid/main.py:266`)
 - **Tipo:** conceitual
 - **Severidade:** alto
-- **Status:** suspeita (decide: `tests/test_convention_integration.py::test_constant_slopes_recover_ramp_and_decide_convention`, Task 9)
+- **Status:** suspeita — **indecidido por teste** (Task 9: `tests/test_convention_integration.py::test_constant_slopes_recover_ramp_and_decide_convention` **crashou antes de integrar**; ver abaixo)
+
+**Atualização Task 9 (2026-06-04):** O teste da rampa **não conseguiu decidir** o sinal de `Z`.
+O caminho `integrate_slopes_to_height` com mapa de 2 canais aborta o binário antes da
+integração: o topo aceita 2/3 canais (`gus_integrate_recursive.c:503`) mas o solver iterativo
+exige exatamente 3 (`lib-src/pst_integrate_iterative.c:47: ** slope map {G} must have 3 channels`).
+A tabela de candidatos de convenção nunca chegou a ser impressa. CONV-1 segue **suspeita não
+refutada** (a leitura estática — sinal `-nx/nz` correto internamente, constante de integração
+arbitrária — permanece). Decisão de sinal fica pendente de uma via que não crashe (caminho
+`-normals` com rampa assimétrica, ou `-slopes` com 3º canal de peso). Detalhes em
+`06-test-results.md`.
 
 **Descrição:** A direção de crescimento de `z` **não é fixada nem verificada** em nenhum elo
 da cadeia. No dataset gerado por POV-Ray, `zFoc` cresce do fundo da cena (`zScene_min`) para
@@ -76,7 +86,12 @@ combiná-los. NÃO aplicar.
 - **Localização:** `lights.npy` (gerado fora do pacote — tuplas POV-Ray em `data/raw/photometric_stereo/ex19_povball-txF/2025-01-15-glelis-pov/make_images.py:44-58`) → `np.load` (`main_wps.py:119`) → `wps.py:165,194` → `normal_map.npy` → `pst_basic.c:49-50` (`dZdY=-ny/nz`) → grade de integração C
 - **Tipo:** conceitual
 - **Severidade:** alto
-- **Status:** suspeita (decide: `tests/test_convention_integration.py::test_constant_slopes_recover_ramp_and_decide_convention`, Task 9)
+- **Status:** suspeita — **indecidido por teste** (Task 9: o teste da rampa crashou antes de integrar; ver abaixo)
+
+**Atualização Task 9 (2026-06-04):** Idem CONV-1 — o teste da rampa (`-slopes`, 2 canais)
+abortou o binário em `pst_integrate_iterative.c:47` (slope map exige 3 canais) antes de medir
+o sinal de `dZ/dY`. A reconciliação y-up(luzes)↔y-down(numpy) **continua não verificada
+empiricamente**; segue suspeita não refutada. Ver `06-test-results.md`.
 
 **Descrição:** O modelo Lambertiano resolve `I = ρ·(L·n̂)`, logo as normais estimadas vivem
 **no mesmo frame de coordenadas das luzes** `lights.npy` (por construção do `lstsq` em
