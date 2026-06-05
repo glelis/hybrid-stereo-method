@@ -39,6 +39,27 @@ def select_files_by_parent_dir(files: list[str], dir_name: str, filename_part: s
     )
 
 
+def select_light_stack_files(files: list[str], light_dir: str) -> list[str]:
+    """Return sVal.png files under <light_dir>/zf*/ in natural order.
+
+    Exact path-component checks:
+    - immediate parent name starts with "zf" (not a substring match),
+    - grandparent name is exactly ``light_dir`` (no L1/zf* bleeding into L10),
+    - basename contains "sVal.png".
+    Deeper nesting (e.g. L0/zf1/sub/sVal.png) is excluded because the grandparent
+    of the file would be zf1, not light_dir.
+    """
+    return natsorted(
+        [
+            f
+            for f in files
+            if Path(f).parent.name.startswith("zf")
+            and Path(f).parent.parent.name == light_dir
+            and "sVal.png" in Path(f).name
+        ]
+    )
+
+
 def collect_dirs_with_prefix(files: list[str], prefix: str) -> list[str]:
     """Return unique immediate-parent directory names starting with ``prefix``,
     sorted in natural order (numeric suffix, not lexicographic).
@@ -153,17 +174,9 @@ def main(parameters):
         logging.info(f"... Processing light directory: {light_dir} ...")
 
         # Filter relevant files in the directory.
-        # Use exact parent-dir components: parent must be a zf* dir AND grandparent must
-        # be this light_dir (fixes substring match that would let "L1/zf" also match "L10/zf").
-        filtered_files = natsorted(
-            [
-                file
-                for file in input_files_path
-                if Path(file).parent.name.startswith("zf")
-                and Path(file).parent.parent.name == light_dir
-                and "sVal.png" in Path(file).name
-            ]
-        )
+        # select_light_stack_files uses exact path-component checks so "L1" cannot
+        # bleed into "L10" (fixes substring match introduced before MF-01/MF-02).
+        filtered_files = select_light_stack_files(input_files_path, light_dir)
 
         output_path_multifocus = os.path.join(output_path, "multifocus_stereo", light_dir)
         if not os.path.exists(output_path_multifocus):
