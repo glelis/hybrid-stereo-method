@@ -5,8 +5,6 @@ import warnings
 
 import numpy as np
 
-from hybrid_stereo_method.infrastructure.utils import normalize
-
 
 def compute_argmax_fuzzy(
     focus_indicator_stack: np.ndarray, debug: bool, debug_data_path: str, fuzzy_params: dict = None
@@ -14,12 +12,19 @@ def compute_argmax_fuzzy(
     """
     Calcula o argmax difuso (fuzzy) para uma pilha de indicadores de foco e confiança.
 
+    A confiança (wSel) é o R² (coeficiente de determinação) do ajuste parabólico
+    local em cada pixel — uma métrica invariante à escala (ganho/offset) da curva
+    de foco e com significado uniforme em [0,1] entre pixels e imagens distintas
+    (correção do achado MF-07). Por já estar em escala absoluta [0,1], NÃO é
+    aplicado um ``normalize()`` global aqui — isso reesticaria a escala absoluta
+    relativamente ao máximo da imagem (sensível a outliers de borda).
+
     Args:
         focus_indicator_stack (list[np.ndarray]): Pilha de imagens com medidas de foco.
 
     Returns:
-        tuple: Duas imagens, iSel e wSel(normalizada) contendo, respectivamente,
-               os valores de argmax fuzzy e as confiabilidades associadas.
+        tuple: Duas imagens, iSel e wSel contendo, respectivamente, os valores de
+               argmax fuzzy e as confiabilidades (R² do ajuste local) em [0,1].
     """
 
     csvfile = None
@@ -73,8 +78,8 @@ def compute_argmax_fuzzy(
         if csvfile is not None:
             csvfile.close()
 
-    wSel = normalize(wSel)
-
+    # MF-07: wSel já é R² em [0,1] com significado absoluto; um normalize() global
+    # aqui reesticaria essa escala relativamente ao máximo da imagem. Removido.
     return iSel, wSel
 
 
@@ -89,9 +94,7 @@ def find_index_of_max_sum(focus_values: np.array) -> int:
         int: O índice do valor máximo da soma de três elementos consecutivos.
     """
     if len(focus_values) < 3:
-        raise ValueError(
-            f"focus_values must contain at least 3 frames, got {len(focus_values)}"
-        )
+        raise ValueError(f"focus_values must contain at least 3 frames, got {len(focus_values)}")
     max_sum = -np.inf
     for i in range(1, len(focus_values) - 1):
         current_sum = focus_values[i - 1] + focus_values[i] + focus_values[i + 1]
@@ -119,6 +122,21 @@ def calculate_weights(focus_values: np.array) -> np.array:
 
 
 def compute_argmax_fuzzy_1d(focus_values, pixel_location, fuzzy_params=None, csv_writer=None):
+    """Argmax difuso e confiança de um perfil de foco 1D (ao longo dos frames).
+
+    Ajusta uma parábola ponderada na vizinhança do pico e devolve o vértice
+    (``k_fuzzy``) como profundidade sub-frame. A confiança (``conf``) é o R²
+    (coeficiente de determinação) desse ajuste local — invariante a ganho/offset
+    da curva e em [0,1], com significado uniforme entre pixels/imagens (MF-07).
+
+    Toda a lógica de rejeição é preservada: vértice fora de janela / curva
+    convexa ou quase plana -> conf 0; ``fnoc < 0`` -> conf 0; janela plana
+    (``ss_tot ≈ 0``, sem pico decidível) -> conf 0; fallbacks degenerados ->
+    conf 0. R² é grampeado a [0,1] (ajustes ponderados podem dar ss_res > ss_tot).
+
+    Returns:
+        tuple[float, float]: ``(k_fuzzy, conf)``.
+    """
     if fuzzy_params is None:
         fuzzy_params = {}
 
@@ -184,7 +202,26 @@ def compute_argmax_fuzzy_1d(focus_values, pixel_location, fuzzy_params=None, csv
         if fnoc < 0:
             conf = 0
         else:
-            conf = abs(A) / fnoc  # confianca do ponto de maximo
+            # MF-07: confianca = R^2 (ponderado) do ajuste parabolico local
+            # (invariante a escala da curva de foco, em [0,1]). Substitui o antigo
+            # |A|/fnoc, cuja escala dependia da normalizacao global do stack. O R^2
+            # usa os MESMOS pesos do ajuste (np.polyfit acima e ponderado): assim
+            # ele mede o quao bem a parabola explica os pontos que o ajuste de fato
+            # priorizou (o pico), evitando penalizar caudas onde o peso e ~0.
+            x_arr = np.asarray(x_list, dtype=np.float64)
+            y_arr = np.asarray(y_list, dtype=np.float64)
+            w_arr = np.asarray(w_list, dtype=np.float64)
+            y_hat = A * x_arr**2 + B * x_arr + C
+            w_sum = float(np.sum(w_arr))
+            y_bar = float(np.sum(w_arr * y_arr) / w_sum) if w_sum > 0 else float(np.mean(y_arr))
+            ss_res = float(np.sum(w_arr * (y_arr - y_hat) ** 2))
+            ss_tot = float(np.sum(w_arr * (y_arr - y_bar) ** 2))
+            if ss_tot < polyfit_epsilon:
+                # janela plana: sem variacao para explicar, pico indecidivel
+                conf = 0
+            else:
+                r2 = 1.0 - ss_res / ss_tot
+                conf = float(min(1.0, max(0.0, r2)))  # grampeia a [0,1]
 
     if csv_writer is not None:
         # Save debug information to the shared CSV file

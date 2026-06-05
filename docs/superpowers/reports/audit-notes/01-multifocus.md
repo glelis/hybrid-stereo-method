@@ -259,6 +259,27 @@ teste.
 **Sugestão de correção:** definir confiança em escala invariante (ex.: razão pico/segundo-
 pico, ou R² do ajuste local), independente da normalização global de amplitude.
 
+**Correção aplicada:** `c600489` (2026-06-05) — confiança = R² (ponderado) do ajuste local
+(escala-invariante, [0,1]); `normalize()` global do wSel removido. O R² usa os mesmos pesos
+do `polyfit` ponderado, medindo o quão bem a parábola explica os pontos priorizados pelo
+ajuste (o pico), com guarda `ss_tot < polyfit_epsilon → conf 0` para janela plana. Toda a
+lógica de rejeição existente (convexa/quase-plana, `fnoc < 0`, fallbacks degenerados,
+`focus_values[k_max] == 0`) foi preservada. Consumidores de wSel: `main.py:154-155`
+(FNIs iSel/wSel via `normalize()` próprio — mantidos, idempotentes para [0,1] com min 0) e
+`main.py:166` (`zMos_with_confidence` via `normalize(wSel)` — mantido, quase no-op). Nenhum
+consumidor quebra matematicamente.
+
+**Mudança de semântica deliberada (registrada):** o teste
+`test_textureless_region_gets_zero_confidence` foi substituído por
+`test_confidence_is_scale_invariant_goodness_of_fit`. Com a métrica antiga `|A|/fnoc` a
+região sem textura recebia conf distintamente menor (sem=0.33, com=0.87, separação 0.38),
+pois media força de pico. O R² é qualidade de ajuste: uma curva suave de vazamento de
+desfoque (região lisa) ajusta uma parábola tão bem quanto um pico real, então R² **não**
+separa textura de ausência de textura (valores novos: sem=0.79, com=0.70). Isto confirma a
+ressalva já registrada acima — o canal de confiança não é (nem era) um detector validado de
+regiões sem textura. A detecção de "sem sinal" permanece no ramo `focus_values[k_max] == 0`
+→ conf 0.
+
 ---
 
 ## MF-08: Normalização global do stack altera comparabilidade entre frames e tem caso degenerado
