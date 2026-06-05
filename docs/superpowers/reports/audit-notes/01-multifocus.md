@@ -259,7 +259,7 @@ teste.
 **Sugestão de correção:** definir confiança em escala invariante (ex.: razão pico/segundo-
 pico, ou R² do ajuste local), independente da normalização global de amplitude.
 
-**Correção aplicada:** `c600489` (2026-06-05) — confiança = R² (ponderado) do ajuste local
+**Correção aplicada:** `86299a6` (2026-06-05) — confiança = R² (ponderado) do ajuste local
 (escala-invariante, [0,1]); `normalize()` global do wSel removido. O R² usa os mesmos pesos
 do `polyfit` ponderado, medindo o quão bem a parábola explica os pontos priorizados pelo
 ajuste (o pico), com guarda `ss_tot < polyfit_epsilon → conf 0` para janela plana. Toda a

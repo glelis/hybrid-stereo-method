@@ -101,7 +101,7 @@ A confiança mistura curvatura e amplitude sob normalização global afim; após
 - Localização: `argmax_fuzzy.py:183-187`; normalização em `applicator.py:83-93`
 - Evidência: `test_textureless_region_gets_zero_confidence` (Task 11) — **dentro de uma imagem** separa textura (0.87) de sem-textura (0.33), razão 0.38; comparabilidade *entre imagens distintas* permanece suspeita (não exercitada).
 - Correção sugerida: confiança em escala invariante (razão pico/segundo-pico, ou R²).
-- **Correção aplicada:** `c600489` (2026-06-05) — confiança = R² do ajuste local (escala-invariante, [0,1]); normalize global do wSel removido. Mudança de semântica registrada: `test_textureless_region_gets_zero_confidence` → `test_confidence_is_scale_invariant_goodness_of_fit`; R² não separa textura/sem-textura (sem=0.79, com=0.70) pois é qualidade de ajuste, não força de pico (antigo |A|/fnoc: sem=0.33, com=0.87).
+- **Correção aplicada:** `86299a6` (2026-06-05) — confiança = R² do ajuste local (escala-invariante, [0,1]); normalize global do wSel removido. Mudança de semântica registrada: `test_textureless_region_gets_zero_confidence` → `test_confidence_is_scale_invariant_goodness_of_fit`; R² não separa textura/sem-textura (sem=0.79, com=0.70) pois é qualidade de ajuste, não força de pico (antigo |A|/fnoc: sem=0.33, com=0.87).
 
 **MF-08 — Normalização global do stack altera comparabilidade entre frames e tem caso degenerado** (implementação, médio, suspeita)
 O clip no percentil 1 global achata o fundo dos frames de baixa energia; a guarda `if min_val<0` praticamente nunca roda (indicadores são `|.|≥0`), então o piso fica em `p1/max_val`; `max_val==0` não gera aviso.
