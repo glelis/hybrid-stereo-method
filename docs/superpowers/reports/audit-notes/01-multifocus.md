@@ -419,14 +419,13 @@ espaçamento uniforme de `z_foc` na entrada (e documentar a premissa). NÃO apli
   stack médio nem aos stacks por luz no fluxo real; a pergunta de "mesmo alinhamento em
   ambos" é vacuamente satisfeita (nenhum alinhamento em nenhum). Eventual desalinhamento
   físico das aquisições não é tratado — fica como observação, não achado de código.
-- **`save_image(normalize=True)` nas médias por `zf`** — investigado o lead: o
-  `cv2.normalize` min-max por imagem (`image_io.py:138`) é aplicado em
-  `save_image(... f"average_{zf_dir}.png" ...)` (main.py:111) com `normalize` default
-  True. Como cada frame da curva de foco é esticado independentemente, a relação de
-  contraste *entre frames* é alterada antes da medida de foco — mas o efeito sobre o
-  *vértice* do ajuste parabólico é uma transformação afim por-frame que altera `fnoc`/
-  confiança, não a posição do máximo da medida local em cada frame isolado. O impacto
-  prático (especialmente combinado com MF-08/MF-12) deve ser decidido por teste sintético
-  da Fase 3; aqui o risco de corretude está coberto por MF-08 (normalização do stack) e
-  MF-12 (quantização). Registrado para o teste sintético "curva de foco com contraste
-  variável por frame".
+- **`save_image(normalize=True)` nas médias por `zf`** — lead **escalado para o achado
+  IO-05 em 04-io.md**. O `cv2.normalize` min-max por imagem (`image_io.py:138`) estica
+  cada `average_{zf}.png` independentemente para [0,255]: planos desfocados (baixo
+  contraste) são ampliados ao mesmo intervalo dos planos nítidos, destruindo a relação de
+  intensidade *entre planos* antes da medida de foco. Isso é distinto de MF-12 (que trata
+  da *quantização* a uint8) e de MF-08 (normalização global do stack dentro do
+  `applicator`): o esticamento min-max **por-frame** pode deslocar o argmax de foco para o
+  plano errado — altera a escala relativa do |Laplaciano| entre frames e pode mover o
+  argmax. Classificado como **alto, suspeita**; decisão pelos testes sintéticos das Tasks
+  11/12. NÃO está "sem achado" — está rastreado como IO-05.
