@@ -96,15 +96,30 @@ puro e o `sMos` não a respeitam.
 
 **Evidência executável (Task 11):** `test_textureless_region_gets_zero_confidence` criou
 um quadrado plano `sharp[24:40,24:40] = 128` dentro de uma imagem texturizada. O path
-`return n/2, 0` **NÃO foi ativado** — o suavizamento espacial do indicador Laplaciano
-(kernel 3×3 em `applicator.py:51`) vaza resposta das bordas texturizadas para o interior,
-produzindo `focus_values[k_max] > 0` no miolo. O iSel mediano observado foi `1.90`
-(artefato de borda; gt = 4.0; n/2 = 4.5). A condição `focus_values[k_max] == 0` requer
-contraste rigorosamente zero em todos os frames — difícil de ativar com o pipeline
-real que usa suavizamento por padrão. Porém, o bug existe no código e pode manifestar-se
-em regiões de foco fisicamente nulo (espelhos, saturação completa, área fora do campo).
-A confiança foi distintamente menor na região sem textura (0.33 vs 0.87 na region
-texturizada), confirmando que o `wSel = 0` funciona como sinal quando o path é ativado.
+`return n/2, 0` **NÃO foi ativado** — e o mecanismo real NÃO é o suavizamento do
+indicador (kernel 3×3 + Laplaciano k=5 alcança no máximo 3 px desde a borda; a janela
+medida `[28:36,28:36]` fica ≥4 px da borda, fisicamente fora do alcance; alimentando a
+imagem nítida sem desfoque ao indicador a resposta na janela é exatamente 0.0).
+
+O mecanismo real é o **blur de desfoque** do `defocus_stack`: com `sigma = blur_per_unit ×
+|k - k_focus|` (até sigma=6 px nos frames extremos), a textura vizinha é espalhada para
+dentro do patch plano. Sonda confirmada: `stack[:,30,30] ≈ [140.7, 134.3, 129.2, 128,
+128, 128, 129.2, 134.3, 140.7]` — o interior é 128 apenas nos frames em foco (k=3,4,5)
+e sobe a ~140 no desfoque pesado. A curva de foco `fi[:,30,30]` fica invertida/bimodal
+com picos em k=1 e k=7; o fit fuzzy produz iSel≈1.24 por pixel → mediana observada 1.90
+(gt = 4.0; n/2 = 4.5).
+
+**Implicação (mais forte que a hipótese anterior):** medidas de foco **falham abertas
+perto de fronteiras de textura** — pixels interiores planos ganham pico espúrio puxado
+para os frames de desfoque que maximizam o vazamento da textura vizinha (dependente dos
+dados; pode ficar longe tanto do plano verdadeiro quanto de n/2). Esta é a instanciação
+realista do defeito MF-03/MF-04: a confiança baixa (0.33 vs 0.87) é real e decorre da
+mesma curva de vazamento (baixa, larga, pouca curvatura) — não de ausência de sinal.
+
+A condição `focus_values[k_max] == 0` requer contraste rigorosamente zero em todos os
+frames — difícil em dados reais (o vazamento de desfoque garante que `focus_values[k_max]
+> 0` sempre que houver textura vizinha). O bug existe no código e pode manifestar-se em
+regiões de foco fisicamente nulo (espelhos, saturação completa, área fora do campo).
 
 **Sugestão de correção:** propagar invalidez (NaN ou sentinela) em vez de `n/2`, ou fazer
 o `mosaic`/integração mascararem pixels com `wSel == 0`.
@@ -228,9 +243,14 @@ como peso (`zMos_with_confidence`), então o viés se propaga ao integrador.
 **Evidência executável (Task 11):** `test_textureless_region_gets_zero_confidence`
 confirmou que **dentro de uma mesma imagem** a confiança separa corretamente regiões
 texturizadas (0.87) de regiões sem textura (0.33), com razão 0.38 — bem abaixo do
-threshold 0.5. A `normalize()` global funciona como ranking relativo dentro da imagem. O
-achado MF-07 (não-comparabilidade *entre* imagens distintas, dependência de outliers de
-borda) permanece suspeita para uso multi-imagem — não exercitado por este teste.
+threshold 0.5. A `normalize()` global funciona como ranking relativo dentro da imagem.
+Importante: a confiança baixa no patch decorre da mesma curva de vazamento de desfoque
+(baixa, larga, pouca curvatura no interior plano), não de uma condição limpa de "sem
+sinal" — o canal de confiança não está validado como detector geral de regiões sem textura
+(apenas como ranking relativo de curvatura dentro de uma imagem com esta configuração
+específica). O achado MF-07 (não-comparabilidade *entre* imagens distintas, dependência de
+outliers de borda) permanece suspeita para uso multi-imagem — não exercitado por este
+teste.
 
 **Sugestão de correção:** definir confiança em escala invariante (ex.: razão pico/segundo-
 pico, ou R² do ajuste local), independente da normalização global de amplitude.
