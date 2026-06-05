@@ -131,6 +131,7 @@ A média (float) é gravada/relida como PNG uint8 antes da medida de foco; a mé
 - Localização: `hybrid/main.py:107-112,104,149`; `image_io.py:138,140`; `utils.py:106-107`
 - Evidência: `calculate_avarage_of_images` retorna `.astype(np.uint8)`; PNG gravado e relido antes de `focus_indicator`.
 - Correção sugerida: passar as médias em float (ou ≥16 bits) à medida de foco.
+- **Correção aplicada:** (2026-06-05) — médias float em memória (`filtered_images`) + `.npy` de consulta; PNG só visualização. Baseline RMSE afim: 0.0742 → 0.0691 (melhora de 6,9%). Testes: `tests/test_average_float_path.py`. Cross-ref IO-05.
 
 **MF-13 — Ajuste parabólico em índice + conversão índice→z só é exato se `z_foc` for uniforme** (conceitual, baixo, suspeita)
 A parábola é ajustada em espaço de índice e o vértice convertido a z por interpolação em `z_foc`; isso só equivale a ajustar em z quando o mapa índice→z é afim (espaçamento uniforme). Todos os configs reais usam passo uniforme (10) — defeito latente.
@@ -299,6 +300,7 @@ Cada plano focal é esticado individualmente a [0,255] antes da medida de foco; 
 - Localização: `hybrid/main.py:111`; relido em `multifocus/main.py:96`
 - Evidência: `save_image(...,f"average_{zf_dir}.png",...)` sem 4º argumento ⇒ `normalize=True` ⇒ `cv2.normalize(...,NORM_MINMAX)` per-arquivo; comparar com `hybrid/main.py:160` (`normalize=False` cross-luz).
 - Correção sugerida: salvar com `normalize=False` (idealmente FNI/16-bit); ou alimentar o multifocus in-memory.
+- **Correção parcial (cross-ref MF-12, 2026-06-05):** o stretch per-plano saiu do CAMINHO DE DADOS (multifocus usa `filtered_images` float em memória); PNG de visualização continua com `normalize=True` — IO-05 não está totalmente resolvido (visualizações ainda esticadas), mas deixou de afetar o resultado científico.
 
 **IO-06 — `save_image` chamado com 5 argumentos posicionais em `image_alignment.py` — `TypeError`** (implementação, baixo, confirmado por inspeção — inativo no pipeline)
 A assinatura tem 4 parâmetros; as chamadas passam 5 posicionais (`...,0,255`), o 5º sem parâmetro ⇒ `TypeError`. Inalcançável (`main_align` sem callers); indício de drift de assinatura.

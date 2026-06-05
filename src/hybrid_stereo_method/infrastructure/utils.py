@@ -88,24 +88,23 @@ def convert_to_grayscale(img: np.ndarray) -> np.ndarray:
 def calculate_avarage_of_images(images: list[np.ndarray]) -> np.ndarray:
     """Calculate the pixel-wise average of a list of images.
 
+    Returns float32 regardless of input dtype, preserving sub-integer precision
+    that would be lost by quantizing back to uint8/uint16.  Callers that need a
+    uint8 image for display should quantize explicitly (e.g. `arr.astype(np.uint8)`
+    or via ``save_image``).
+
     Args:
         images: List of images to average. All must have the same dimensions.
+            Supported input dtypes: uint8, uint16, or any floating-point type.
 
     Returns:
-        The averaged image with the same dtype as input images.
+        The averaged image as float32.
 
     Raises:
-        ValueError: If images have different dimensions or unsupported dtype.
+        ValueError: If images have different dimensions.
     """
     if not all(image.shape == images[0].shape for image in images):
         raise ValueError("All images must have the same dimensions.")
 
     images_float = [image.astype(np.float32) for image in images]
-    mean_image = np.mean(images_float, axis=0)
-
-    if images[0].dtype == np.uint8:
-        return mean_image.astype(np.uint8)
-    elif images[0].dtype == np.uint16:
-        return mean_image.astype(np.uint16)
-    else:
-        raise ValueError("Unsupported data type.")
+    return np.mean(images_float, axis=0)

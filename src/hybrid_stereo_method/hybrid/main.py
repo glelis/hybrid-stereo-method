@@ -137,6 +137,7 @@ def main(parameters):
     zf_directories = collect_dirs_with_prefix(input_files_path, prefix="zf")
 
     average_images_paths = []
+    average_float_list = []
     for zf_dir in zf_directories:
         # select_files_by_parent_dir matches on the exact parent dir name
         # (fixes MF-01: the old substring "zf1" in file also matched zf10/zf11/zf12).
@@ -145,16 +146,28 @@ def main(parameters):
         )
         image_list = read_images(filtered_files, info=False)
 
-        # Calculate the average of the images
-        average_image = calculate_avarage_of_images(image_list)
+        # Calculate the average of the images in float (MF-12 fix: no uint8 quantization)
+        average_float = calculate_avarage_of_images(image_list)
 
-        # Save the average image in the output directory
+        # Save the average image in the output directory (visualization only — uint8 PNG)
         average_image_path = os.path.join(output_path, "multifocus_stereo", "average", "images")
-        save_image(average_image_path, f"average_{zf_dir}.png", average_image)
+        save_image(average_image_path, f"average_{zf_dir}.png", average_float)
         average_images_paths.append(os.path.join(average_image_path, f"average_{zf_dir}.png"))
 
-    # Update parameters with the paths of the average images and the output directory
+        # Save float average as .npy for offline inspection (not consumed by the pipeline)
+        np.save(
+            Path(average_image_path) / f"average_{zf_dir}.npy",
+            average_float,
+        )
+
+        # Collect float arrays for in-memory pass-through (MF-12 fix)
+        average_float_list.append(average_float)
+
+    # Update parameters with the paths of the average images and the output directory.
+    # filtered_dir is kept for backward compatibility / visualization paths.
+    # filtered_images carries the float arrays directly, bypassing the PNG round-trip.
     parameters["filtered_dir"] = average_images_paths
+    parameters["filtered_images"] = average_float_list
     parameters["output_path_multifocus"] = os.path.join(output_path, "multifocus_stereo", "average")
 
     # Execute the multifocus stereo method and capture the output for average configuration

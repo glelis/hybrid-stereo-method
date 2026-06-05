@@ -392,6 +392,8 @@ depois.
 round-trip PNG uint8), ou salvar em formato sem perda de precisão. Quantificar o impacto
 por teste sintético comparando curva de foco float vs. uint8.
 
+**Correção aplicada:** (2026-06-05) — médias float em memória (`filtered_images`) + `.npy` de consulta; PNG só visualização. `calculate_avarage_of_images` agora retorna `float32` sem cast de volta a `uint8`/`uint16`; `hybrid/main.py` popula `parameters["filtered_images"]` com a lista de arrays float e salva `.npy` junto ao PNG; `multifocus/main.py` usa `filtered_images` quando disponível, saltando `read_images`. Baseline RMSE afim: 0.0742 → 0.0691 (melhora de 6,9%). Testes: 3 unitários + 1 integração em `tests/test_average_float_path.py`; suite completa 46 passed, 4 xfailed.
+
 ---
 
 ## MF-13: Ajuste parabólico em espaço de índice + conversão índice→z só é exato se `z_foc` for uniforme

@@ -93,7 +93,15 @@ def main(parameters):
     logging.info("... Reading images ...")
 
     if experiment_type == "hybrid":
-        image_list = read_images(parameters.get("filtered_dir"), info=True)
+        # MF-12 fix: prefer in-memory float averages (filtered_images) over the
+        # PNG round-trip (filtered_dir) to avoid uint8 quantization before the
+        # focus measure.  Fall back to reading PNGs when filtered_images is absent
+        # (e.g. legacy callers that only set filtered_dir).
+        if parameters.get("filtered_images") is not None:
+            logging.info("... Using in-memory float averages (filtered_images) ...")
+            image_list = list(parameters["filtered_images"])
+        else:
+            image_list = read_images(parameters.get("filtered_dir"), info=True)
 
     else:
         images_paths = find_all_files(images_path)
