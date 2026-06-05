@@ -338,6 +338,10 @@ POV-Ray, vs. eixos da imagem). A metade real de CONV-2 **continua aberta** e só
 
 ---
 
+**Atualização pós-correção MF-12 (2026-06-05, commit bd23651):** com as médias por-zf em float (sem quantização uint8/stretch por frame), o mesmo teste passou a medir RMSE = 0.0691 (antes 0.0742, melhora de ~6,9%); a = 0.9960, b = 3.1316, pearson r = 0.9975 — valores de a/r inalterados em essência (a≈1 por construção sintética permanece, r≈1 mantido). O valor 0.0742 acima permanece como linha de base da época da auditoria.
+
+---
+
 ## Bloqueios
 
 ### Build do C (`make`) falha — NÃO bloqueante para Task 9 (binário pré-compilado versionado)

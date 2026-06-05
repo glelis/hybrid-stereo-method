@@ -152,7 +152,7 @@ def main(parameters):
         # Save the average image in the output directory (visualization only — uint8 PNG)
         average_image_path = os.path.join(output_path, "multifocus_stereo", "average", "images")
         save_image(average_image_path, f"average_{zf_dir}.png", average_float)
-        average_images_paths.append(os.path.join(average_image_path, f"average_{zf_dir}.png"))
+        average_images_paths.append(str(Path(average_image_path) / f"average_{zf_dir}.png"))
 
         # Save float average as .npy for offline inspection (not consumed by the pipeline)
         np.save(

@@ -373,10 +373,11 @@ directions (6)` (MF-14, detecção de luzes vazia). A variante
 ao detrito que salva a detecção nos 3/11 datasets reais), permitindo medir o restante da cadeia
 (mosaicos por luz → PS → integração C).
 
-**Baseline (workaround MF-14):**
+**Baseline (workaround MF-14, época da auditoria):**
 ```
 affine-fit RMSE = 0.0742 (std gt = 0.9780), a = 1.0030, b = 3.1279, pearson r = 0.9971
 ```
+*(Após correção MF-12 — 2026-06-05, commit bd23651: médias por-zf em float sem quantização uint8, o RMSE passou a 0.0691, melhora de ~6,9%; a = 0.9960, b = 3.1316, r = 0.9975. Valores de a/r inalterados em essência. Ver `audit-notes/06-test-results.md` §Task 12 para o bloco completo.)*
 
 Interpretação por número:
 - **RMSE = 0.0742 vs std gt = 0.9780:** o resíduo após o fit afim é ~**7,6 %** do desvio-padrão do
