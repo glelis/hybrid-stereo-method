@@ -126,6 +126,22 @@ def test_float_averages_npy_files_written_and_pipeline_completes(tmp_path, monke
     monkeypatch.setattr(main_wps_mod, "disp_channels", lambda **kw: None)
     monkeypatch.setattr(main_wps_mod, "disp_channels_3d", lambda **kw: None)
 
+    # Spy on read_images in multifocus.main to assert the in-memory float path is taken.
+    # The fallback (re-reading averaged PNGs from disk) would call read_images with a
+    # list of paths ending in "average_zf<n>.png".  When filtered_images is wired
+    # correctly, multifocus.main should use the in-memory list and never call
+    # read_images with those paths.
+    import hybrid_stereo_method.multifocus.main as multifocus_main_mod
+    from hybrid_stereo_method.infrastructure.io.image_io import read_images as _real_read_images
+
+    read_images_calls: list[list[str]] = []
+
+    def _spy_read_images(paths, **kwargs):
+        read_images_calls.append(list(paths) if paths is not None else [])
+        return _real_read_images(paths, **kwargs)
+
+    monkeypatch.setattr(multifocus_main_mod, "read_images", _spy_read_images)
+
     from hybrid_stereo_method.hybrid.main import main as hybrid_main
 
     raw = tmp_path / "raw"
@@ -174,6 +190,34 @@ def test_float_averages_npy_files_written_and_pipeline_completes(tmp_path, monke
     }
 
     hybrid_main(parameters)
+
+    # (wiring assertion 1) filtered_images must be a non-empty list of float arrays after
+    # hybrid_main returns — hybrid/main.py mutates the dict in place.
+    filtered_images = parameters.get("filtered_images")
+    assert filtered_images is not None, (
+        "parameters['filtered_images'] is None after hybrid_main — "
+        "the in-memory float path was not wired"
+    )
+    assert len(filtered_images) == N_FRAMES, (
+        f"Expected {N_FRAMES} float arrays in filtered_images, got {len(filtered_images)}"
+    )
+    for i, arr in enumerate(filtered_images):
+        assert np.issubdtype(arr.dtype, np.floating), (
+            f"filtered_images[{i}] has dtype {arr.dtype}, expected float"
+        )
+
+    # (wiring assertion 2) multifocus.main must NOT have re-read the average PNGs from
+    # disk.  If filtered_images was ignored (regression), the fallback branch calls
+    # read_images with the filtered_dir list whose entries end in "average_zf<n>.png".
+    fallback_png_calls = [
+        call
+        for call in read_images_calls
+        if any(str(p).endswith(".png") and "average_zf" in str(p) for p in call)
+    ]
+    assert fallback_png_calls == [], (
+        f"multifocus.main called read_images with average PNG paths — "
+        f"the in-memory float path was NOT taken (fallback triggered):\n{fallback_png_calls}"
+    )
 
     out_dirs = list((tmp_path / "results").glob("*_synth_mf12"))
     assert len(out_dirs) == 1, f"Expected 1 output dir, got {out_dirs}"

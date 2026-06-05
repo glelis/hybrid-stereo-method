@@ -150,13 +150,13 @@ def main(parameters):
         average_float = calculate_avarage_of_images(image_list)
 
         # Save the average image in the output directory (visualization only — uint8 PNG)
-        average_image_path = os.path.join(output_path, "multifocus_stereo", "average", "images")
-        save_image(average_image_path, f"average_{zf_dir}.png", average_float)
-        average_images_paths.append(str(Path(average_image_path) / f"average_{zf_dir}.png"))
+        average_image_path = Path(output_path) / "multifocus_stereo" / "average" / "images"
+        save_image(str(average_image_path), f"average_{zf_dir}.png", average_float)
+        average_images_paths.append(str(average_image_path / f"average_{zf_dir}.png"))
 
         # Save float average as .npy for offline inspection (not consumed by the pipeline)
         np.save(
-            Path(average_image_path) / f"average_{zf_dir}.npy",
+            average_image_path / f"average_{zf_dir}.npy",
             average_float,
         )
 
