@@ -220,6 +220,73 @@ PASSED
 
 ---
 
+## test_e2e_hybrid (Task 12) — BASELINE
+
+- **Comando:** `pytest tests/test_e2e_hybrid.py -v -s`
+- **Resultado:** `1 xfailed in 0.69s` (binário C pré-compilado presente; `needs_binary` não pulou). Runtime de parede da execução crua que capturou a falha: **~1,2 s** (`/usr/bin/time -v`, antes do `xfail`).
+- **A LINHA DE BASE DE RMSE NÃO PÔDE SER MEDIDA: o pipeline não completa ponta a ponta.** A falha em si é o achado (regra de auditoria: capturar a falha; `xfail(strict=True, raises=ValueError)` adicionado APÓS registrar a saída crua).
+
+### Saída crua verbatim (1ª execução, sem xfail — a falha é o entregável)
+
+```
+E   ValueError: Number of images (0) does not match number of light directions (6) in
+    /tmp/.../raw/synth/lights.npy. Images are paired with lights.npy rows by (natural) sort order.
+src/hybrid_stereo_method/photometric/main_wps.py:123: ValueError
+```
+
+Estágio anterior (multifocus, média por `zf`) **completou**: gravou os 9 `average_zf{0..8}.png`
+(visível no `-s`, `print_img_statistics`), confirmando que a falha é estritamente o Passo 1→2.
+
+### Atribuição de estágio — achado MF-14 (novo)
+
+A falha é no Passo 2 (fotométrico), mas a **causa-raiz é no Passo 1** (`hybrid/main.py:122-128`):
+a detecção de diretórios de luz `L*` só inspeciona o **pai imediato** de cada arquivo, que no
+layout `L<n>/zf<m>/sVal.png` é sempre um `zf*` — nunca um `L*`. Num dataset limpo (só os stacks
+`sVal.png`), `light_directories` fica **vazio**, o laço de mosaicos por luz não roda, nenhum
+`sMos.png` é escrito, `sMos_path_list` fica vazio e o PS recebe 0 imagens. Registrado em
+`01-multifocus.md` como **MF-14 (crítico, confirmado por execução)**.
+
+Reprodução direta da detecção: `light_directories = []`, `zf_directories = ['zf0','zf1','zf2']`.
+Inspeção dos dados reais mostra que a detecção só funciona **por acidente** lá: há arquivos
+avulsos diretamente sob `L<n>/` (ex.: `L000/selected-pixels.png`, cujo pai imediato É `L000`)
+que injetam os nomes `L*`. O dataset sintético, por ser limpo, expõe a fragilidade.
+
+### Interpretação (o que esta task decide e o que NÃO decide)
+
+- **CONV-1 / CONV-2 (metade real, luzes):** **PERMANECEM EM ABERTO.** O E2E não produziu mapa de
+  altura, então não há `a`/`b`/`r` para decidir sinal/orientação. **Ponto de honestidade
+  crítico:** mesmo que tivesse completado, as luzes sintéticas são construídas por `ring_lights`
+  **no MESMO referencial numpy das normais** (ver cabeçalho de `synthetic_utils.py`). Logo este
+  E2E **nunca reproduziria** a questão real de CONV-2 — o referencial-y do `lights.npy` real
+  (y-up POV-Ray) vs. eixos da imagem. A metade real de CONV-2 **continua aberta** e **só pode ser
+  decidida com `lights.npy` real** num teste com ground truth de altura real; não há atalho
+  sintético. Recomendação registrada em CONV-2.
+- **CONV-6 (pareamento luz↔mosaico só por contagem):** **reforçada, não decidida.** O próprio
+  mecanismo de detecção a montante (MF-14) é tão frágil que produz 0 mosaicos em vez de N
+  desalinhados; a verificação por contagem (`len(images) != lights.shape[0]`) **pegou** o caso
+  degenerado (0 vs 6) e abortou com mensagem clara — bom comportamento defensivo, mas não exercita
+  o cenário de N mosaicos em ordem trocada. CONV-6 permanece suspeita.
+- **CONV-4 (escala/unidades):** **não exercida** (sem integração). Permanece suspeita.
+
+### Observações secundárias
+
+- O guard `needs_binary` viu o binário versionado (`DEFAULT_EXECUTABLE.exists()` = True); o
+  bloqueio de `make` (ver abaixo) não afeta esta task — a falha é anterior à integração.
+- Os monkeypatches de `disp_*` foram aplicados mas o pipeline nem chegou ao PS de fato (abortou na
+  validação de contagem antes de qualquer `imshow`); confirmam apenas que a importação de
+  `main_wps` funciona headless.
+
+### Achados decididos/atualizados por esta Task
+
+| Achado | Status anterior | Status após Task 12 |
+|--------|-----------------|---------------------|
+| MF-14 (detecção `L*` só pelo pai imediato) | — (novo) | **crítico, confirmado por execução** (`test_e2e_hybrid`, XFAIL strict) |
+| CONV-1 (sinal-z físico end-to-end) | suspeita / refutada só no integrador | **permanece aberta** — E2E não completou; não decidível por luzes sintéticas no frame numpy |
+| CONV-2 (metade real: frame luzes reais) | em aberto | **permanece em aberto** — luzes sintéticas no frame numpy NÃO reproduzem a questão POV-Ray; requer `lights.npy` real |
+| CONV-6 (pareamento por contagem) | suspeita | **reforçada** (a guarda de contagem pegou 0 vs 6); ainda suspeita p/ N trocados |
+
+---
+
 ## Bloqueios
 
 ### Build do C (`make`) falha — NÃO bloqueante para Task 9 (binário pré-compilado versionado)

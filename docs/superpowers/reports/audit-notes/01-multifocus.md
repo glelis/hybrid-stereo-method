@@ -430,6 +430,45 @@ espaçamento uniforme de `z_foc` na entrada (e documentar a premissa). NÃO apli
 
 ---
 
+## MF-14: Detecção de diretórios de luz `L*` só olha o pai imediato — vazia no layout `L<n>/zf<m>/sVal.png` limpo
+
+- **Localização:** `src/hybrid_stereo_method/hybrid/main.py:122-128` (e o laço dependente `134-163`)
+- **Tipo:** implementação
+- **Severidade:** crítico
+- **Status:** **confirmado (por execução)** — `tests/test_e2e_hybrid.py::test_hybrid_pipeline_end_to_end`, Task 12, `xfail(strict=True, raises=ValueError)`, XFAILED; raw em `06-test-results.md`.
+
+**Descrição:** `light_directories` é construído a partir de
+`{os.path.basename(os.path.dirname(path)) ... if ...startswith("L")}` sobre **todos** os
+arquivos de `find_all_files(data_folder)`. No layout documentado `L<n>/zf<m>/sVal.png` (o
+mesmo de `CLAUDE.md` e dos dados reais), o pai **imediato** de cada `sVal.png` é sempre um
+diretório `zf<m>` — nunca um `L<n>`. A detecção só inspeciona esse pai imediato, então num
+dataset que contenha **apenas** os stacks `sVal.png` (como o sintético desta task), o
+conjunto `light_directories` fica **vazio**: o laço `134-163` não executa, nenhum
+`multifocus_stereo/L*/sMos.png` é escrito e o Passo 2 (fotométrico) aborta em
+`photometric/main_wps.py:123` com `ValueError: Number of images (0) does not match number
+of light directions (6)`. Nos datasets **reais** a detecção funciona **por acidente**:
+existem arquivos avulsos diretamente sob `L<n>/` (ex.: `L000/selected-pixels.png`,
+`L000/sharp/...` cujo pai-de-pai é `L000`, e em especial `L000/selected-pixels.png` cujo
+pai imediato É `L000`), que injetam os nomes `L*` no conjunto. A correção do commit 505d262
+(seleção de `sMos.png` por componente exato) cobriu o *consumo* dos mosaicos, mas a
+*detecção* das luzes a montante continua dependendo de detritos no diretório, não dos
+stacks.
+
+**Evidência:** reprodução direta da detecção sobre `L0/zf0/sVal.png ...`:
+`light_directories = []`, `zf_directories = ['zf0','zf1','zf2']` (o ramo `zf*` funciona
+porque ali o pai imediato realmente começa com `zf`). Execução E2E: o estágio de média por
+`zf` completa (9 `average_zf*.png` gravados), e o pipeline morre exatamente no PS por 0
+imagens (~1,2 s de parede). Inspeção do dataset real confirma `L000/selected-pixels.png`
+(pai imediato = `L000`) como o detrito que salva a detecção na prática.
+
+**Sugestão de correção:** derivar `light_directories` de um componente `L*` em
+**qualquer** posição do caminho relativo a `data_folder` (ex.: varrer
+`Path(path).relative_to(data_path).parts` por um componente que case `^L\d+`), em vez de
+apenas `os.path.dirname` (pai imediato). Idealmente derivar luzes e planos focais do mesmo
+varredura estruturada para garantir o pareamento luz↔mosaico (ver CONV-6).
+
+---
+
 ## Verificado sem achado
 
 - **Laplaciano é local e com normalização prévia coerente** — `cv2.Laplacian` é um kernel

@@ -21,12 +21,12 @@ Convenção de veredito:
 
 | # | Convenção | Produtor (file:line) | Consumidor (file:line) | Veredito | Evidência (curta) |
 |---|---|---|---|---|---|
-| 1 | Eixo z / profundidade (direção + unidade) | dataset `zf*` → `z_foc` YAML (`configs/hb_experiment.yaml:39`) → `zMos` (`mosaic.py:57,72`) | hints C (`hybrid/main.py:231`→`pst_integrate.c:308-323`) → `height_map.npy` (`hybrid/main.py:266`) | unidade: **inconsistente** (INT-04); sinal-integrador: **REFUTADO** (preservado) | sinal de `Z` no round-trip numpy↔C é preservado: `test_ramp_normals_decide_convention` PASSED (vencedor `+ax*x+ay*y`, RMSE `5.2e-5` vs `1.025` do invertido). Unidade `z_foc` vs altura-por-pixel segue = INT-04. Sinal-físico `zMos`(hints) vs `Z` → Task 12 |
-| 2 | Normais e luzes (frame / y-up vs y-down) | `lights.npy` = tuplas POV-Ray `<x,y,z>` (`data/raw/photometric_stereo/ex19_povball-txF/2025-01-15-glelis-pov/make_images.py:44-58`) → normais wps no mesmo frame (`wps.py:165,194`) | normal→slope C (`pst_basic.c:49-50`) → grade de integração (`pst_integrate.c`) | eixo-y do **integrador**: **REFUTADO** (preservado); luzes vs imagem: **EM ABERTO** | `test_ramp_normals_decide_convention` PASSED: `y` do numpy preservado no round-trip (`+ax*x+ay*y` vence; flip-y `+ax*x-ay*y` rejeitado, RMSE `0.381` vs `5.2e-5`). A reconciliação y-up(`lights.npy`)↔y-down(imagem) no PS é elo separado, **ainda aberto** → Task 12 |
+| 1 | Eixo z / profundidade (direção + unidade) | dataset `zf*` → `z_foc` YAML (`configs/hb_experiment.yaml:39`) → `zMos` (`mosaic.py:57,72`) | hints C (`hybrid/main.py:231`→`pst_integrate.c:308-323`) → `height_map.npy` (`hybrid/main.py:266`) | unidade: **inconsistente** (INT-04); sinal-integrador: **REFUTADO** (preservado) | sinal de `Z` no round-trip numpy↔C é preservado: `test_ramp_normals_decide_convention` PASSED (vencedor `+ax*x+ay*y`, RMSE `5.2e-5` vs `1.025` do invertido). Unidade `z_foc` vs altura-por-pixel segue = INT-04. Sinal-físico `zMos`(hints) vs `Z`: **em aberto** — Task 12 (E2E) não completou (MF-14) e luzes sintéticas no frame numpy não decidiriam; requer dados reais |
+| 2 | Normais e luzes (frame / y-up vs y-down) | `lights.npy` = tuplas POV-Ray `<x,y,z>` (`data/raw/photometric_stereo/ex19_povball-txF/2025-01-15-glelis-pov/make_images.py:44-58`) → normais wps no mesmo frame (`wps.py:165,194`) | normal→slope C (`pst_basic.c:49-50`) → grade de integração (`pst_integrate.c`) | eixo-y do **integrador**: **REFUTADO** (preservado); luzes vs imagem: **EM ABERTO** | `test_ramp_normals_decide_convention` PASSED: `y` do numpy preservado no round-trip (`+ax*x+ay*y` vence; flip-y `+ax*x-ay*y` rejeitado, RMSE `0.381` vs `5.2e-5`). A reconciliação y-up(`lights.npy`)↔y-down(imagem) no PS é elo separado, **ainda aberto**. Task 12 (E2E) NÃO o fechou: pipeline aborta antes do PS (MF-14) e, por construção, luzes sintéticas estão no mesmo frame numpy das normais → não reproduz a questão POV-Ray; requer dados reais |
 | 3 | Origem/orientação da imagem (round-trip FNI) | writer FNI Python (`image_io.py:171-178`) → C (`float_image`/`tire_read_fni_file`) | writer C `-end-Z.fni` → reader Python (`image_io.py:227-241`) | **consistente** (indexação Task 8; orientação Task 9-ext) | round-trip preserva o array sem flip (`test_fni_roundtrip` 4/4, Task 8); a rampa via `-normals` confirma que orientação **e** sinal são preservados ponta a ponta (`test_ramp_normals_decide_convention` PASSED, RMSE `5.2e-5`) — não afeta a constante de integração (ajuste sobre `z-z.mean()`) |
 | 4 | Escala dos gradientes (slope adimensional vs z físico) | slope `dZdX=-nx/nz` adimensional (`pst_basic.c:49-50`) | sistema de altura-por-pixel + hints em `z_foc` (`pst_integrate.c:308-323`) | **inconsistente** | INT-04/INT-05; `slopes_scale` default `(1,1)` (`integrate.py:53`) **nunca** configurado pelo híbrido → **CONV-4** consolida |
 | 5 | Radiometria entre etapas (linearidade) | `sVal.png` uint8 → médias por-zf re-esticadas (`hybrid/main.py:111`) e mosaicos uint8 clipados (`hybrid/main.py:160`) | foco multifocus (`multifocus/main.py:96`); grayscale→PS (`main_wps.py:115,136`) | **inconsistente** | cadeia quebra linearidade em 3 pontos (IO-05, MF-12, PS-07/PS-08) → **CONV-5** consolida a sequência |
-| 6 | Contratos de arquivo (pareamento/ordem/shape) | `natsorted(sMos_path_list)` (`hybrid/main.py:177`); `sorted(zf_directories)` (`hybrid/main.py:90`); `zMos_with_confidence.fni` `(H,W,2)` | linhas de `lights.npy` (só contagem, `main_wps.py:122-127`); `z_foc` posicional (`mosaic.py:57`); `-hints` espera vértices `(H+1,W+1)` (`gus_integrate_recursive.c:519`) | **inconsistente** | pareamento luz↔mosaico só por contagem (não por L→linha); ordem zf vs z_foc é MF-02; shape células→vértices é INT-05 → **CONV-6** consolida + risco novo de pareamento |
+| 6 | Contratos de arquivo (pareamento/ordem/shape) | `natsorted(sMos_path_list)` (`hybrid/main.py:177`); `sorted(zf_directories)` (`hybrid/main.py:90`); `zMos_with_confidence.fni` `(H,W,2)` | linhas de `lights.npy` (só contagem, `main_wps.py:122-127`); `z_foc` posicional (`mosaic.py:57`); `-hints` espera vértices `(H+1,W+1)` (`gus_integrate_recursive.c:519`) | **inconsistente** | pareamento luz↔mosaico só por contagem (não por L→linha); ordem zf vs z_foc é MF-02; shape células→vértices é INT-05 → **CONV-6** consolida + risco novo de pareamento. Task 12: a guarda de contagem (`len(images)!=lights.shape[0]`) **pegou** o caso degenerado 0 vs 6 (MF-14) e abortou com mensagem clara — defesa funciona p/ 0, mas N-trocados segue suspeito |
 
 ---
 
@@ -40,6 +40,16 @@ Convenção de veredito:
 - **Tipo:** conceitual
 - **Severidade:** alto
 - **Status:** **REFUTADO (caminho `-normals`)** — sinal end-to-end preservado (teste: `tests/test_convention_integration.py::test_ramp_normals_decide_convention`, PASSED; rampa via normais, vencedor `z = +ax*x + ay*y`, RMSE `0.000052` vs `1.025` do candidato totalmente invertido). A via `-slopes`/2-canais segue indecidida-por-essa-via porque crashou (INT-08; `test_constant_slopes_recover_ramp_and_decide_convention`). Ressalva: isto decide o sinal/orientação do **integrador** no round-trip numpy↔C; o sinal-físico `zMos` (hints) vs. `Z` permanece sondado pela Task 12.
+
+**Atualização Task 12 (2026-06-04):** O E2E híbrido (`tests/test_e2e_hybrid.py`,
+XFAIL strict) **não conseguiu sondar** o sinal-físico `zMos`(hints) vs. `Z`: o pipeline
+**não completa** — aborta no Passo 2 antes da integração por causa de MF-14 (detecção de
+luzes vazia em layout `L<n>/zf<m>/` limpo; ver `01-multifocus.md` e `06-test-results.md`).
+Além disso, mesmo se completasse, **não decidiria a questão física**: as luzes/normais
+sintéticas são todas construídas no mesmo referencial numpy (`synthetic_utils.py`), sem o
+acoplamento POV-Ray `zFoc`↔geometria-de-câmera que origina o desacordo. CONV-1 **permanece
+com o sinal-físico em aberto** (refutado apenas no integrador via `-normals`, Task 9-ext);
+decisão requer E2E com dados reais (com hints) e ground-truth de altura real.
 
 **Atualização Task 9-ext (2026-06-04):** A rampa reenviada pelo caminho `-normals`
 (`test_ramp_normals_decide_convention`, PASSED) **decide** o sinal: a cadeia
@@ -93,7 +103,19 @@ combiná-los. NÃO aplicar.
 - **Localização:** `lights.npy` (gerado fora do pacote — tuplas POV-Ray em `data/raw/photometric_stereo/ex19_povball-txF/2025-01-15-glelis-pov/make_images.py:44-58`) → `np.load` (`main_wps.py:119`) → `wps.py:165,194` → `normal_map.npy` → `pst_basic.c:49-50` (`dZdY=-ny/nz`) → grade de integração C
 - **Tipo:** conceitual
 - **Severidade:** alto
-- **Status:** **REFUTADO apenas no eixo-y do integrador** (teste: `tests/test_convention_integration.py::test_ramp_normals_decide_convention`, PASSED; vencedor `z = +ax*x + ay*y`, o flip-de-y `+ax*x-ay*y` rejeitado com RMSE `0.380857` vs `0.000052`). O `y` do numpy é preservado no round-trip via `-normals`. **PERMANECE EM ABERTO** a outra metade de CONV-2: o referencial-y do `lights.npy` (y-up POV-Ray) vs. eixos da imagem durante o PS — elo separado, não exercido por este teste, a ser sondado pela Task 12 (cadeia E2E com luzes).
+- **Status:** **REFUTADO apenas no eixo-y do integrador** (teste: `tests/test_convention_integration.py::test_ramp_normals_decide_convention`, PASSED; vencedor `z = +ax*x + ay*y`, o flip-de-y `+ax*x-ay*y` rejeitado com RMSE `0.380857` vs `0.000052`). O `y` do numpy é preservado no round-trip via `-normals`. **PERMANECE EM ABERTO** a outra metade de CONV-2: o referencial-y do `lights.npy` (y-up POV-Ray) vs. eixos da imagem durante o PS — elo separado, não exercido pelo teste de rampa.
+
+**Atualização Task 12 (2026-06-04):** A cadeia E2E (`tests/test_e2e_hybrid.py`) **NÃO**
+fechou esta metade — e, por construção, **não poderia**. (1) O pipeline aborta antes do PS
+(MF-14), então nenhuma altura foi produzida. (2) Decisivo, mesmo que rodasse: as luzes
+sintéticas vêm de `ring_lights(...)` construídas **no MESMO referencial numpy das normais**
+(documentado no cabeçalho de `synthetic_utils.py`: "luzes no mesmo frame das normais").
+Logo `L·N` é consistente por construção e o E2E sintético **não reproduz** a questão real —
+o `lights.npy` real é gerado por POV-Ray (y-up) enquanto a imagem é indexada `[linha=y p/
+baixo]`. **Recomendação:** a metade real de CONV-2 só pode ser decidida com `lights.npy`
+real + ground-truth de altura real (comparando orientação do mapa integrado com/sem flip do
+eixo-y das luzes); não há atalho sintético neste frame. CONV-2 (metade real) **permanece em
+aberto**.
 
 **Atualização Task 9-ext (2026-06-04):** A rampa via `-normals`
 (`test_ramp_normals_decide_convention`, PASSED) decide o eixo-y **do integrador**: o `y` do
@@ -248,7 +270,17 @@ premissa de linearidade radiométrica da aquisição. NÃO aplicar.
 - **Localização:** `natsorted(sMos_path_list)` (`hybrid/main.py:177-184`) vs `lights.npy` (`main_wps.py:119-127`); `sorted(zf_directories)` (`hybrid/main.py:90`) vs `z_foc` (`mosaic.py:57`); `zMos_with_confidence.fni` `(H,W,2)` vs `-hints` `(H+1,W+1)` (`gus_integrate_recursive.c:519`)
 - **Tipo:** implementação
 - **Severidade:** alto
-- **Status:** suspeita (decide: teste end-to-end híbrido com luzes/planos rotulados, Task 12)
+- **Status:** suspeita, **reforçada por Task 12** (a guarda de contagem pegou o caso degenerado 0 vs 6; N-trocados não exercitado)
+
+**Atualização Task 12 (2026-06-04):** O E2E (`tests/test_e2e_hybrid.py`, XFAIL strict)
+exercitou a guarda de contagem (1) por um caminho inesperado: MF-14 (detecção de luzes
+vazia) fez `sMos_path_list` ficar **vazio**, então `len(images)=0 != 6` e o PS abortou com
+mensagem clara (`main_wps.py:123`) — a defesa por contagem **funciona para o caso
+degenerado (0 mosaicos)**. Mas o cenário central de CONV-6 — N mosaicos pareados **na ordem
+errada** com as N linhas de `lights.npy` (contagem bate, identidade não) — **não foi
+exercitado** (nunca houve N mosaicos). CONV-6 permanece **suspeita**; um teste futuro
+precisa de N luzes rotuladas e mosaicos embaralhados para decidir o pareamento por
+identidade.
 
 **Descrição:** Consolidação dos contratos de arquivo entre estágios. Três pareamentos
 posicionais, nenhum verificado por identidade:
