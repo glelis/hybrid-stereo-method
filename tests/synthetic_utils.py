@@ -50,7 +50,8 @@ def texture(size, seed=0):
     """Textura aleatória de alta frequência em [0.2, 1.0] (foco precisa de textura)."""
     rng = np.random.default_rng(seed)
     t = cv2.GaussianBlur(rng.uniform(0.0, 1.0, (size, size)), (0, 0), 1.0)
-    t = (t - t.min()) / (t.max() - t.min())
+    span = t.max() - t.min()
+    t = (t - t.min()) / (span if span > 0 else 1.0)
     return 0.2 + 0.8 * t
 
 

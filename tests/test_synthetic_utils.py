@@ -27,7 +27,7 @@ def test_ramp_normals_match_analytic():
     n = normals_from_height(ramp(16, ax=ax, ay=ay))
     expected = np.array([-ax, -ay, 1.0])
     expected /= np.linalg.norm(expected)
-    interior = n[2:-2, 2:-2]  # np.gradient é unilateral nas bordas
+    interior = n[2:-2, 2:-2]  # recorte conservador (para rampa linear até as bordas seriam exatas)
     np.testing.assert_allclose(interior, np.broadcast_to(expected, interior.shape), atol=1e-10)
 
 
@@ -58,6 +58,11 @@ def test_defocus_stack_sharpest_frame_tracks_depth():
 
     sharpness = [cv2.Laplacian(f, cv2.CV_64F).var() for f in stack]
     assert int(np.argmax(sharpness)) == 4
+    # contrato: o frame no plano focal exato é idêntico à imagem nítida
+    np.testing.assert_allclose(
+        stack[4], sharp, atol=1e-12,
+        err_msg="Frame no plano focal exato deve ser idêntico à imagem sem blur",
+    )
 
 
 def test_affine_fit_rmse_exact_for_affine_pair():
