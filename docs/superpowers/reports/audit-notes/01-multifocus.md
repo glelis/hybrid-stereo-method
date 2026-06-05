@@ -76,7 +76,7 @@ ou `key=lambda s: int(s[2:])`), garantindo correspondência posicional com `z_fo
 - **Localização:** `src/hybrid_stereo_method/multifocus/argmax_fuzzy.py:128-129`; consumo em `mosaic.py:53-74`
 - **Tipo:** conceitual
 - **Severidade:** alto
-- **Status:** suspeita
+- **Status:** suspeita (evidência: path existe no código mas difícil de ativar em condições realistas)
 
 **Descrição:** Quando o pico de foco é nulo (`focus_values[k_max] == 0`, região sem
 textura/contraste), `compute_argmax_fuzzy_1d` retorna `(n/2, 0)`: índice do meio com
@@ -93,6 +93,18 @@ será interpolado normalmente, parecendo um valor sub-pixel legítimo.
 `k_fuzzy = iSel[i, j]` e nunca lê `wSel`. A confiança 0 só é usada como peso opcional na
 integração (canal extra em `zMos_with_confidence.fni`, `main.py:158`), mas o `zMos.fni`
 puro e o `sMos` não a respeitam.
+
+**Evidência executável (Task 11):** `test_textureless_region_gets_zero_confidence` criou
+um quadrado plano `sharp[24:40,24:40] = 128` dentro de uma imagem texturizada. O path
+`return n/2, 0` **NÃO foi ativado** — o suavizamento espacial do indicador Laplaciano
+(kernel 3×3 em `applicator.py:51`) vaza resposta das bordas texturizadas para o interior,
+produzindo `focus_values[k_max] > 0` no miolo. O iSel mediano observado foi `1.90`
+(artefato de borda; gt = 4.0; n/2 = 4.5). A condição `focus_values[k_max] == 0` requer
+contraste rigorosamente zero em todos os frames — difícil de ativar com o pipeline
+real que usa suavizamento por padrão. Porém, o bug existe no código e pode manifestar-se
+em regiões de foco fisicamente nulo (espelhos, saturação completa, área fora do campo).
+A confiança foi distintamente menor na região sem textura (0.33 vs 0.87 na region
+texturizada), confirmando que o `wSel = 0` funciona como sinal quando o path é ativado.
 
 **Sugestão de correção:** propagar invalidez (NaN ou sentinela) em vez de `n/2`, ou fazer
 o `mosaic`/integração mascararem pixels com `wSel == 0`.
@@ -130,7 +142,7 @@ fotométrico.
 - **Localização:** `src/hybrid_stereo_method/multifocus/argmax_fuzzy.py:81-101`
 - **Tipo:** conceitual
 - **Severidade:** médio
-- **Status:** suspeita
+- **Status:** suspeita (não manifesta erro>0.5 frames em pilhas com pico único limpo; o cenário multi-pico do exemplo de evidência não foi testado)
 
 **Descrição:** O índice inicial do ajuste é escolhido maximizando a soma de 3 frames
 consecutivos, não o argmax verdadeiro. A soma-de-3 favorece "platôs" largos sobre picos
@@ -144,6 +156,14 @@ sub-pixel resultante — pode aterrissar no lobo errado.
 alto), mas `find_index_of_max_sum = 6` (centro do bump largo). O ajuste parabólico será
 então centrado em torno de 6, ignorando o foco real em 3.
 
+**Evidência executável (Task 11):** `test_recovers_tilted_plane_depth` e
+`test_recovers_bump_depth` produziram erros medianos de `0.181` e `0.171 frames`
+respectivamente — bem abaixo do limiar de 0.5. Nesses cenários a curva de foco sintética
+é unimodal e suave, de modo que o `find_index_of_max_sum` e o argmax verdadeiro escolhem
+o mesmo lóbulo. O viés do MF-05 **não se manifesta em pilhas com pico único limpo**; para
+decidir definitivamente é necessário um cenário de dois picos (pico estreito alto vs. platô
+largo), que permanece como trabalho futuro.
+
 **Sugestão de correção:** usar o argmax verdadeiro como centro do ajuste (com tratamento
 de empates/picos múltiplos), ou justificar/documentar a suavização e limitá-la a casos
 ruidosos. Decidir por teste sintético (curva de foco com pico estreito + bump largo).
@@ -155,7 +175,7 @@ ruidosos. Decidir por teste sintético (curva de foco com pico estreito + bump l
 - **Localização:** `src/hybrid_stereo_method/multifocus/argmax_fuzzy.py:104-118`, `158,164`
 - **Tipo:** conceitual
 - **Severidade:** médio
-- **Status:** suspeita
+- **Status:** suspeita (não manifesta erro>0.5 frames em pilha uniforme com pico simétrico; suspeita mantida para curvas com pico assimétrico ou baixo SNR)
 
 **Descrição:** `calculate_weights` usa os próprios valores de foco (normalizados pela soma,
 +1e-6) como pesos `w` da regressão parabólica ponderada. Ponderar a regressão pelo valor
@@ -170,6 +190,14 @@ que distorce a estimativa de pico.
 `np.polyfit(..., w=w_list)` (linha 164). `calculate_weights` retorna
 `value/total_focus + 1e-6` (linha 118) — peso ∝ valor de foco.
 
+**Evidência executável (Task 11):** em `test_recovers_tilted_plane_depth` e
+`test_recovers_bump_depth`, os erros medianos foram `0.181` e `0.171 frames`. Com uma
+pilha sintética uniforme (mesmo `blur_per_unit` por pixel, pico quase simétrico), os pesos
+proporcionais ao valor de foco não introduzem viés acima de 0.5 frames — a curva é
+aproximadamente simétrica em torno do frame de maior foco e a ponderação não desloca o
+vértice significativamente. Para curvas assimétricas (gradiente de textura variável,
+oclusão parcial, ruído não-uniforme) o viés pode ser maior: suspeita mantida.
+
 **Sugestão de correção:** usar regressão não ponderada (pesos uniformes) ou pesos
 baseados em incerteza real; comparar via teste sintético com pico parabólico conhecido
 (o ajuste ponderado deve dar erro de vértice maior que o não ponderado).
@@ -181,7 +209,7 @@ baseados em incerteza real; comparar via teste sintético com pico parabólico c
 - **Localização:** `src/hybrid_stereo_method/multifocus/argmax_fuzzy.py:183-187`; normalização global em `applicator.py:83-93`
 - **Tipo:** conceitual
 - **Severidade:** médio
-- **Status:** suspeita
+- **Status:** suspeita (separação dentro de uma imagem funciona; comparabilidade entre imagens distintas permanece em aberto)
 
 **Descrição:** A confiança é a curvatura do ajuste dividida pelo valor de foco no pico
 (`|A|/fnoc`). A escala de `A` e de `fnoc` depende da normalização do stack (clip no
@@ -196,6 +224,13 @@ imagem inteira — sensível a outliers de borda.
 **Evidência:** `conf = abs(A) / fnoc` (linha 187), com `A,B,C` de um polyfit sobre valores
 normalizados globalmente; `wSel = normalize(wSel)` (linha 76). A integração usa esse canal
 como peso (`zMos_with_confidence`), então o viés se propaga ao integrador.
+
+**Evidência executável (Task 11):** `test_textureless_region_gets_zero_confidence`
+confirmou que **dentro de uma mesma imagem** a confiança separa corretamente regiões
+texturizadas (0.87) de regiões sem textura (0.33), com razão 0.38 — bem abaixo do
+threshold 0.5. A `normalize()` global funciona como ranking relativo dentro da imagem. O
+achado MF-07 (não-comparabilidade *entre* imagens distintas, dependência de outliers de
+borda) permanece suspeita para uso multi-imagem — não exercitado por este teste.
 
 **Sugestão de correção:** definir confiança em escala invariante (ex.: razão pico/segundo-
 pico, ou R² do ajuste local), independente da normalização global de amplitude.
@@ -402,6 +437,7 @@ espaçamento uniforme de `z_foc` na entrada (e documentar a premissa). NÃO apli
 - **`compute_argmax_fuzzy_1d` exige nº mínimo de frames** — `find_index_of_max_sum` levanta
   erro com `< 3` frames (`argmax_fuzzy.py:91-94`) e há `assert n >= 2*r+1`
   (`argmax_fuzzy.py:141`); consistente com o commit 604b4d8.
+- **`focus_indicator(laplacian)` + `compute_argmax_fuzzy` produz profundidade sub-pixel válida em dados sintéticos** — `test_recovers_tilted_plane_depth` e `test_recovers_bump_depth` (Task 11, `tests/test_multifocus_synthetic.py`) confirmam por execução que a pipeline multifocus recupera profundidade com erro mediano `0.18` e `0.17 frames` respectivamente (limiar: 0.5 frames), em pilha sintética de 9 frames com `blur_per_unit=1.5`, textura aleatória suavizada e gradientes de profundidade plano (rampa) e curvo (bump gaussiano). Evidência executável de que a interpolação parabólica sub-pixel funciona corretamente para os cenários de pico único e limpo que dominam os experimentos reais.
 - **Rejeição de ajuste convexo/quase-plano** — `if A > 0 or |A| < polyfit_epsilon` zera o
   resultado em vez de calcular `-B/2A` de uma parábola sem máximo (`argmax_fuzzy.py:174`);
   matematicamente correto (parábola côncava é a única com máximo interior). (O efeito

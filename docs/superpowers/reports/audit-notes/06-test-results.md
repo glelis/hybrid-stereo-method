@@ -166,6 +166,55 @@ O ratio `med / sqrt(n_lights)` é **constante** (0.8526) para 4 e 8 luzes, confi
 
 ---
 
+## test_multifocus_synthetic (Task 11)
+
+- **Comando:** `pytest tests/test_multifocus_synthetic.py -v -s`
+- **Resultado:** `3 passed in 1.34s`
+
+```
+tests/test_multifocus_synthetic.py::test_recovers_tilted_plane_depth
+plano: mediana|iSel-z| = 0.181 frames, p90 = 0.403
+PASSED
+tests/test_multifocus_synthetic.py::test_recovers_bump_depth
+bump: mediana|iSel-z| = 0.171 frames
+PASSED
+tests/test_multifocus_synthetic.py::test_textureless_region_gets_zero_confidence
+conf média: sem textura = 0.3299, com textura = 0.8666
+iSel na região sem textura: mediana = 1.90 (gt = 4.0)
+PASSED
+```
+
+### Interpretação
+
+#### test_recovers_tilted_plane_depth — PASSED
+
+- Erro mediano `|iSel - z| = 0.181 frames`, p90 = `0.403 frames` no interior (borda 8px excluída), contra limiar de 0.5.
+- **Sub-frame atingido:** a precisão de ~0.18 frames confirma que o conjunto `focus_indicator(laplacian)` + `compute_argmax_fuzzy` produz profundidade sub-pixel válida em uma superfície texturizada com gradiente suave de foco. A pipeline principal é matematicamente coerente neste cenário, **mesmo com os achados MF-05/MF-06 em vigor** — o viés do `find_index_of_max_sum` e dos pesos da regressão NÃO manifesta erro mensurável acima de 0.5 frames neste cenário de pilha uniforme e pico limpo.
+
+#### test_recovers_bump_depth — PASSED
+
+- Erro mediano `0.171 frames` para um bump gaussiano (profundidade variável, curvatura não-nula no centro).
+- **Sub-frame atingido** também no caso não-linear: a interpolação parabólica acompanha a variação espacial de profundidade do bump com erro abaixo de 0.5 frames. Reforça que MF-05/MF-06 não introduzem erro sistemático detectável neste cenário.
+
+#### test_textureless_region_gets_zero_confidence — PASSED — mas com evidência importante para MF-03
+
+- **Separação de confiança:** conf textureless = `0.3299`, conf texturizada = `0.8666`; razão `0.3299 / 0.8666 = 0.381 < 0.5` — o threshold do teste é satisfeito, logo a confiança **é distintamente menor** na região sem textura.
+- **iSel na região sem textura: mediana = `1.90` (gt = 4.0, n/2 = 4.5):** O resultado NÃO é n/2 = 4.5 como previsto pelo achado MF-03. O valor `1.90` indica que a região "sem textura" com `sharp[24:40,24:40] = 128.0` ainda possui foco aparente em torno do índice 1-2, provavelmente porque o suavizamento espacial do indicador (kernel 3×3 aplicado em `focus_indicator`) vaza resposta das bordas texturizadas do quadrado para o interior, produzindo um pico espúrio nos frames mais focados (onde a borda está mais nítida). O cenário de "textura zero absoluta" do MF-03 (regiões de `focus_values[k_max] == 0`) NÃO foi ativado — o Laplaciano ainda registra valores não-zero nas bordas do quadrado plano.
+  - **Aliasing do cenário:** o gt `4.0` foi escolhido próximo ao n/2 `4.5`; o valor observado `1.90` está *longe* de ambos, revelando que a região é governada pelo leak de borda, não pela condição de "foco máximo no meio do stack". A análise do path `return n/2, 0` em `argmax_fuzzy.py:129` requer um cenário com contraste estritamente zero em *todos* os frames — uma região que produza `focus_values[k_max] == 0` após a normalização do `applicator`.
+  - **A separação de confiança, por outro lado, funciona** pela path normal do polyfit: a baixa curvatura `|A|` no interior plano produz conf baixa em relação às bordas texturizadas, que o `normalize()` global amplifica.
+
+### Achados decididos por esta Task
+
+| Achado | Status anterior | Status após Task 11 |
+|--------|----------------|---------------------|
+| MF-05 (`find_index_of_max_sum` vs argmax) | suspeita | **não manifesta erro>0.5 frames** nos cenários de pico limpo/único (suspeita mantida; o cenário multi-pico do exemplo de evidência não foi testado) |
+| MF-06 (pesos da regressão enviesam vértice) | suspeita | **não manifesta erro>0.5 frames** em pilha uniforme (suspeita mantida; em curvas com pico assimétrico ou baixo SNR pode diferir) |
+| MF-03 (pixels sem textura → n/2) | suspeita | **o path `return n/2, 0` NÃO foi ativado** neste cenário (leak de borda impediu contraste zero); iSel mediano `1.90` é artefato de borda, não o n/2 previsto. Status: suspeita com evidência de difícil ativação em condições realistas (suavizamento e borda sempre vazam); o bug existe no código (`argmax_fuzzy.py:129`) mas requer contraste estritamente zero |
+| MF-07 (confiança não comparável) | suspeita | **separação observada** (0.33 vs 0.87, razão 0.38 < 0.5) funciona dentro de imagem; o achado sobre não-comparabilidade *entre* imagens distintas permanece suspeita |
+| `argmax_fuzzy` + `focus_indicator` corretos em dados sintéticos limpos | — | **confirmado por execução** (median 0.18/0.17 frames sub-pixel em rampa e bump) |
+
+---
+
 ## Bloqueios
 
 ### Build do C (`make`) falha — NÃO bloqueante para Task 9 (binário pré-compilado versionado)
