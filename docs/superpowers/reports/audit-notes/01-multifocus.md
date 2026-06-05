@@ -40,6 +40,8 @@ seleção) gerado nessa média é depois reaproveitado para *todas* as luzes
 **Sugestão de correção:** filtrar por componente de caminho exato, como já feito para
 `L*` (ex.: `os.path.basename(os.path.dirname(file)) == zf_dir`).
 
+**Correção aplicada:** e9eabb2 (2026-06-05) — helper `select_files_by_parent_dir` com `Path(f).parent.name == dir_name` substitui o substring match em `hybrid/main.py`; 13 testes novos em `tests/test_hybrid_path_selection.py`.
+
 ---
 
 ## MF-02: Ordenação lexicográfica dos planos focais desalinha `average_images_paths` de `z_foc`
@@ -68,6 +70,8 @@ há reordenação intermediária que reconcilie as duas ordens.
 
 **Sugestão de correção:** ordenar os diretórios `zf` por chave numérica (ex.: `natsorted`
 ou `key=lambda s: int(s[2:])`), garantindo correspondência posicional com `z_foc`.
+
+**Correção aplicada:** e9eabb2 (2026-06-05) — helper `collect_dirs_with_prefix` com `natsorted` substitui `sorted({...})` para `zf_directories` e `light_directories` em `hybrid/main.py`; garantia posicional com `z_foc` e `lights.npy`.
 
 ---
 

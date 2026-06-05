@@ -63,12 +63,14 @@ A média por plano usa `f"{zf_dir}" in file` (substring), então com ≥10 plano
 - Localização: `hybrid/main.py:101-103`
 - Evidência: reprodução direta — `[p for p in paths if "zf1" in p and "sVal.png" in p]` retornou `zf1, zf10, zf11, zf12`.
 - Correção sugerida: filtrar por componente de caminho exato (`os.path.basename(os.path.dirname(file)) == zf_dir`), como já feito para `L*`.
+- **Correção aplicada:** e9eabb2 (2026-06-05) — helper `select_files_by_parent_dir` com `Path(f).parent.name == dir_name` substitui o substring match.
 
 **MF-02 — Ordenação lexicográfica dos planos desalinha `average_images_paths` de `z_foc`** (implementação, crítico, confirmado por inspeção)
 `zf_directories = sorted({...})` ordena `zf1, zf10, zf11, zf12, zf2, ...`, enquanto `z_foc` no YAML está em ordem natural; o índice de foco `k` recebe o valor de profundidade errado, permutando e tornando não-monotônica a relação índice→z.
 - Localização: `hybrid/main.py:90-96,101`
 - Evidência: `sorted({'zf1','zf2','zf10','zf11','zf12'})` = `['zf1','zf10','zf11','zf12','zf2']`; `mosaic` indexa `z_foc[k]` por posição (`mosaic.py:57,72`), sem reordenação intermediária.
 - Correção sugerida: ordenar por chave numérica (`natsorted` ou `key=int(s[2:])`).
+- **Correção aplicada:** e9eabb2 (2026-06-05) — helper `collect_dirs_with_prefix` com `natsorted` substitui `sorted({...})` para `zf_directories` e `light_directories`.
 
 **MF-03 — Pixels sem textura recebem profundidade do meio do stack (`z_foc[n/2]`)** (conceitual, alto, suspeita — difícil de ativar em condições realistas)
 Quando o pico de foco é nulo, `compute_argmax_fuzzy_1d` retorna `(n/2, 0)`; o `mosaic` usa `iSel` sem consultar a confiança, então esses pixels entram no `zMos` como plano falso "do meio". O path `return n/2,0` exige contraste rigorosamente zero — não ativado pelos testes.
