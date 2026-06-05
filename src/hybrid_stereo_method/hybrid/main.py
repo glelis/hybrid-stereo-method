@@ -3,6 +3,7 @@ import logging
 import os
 import shutil
 from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 from natsort import natsorted
@@ -26,13 +27,36 @@ from hybrid_stereo_method.multifocus.mosaic import mosaic
 from hybrid_stereo_method.photometric.main_wps import main as photometric_stereo_main
 
 
+def select_files_by_parent_dir(files: list[str], dir_name: str, filename_part: str) -> list[str]:
+    """Return files whose immediate parent directory is exactly ``dir_name`` and whose
+    basename contains ``filename_part``, in natural order.
+
+    Fixes MF-01: the former ``f"{zf_dir}" in file`` substring test caused "zf1" to also
+    match paths under "zf10", "zf11", "zf12", etc.
+    """
+    return natsorted(
+        [f for f in files if Path(f).parent.name == dir_name and filename_part in Path(f).name]
+    )
+
+
+def collect_dirs_with_prefix(files: list[str], prefix: str) -> list[str]:
+    """Return unique immediate-parent directory names starting with ``prefix``,
+    sorted in natural order (numeric suffix, not lexicographic).
+
+    Fixes MF-02: ``sorted({...})`` is lexicographic, so with ≥10 directories the
+    numeric order is wrong (e.g. zf1, zf10, zf11, zf12, zf2, …).
+    """
+    dirs = {Path(path).parent.name for path in files if Path(path).parent.name.startswith(prefix)}
+    return natsorted(dirs)
+
+
 def main(parameters):
     """
     Main function to execute the hybrid stereo method.
-    
+
     This runs the complete pipeline:
     1. Multifocus stereo - depth from focus variation
-    2. Photometric stereo - surface normals from lighting variation  
+    2. Photometric stereo - surface normals from lighting variation
     3. Surface integration - height map from normals
     """
 
@@ -82,24 +106,21 @@ def main(parameters):
     logging.info("=" * 60)
     logging.info("STEP 1: Multifocus Stereo")
     logging.info("=" * 60)
-    
+
     # Find all files in the input directory
     input_files_path = find_all_files(os.path.join(input_path, data_foldername))
 
-    # Process images to calculate the average for each 'zf' directory
-    zf_directories = sorted(
-        {
-            os.path.basename(os.path.dirname(path))
-            for path in input_files_path
-            if os.path.basename(os.path.dirname(path)).startswith("zf")
-        }
-    )
+    # Process images to calculate the average for each 'zf' directory.
+    # collect_dirs_with_prefix uses natsorted so zf1..zf12 come in numeric order
+    # (fixes MF-02: sorted() would give zf1,zf10,zf11,zf12,zf2,...).
+    zf_directories = collect_dirs_with_prefix(input_files_path, prefix="zf")
 
     average_images_paths = []
     for zf_dir in zf_directories:
-        # Filter relevant files in the directory
-        filtered_files = sorted(
-            [file for file in input_files_path if f"{zf_dir}" in file and "sVal.png" in file]
+        # select_files_by_parent_dir matches on the exact parent dir name
+        # (fixes MF-01: the old substring "zf1" in file also matched zf10/zf11/zf12).
+        filtered_files = select_files_by_parent_dir(
+            input_files_path, dir_name=zf_dir, filename_part="sVal.png"
         )
         image_list = read_images(filtered_files, info=False)
 
@@ -118,14 +139,11 @@ def main(parameters):
     # Execute the multifocus stereo method and capture the output for average configuration
     iSel_avg, wSel_avg, sMos_avg, zMos_avg = multifocus_stereo_main(parameters)
 
-    # Process images for each light directory 'L'
-    light_directories = sorted(
-        {
-            os.path.basename(os.path.dirname(path))
-            for path in input_files_path
-            if os.path.basename(os.path.dirname(path)).startswith("L")
-        }
-    )
+    # Process images for each light directory 'L'.
+    # collect_dirs_with_prefix uses natsorted so L0..L11 come in numeric order,
+    # matching the row order of lights.npy (fixes MF-02 for L* dirs; same class of
+    # bug as the zf* ordering above).
+    light_directories = collect_dirs_with_prefix(input_files_path, prefix="L")
 
     # Extract configuration for the mosaic
     zFoc = parameters["multifocus"]["parameters"]["z_foc"]
@@ -134,14 +152,20 @@ def main(parameters):
     for light_dir in light_directories:
         logging.info(f"... Processing light directory: {light_dir} ...")
 
-        # Filter relevant files in the directory
-        filtered_files = sorted(
-            [file for file in input_files_path if f"{light_dir}/zf" in file and "sVal.png" in file]
+        # Filter relevant files in the directory.
+        # Use exact parent-dir components: parent must be a zf* dir AND grandparent must
+        # be this light_dir (fixes substring match that would let "L1/zf" also match "L10/zf").
+        filtered_files = natsorted(
+            [
+                file
+                for file in input_files_path
+                if Path(file).parent.name.startswith("zf")
+                and Path(file).parent.parent.name == light_dir
+                and "sVal.png" in Path(file).name
+            ]
         )
 
-        output_path_multifocus = os.path.join(
-            output_path, "multifocus_stereo", light_dir
-        )
+        output_path_multifocus = os.path.join(output_path, "multifocus_stereo", light_dir)
         if not os.path.exists(output_path_multifocus):
             os.makedirs(output_path_multifocus)
 
@@ -168,7 +192,7 @@ def main(parameters):
     logging.info("=" * 60)
     logging.info("STEP 2: Photometric Stereo")
     logging.info("=" * 60)
-    
+
     # Configure parameters for the photometric stereo method.
     # Select the per-light mosaics (parent dir L*), excluding the 'average' one;
     # match exact path components, not substrings, so dataset/user paths that
@@ -197,19 +221,17 @@ def main(parameters):
     logging.info("=" * 60)
     logging.info("STEP 3: Surface Integration (Normal to Height)")
     logging.info("=" * 60)
-    
+
     # Load the normal map from photometric stereo output
-    normal_map_path = os.path.join(
-        parameters["output_path_photometric"], "normal_map.npy"
-    )
-    
+    normal_map_path = os.path.join(parameters["output_path_photometric"], "normal_map.npy")
+
     if os.path.exists(normal_map_path):
         logging.info(f"Loading normal map from: {normal_map_path}")
         normal_map = np.load(normal_map_path)
-        
+
         # Configure integration parameters
         integration_params = parameters.get("hybrid", {}).get("integration", {})
-        
+
         integration_config = IntegrateRecursiveConfig(
             initial_method=integration_params.get("initial_method", "hints"),
             initial_noise=integration_params.get("initial_noise", 0.0),
@@ -217,24 +239,26 @@ def main(parameters):
             max_iter=integration_params.get("max_iter", 100000),
             conv_tol=integration_params.get("conv_tol", 0.0000005),
             verbose=parameters["experiment"]["settings"]["debug"],
-            #report_step=integration_params.get("report_step", 1),
+            # report_step=integration_params.get("report_step", 1),
         )
-        
+
         # Output directory for integration
         integration_output = os.path.join(output_path, "integration")
-        
+
         hints_fni_path = None
         hints_weight = integration_params.get("hints_weight", 0.0)
-        
+
         if integration_params.get("use_hints", False):
             # Locate zMos_with_confidence.fni inside multifocus_stereo/average
-            hints_file = os.path.join(output_path, "multifocus_stereo", "average", "zMos_with_confidence.fni")
+            hints_file = os.path.join(
+                output_path, "multifocus_stereo", "average", "zMos_with_confidence.fni"
+            )
             if os.path.exists(hints_file):
                 hints_fni_path = hints_file
                 logging.info(f"Found hints map: {hints_fni_path}")
             else:
                 logging.warning(f"Hints map requested but not found at: {hints_file}")
-        
+
         reference_fni_path = None
         if integration_params.get("use_reference", False):
             # Locate hAvg.png inside input/sharp
@@ -248,7 +272,7 @@ def main(parameters):
                 logging.info(f"Generated reference map: {reference_fni_path}")
             else:
                 logging.warning(f"Reference map requested but not found at: {h_avg_path}")
-        
+
         logging.info("Running surface integration...")
         try:
             height_map = integrate_normals_to_height(
@@ -260,19 +284,19 @@ def main(parameters):
                 hints_weight=hints_weight,
                 reference_fni_path=reference_fni_path,
             )
-            
+
             # Save the height map as numpy array
             height_npy_path = os.path.join(integration_output, "height_map.npy")
             np.save(height_npy_path, height_map)
             logging.info(f"Height map saved to: {height_npy_path}")
-            
+
             # Save as image for visualization
             save_image(integration_output, "height_map.png", height_map)
             logging.info("Height map visualization saved")
-            
+
             logging.info(f"Height map shape: {height_map.shape}")
             logging.info(f"Height map range: [{height_map.min():.4f}, {height_map.max():.4f}]")
-            
+
         except FileNotFoundError:
             logging.error("Integration executable not found.")
             logging.error("Please build the C code: cd csrc/integrate_recursive && make")
@@ -307,4 +331,3 @@ if __name__ == "__main__":
 
     # Execute the main function
     main(parameters)
-
