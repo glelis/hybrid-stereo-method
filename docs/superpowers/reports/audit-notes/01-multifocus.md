@@ -337,6 +337,24 @@ construída sobre `height,width` inteiros (`create_gaussian_elliptical_mask`, li
 kernel de suporte pequeno, ou energia de alta frequência em janela deslizante / DCT por
 blocos), preservando localidade.
 
+**Reavaliação (2026-06-05):** o mecanismo "ringing global" está parcialmente refutado: a
+máscara é *gaussiana* na frequência, cujo equivalente espacial é `δ − gaussiana` com
+`σ = 1/(2π·radius)` ≈ 1,6 px (radius=0.1) — suporte efetivo compacto, sem sidelobes.
+Verificado numericamente: no interior, a implementação FFT é idêntica (erro rel. ~1e-6) a
+um unsharp mask local, e a resposta ao impulso cai a ~1e-8 do pico em 10 px. Porém há
+não-localidade **real**: o wraparound circular da FFT — uma banda brilhante na coluna 0
+produz resposta espúria de 0.37 (vs. 5e-9 no interior) na borda *oposta* da imagem.
+
+**Correção aplicada:** PENDING_SHA (2026-06-05) — `calculate_fourier_focus_indicator`
+reescrito como filtro passa-alta local explícito:
+`|img/255 − GaussianBlur(img/255, σ=1/(2π·radius), BORDER_REFLECT)|`. Equivalente no
+interior à formulação FFT legada (pinado por teste com erro rel. < 1e-3 para radius 0.05 e
+0.1), elimina o wraparound nas bordas. 5 testes novos em `tests/test_fourier_locality.py`
+(wraparound, equivalência ao legado, resposta ao impulso compacta, discriminação
+nítido/borrado, shape/dtype/não-negatividade). Helpers de máscara (`create_gaussian_
+elliptical_mask` etc.) mantidos — o teste de equivalência usa a máscara legada como
+referência.
+
 ---
 
 ## MF-10: `non_linear_res` não está integrado e ignora a máscara de pesos no ajuste

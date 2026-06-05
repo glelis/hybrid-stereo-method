@@ -114,6 +114,7 @@ O indicador "fourier" faz FFT/máscara passa-alta/IFFT sobre a imagem inteira; c
 - Localização: `fourier.py:5-38`
 - Evidência: `np.fft.fft2(image)` global (linha 20), máscara sobre dimensões inteiras, `ifft2` global; sem janelamento.
 - Correção sugerida: filtragem passa-alta local (kernel pequeno, energia HF em janela, ou DCT por blocos).
+- **Correção aplicada:** PENDING_SHA (2026-06-05) — mecanismo reavaliado: a máscara gaussiana não ringa (equivale a unsharp mask local com σ=1/(2π·radius)≈1,6 px; idêntico no interior, erro ~1e-6); a não-localidade real era o *wraparound circular* da FFT (banda na coluna 0 → resposta 0.37 na borda oposta). Indicador reescrito como `|img − GaussianBlur(img, σ=1/(2π·radius), BORDER_REFLECT)|`: equivalente no interior (pinado por teste), sem wraparound. 5 testes em `tests/test_fourier_locality.py`.
 
 **MF-10 — `non_linear_res` não está integrado e ignora a máscara de pesos no ajuste** (implementação, baixo, confirmado por inspeção)
 `applicator.focus_indicator` só despacha fourier/laplacian/wavelet (sem `else`/erro); `non_linear_res` é inalcançável e resolve o ajuste de plano por `lstsq` sem os pesos `W` usados no resíduo. Impacto atual nulo (fora do fluxo).

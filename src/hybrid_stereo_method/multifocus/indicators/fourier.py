@@ -4,11 +4,20 @@ import numpy as np
 
 def calculate_fourier_focus_indicator(image: np.ndarray, radius: float) -> np.ndarray:
     """
-    Compute the focus indicator for a single image using high frequency
-    Fourier coefficients.
+    Compute the focus indicator for a single image as the magnitude of a
+    local Gaussian high-pass filter (unsharp mask).
+
+    Spatially equivalent, in the image interior, to the previous global-FFT
+    formulation (FFT -> Gaussian elliptical high-pass mask -> IFFT) with the
+    same `radius`: multiplying the spectrum by ``1 - exp(-f^2/(2*(radius*N)^2))``
+    equals subtracting a Gaussian blur with ``sigma = 1/(2*pi*radius)`` pixels.
+    The explicit local convolution removes the FFT circular wraparound, which
+    leaked strong border responses to the opposite border (MF-09).
 
     Args:
         image: Input grayscale image
+        radius: High-pass cutoff as a fraction of the spectrum
+            (sigma = 1/(2*pi*radius) pixels; radius=0.1 -> sigma ~ 1.6 px)
 
     Returns:
         Focus indicator image with unnormalized values
@@ -16,24 +25,14 @@ def calculate_fourier_focus_indicator(image: np.ndarray, radius: float) -> np.nd
     # Normalize to [0,1]
     image = image / 255.0
 
-    # Apply 2D Fourier Transform
-    f_transform = np.fft.fft2(image)
+    # Local Gaussian low-pass; reflect border avoids wraparound artifacts
+    sigma = 1.0 / (2.0 * np.pi * radius)
+    low_pass = cv2.GaussianBlur(
+        image, (0, 0), sigmaX=sigma, sigmaY=sigma, borderType=cv2.BORDER_REFLECT
+    )
 
-    # Shift zero frequency to center
-    f_centered = np.fft.fftshift(f_transform)
-
-    # Create high-pass filter
-    height, width = image.shape
-    mask = create_gaussian_elliptical_mask(height, width, radius)  # radius = 0.1
-
-    # Apply mask in frequency domain
-    f_filtered = f_centered * mask
-
-    # Inverse shift and transform
-    f_inverse = np.fft.ifftshift(f_filtered)
-    focus_map = np.real(np.fft.ifft2(f_inverse))
-
-    focus_map = np.abs(focus_map)
+    # High-pass magnitude = |image - low-pass| (unsharp mask)
+    focus_map = np.abs(image - low_pass)
 
     return focus_map
 
