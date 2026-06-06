@@ -386,3 +386,29 @@ def test_collect_light_dirs_skips_files_outside_data_path(tmp_path, caplog):
         result = collect_light_dirs([str(inside), str(outside)], str(data))
     assert result == ["L0"]
     assert any("skipping" in r.message for r in caplog.records)
+
+
+# ===========================================================================
+# CONV-6: pair_mosaics_to_lights — pareamento por chave L<n>, não por posição
+# ===========================================================================
+
+
+def test_pair_mosaics_to_lights_orders_by_index_and_validates():
+    from hybrid_stereo_method.hybrid.main import pair_mosaics_to_lights
+
+    paths = ["/out/L10/sMos.png", "/out/L0/sMos.png", "/out/L2/sMos.png", "/out/L1/sMos.png"]
+    # tem L10, falta L3 — índices {0,1,2,10} não casam com 0..3
+    import pytest
+
+    with pytest.raises(ValueError, match="do not match"):
+        pair_mosaics_to_lights(paths, n_lights=4)
+
+    paths_ok = ["/out/L2/sMos.png", "/out/L0/sMos.png", "/out/L1/sMos.png"]
+    assert pair_mosaics_to_lights(paths_ok, n_lights=3) == [
+        "/out/L0/sMos.png",
+        "/out/L1/sMos.png",
+        "/out/L2/sMos.png",
+    ]
+
+    with pytest.raises(ValueError, match="no L<n> parent"):
+        pair_mosaics_to_lights(["/out/average/sMos.png"], n_lights=1)

@@ -96,6 +96,31 @@ def collect_light_dirs(files: list[str], data_path: str | Path) -> list[str]:
     return natsorted(lights)
 
 
+def pair_mosaics_to_lights(mosaic_paths: list[str], n_lights: int) -> list[str]:
+    """Order per-light mosaics by their ``L<n>`` index and verify the indices
+    are exactly ``0..n_lights-1`` (one mosaic per lights.npy row).
+
+    Fixes CONV-6: pairing was positional (natsorted paths vs lights.npy rows)
+    with only a count check; a missing/extra light dir could silently shift
+    every light↔mosaic association.
+    """
+    indexed: dict[int, str] = {}
+    for p in mosaic_paths:
+        m = re.fullmatch(r"L(\d+)", Path(p).parent.name)
+        if m is None:
+            raise ValueError(f"Mosaic path has no L<n> parent directory: {p}")
+        idx = int(m.group(1))
+        if idx in indexed:
+            raise ValueError(f"Duplicate mosaic for light L{idx}: {p} and {indexed[idx]}")
+        indexed[idx] = p
+    if set(indexed) != set(range(n_lights)):
+        raise ValueError(
+            f"Mosaic light indices {sorted(indexed)} do not match lights.npy "
+            f"rows 0..{n_lights - 1}: every row must have exactly one L<n> mosaic"
+        )
+    return [indexed[i] for i in range(n_lights)]
+
+
 def build_integration_config(integration_params: dict, debug: bool) -> IntegrateRecursiveConfig:
     """Build the solver config from the ``hybrid.integration`` YAML section.
 
@@ -288,19 +313,21 @@ def main(parameters):
     # match exact path components, not substrings, so dataset/user paths that
     # happen to contain "av" cannot break the selection.
     output_files = find_all_files(output_path)
-    parameters["sMos_path_list"] = natsorted(
-        [
-            file
-            for file in output_files
-            if os.path.basename(file) == "sMos.png"
-            and os.path.basename(os.path.dirname(file)) != "average"
-        ]
-    )
-    parameters["output_path_photometric"] = os.path.join(output_path, "photometric_stereo")
+    mosaic_paths = [
+        file
+        for file in output_files
+        if os.path.basename(file) == "sMos.png"
+        and os.path.basename(os.path.dirname(file)) != "average"
+    ]
     parameters["lights_path"] = [file for file in input_files_path if "lights.npy" in file][0]
 
     # Log the path of the lights file
     logging.info(f"Path to lights file: {parameters['lights_path']}")
+
+    n_lights = int(np.load(parameters["lights_path"]).shape[0])
+    # CONV-6: pair light<n> -> lights.npy row n by KEY, not by sort position
+    parameters["sMos_path_list"] = pair_mosaics_to_lights(mosaic_paths, n_lights)
+    parameters["output_path_photometric"] = os.path.join(output_path, "photometric_stereo")
 
     # Execute the photometric stereo method
     photometric_stereo_main(parameters)
