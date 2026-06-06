@@ -76,7 +76,7 @@ N_LIGHTS = 3
 
 def _build_small_dataset(root):
     """Build a minimal synthetic dataset: L<n>/zf<m>/sVal.png + lights.npy."""
-    from tests.synthetic_utils import (
+    from synthetic_utils import (
         defocus_stack,
         gaussian_bump,
         normals_from_height,
