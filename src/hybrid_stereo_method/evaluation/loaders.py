@@ -106,7 +106,10 @@ def load_zmos(results_dir: str | Path) -> np.ndarray:
     path = Path(results_dir) / "multifocus_stereo" / "average" / "zMos.fni"
     if not path.exists():
         raise MissingArtifactError(f"zMos.fni (profundidade multifocus) não encontrado: {path}")
-    return read_fni_to_image_array(path).astype(np.float64)
+    zmos = read_fni_to_image_array(path).astype(np.float64)
+    if zmos.ndim == 3:  # simetria com load_height_gt/load_height_map (1º canal)
+        zmos = zmos[..., 0]
+    return zmos
 
 
 def load_normal_map(results_dir: str | Path) -> np.ndarray:
