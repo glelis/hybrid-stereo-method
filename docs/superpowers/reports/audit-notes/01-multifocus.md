@@ -527,6 +527,8 @@ imagens (~1,2 s de parede). Inspeção do dataset real confirma `L000/selected-p
 apenas `os.path.dirname` (pai imediato). Idealmente derivar luzes e planos focais do mesmo
 varredura estruturada para garantir o pareamento luz↔mosaico (ver CONV-6).
 
+**Correção aplicada:** `e827a17` (2026-06-05) — novo helper `collect_light_dirs` em `hybrid/main.py` varre todos os componentes do caminho relativo a `data_path` buscando `re.fullmatch(r"L\d+", part)`, em vez de inspecionar apenas o pai imediato. Chamada no `main()` substituída de `collect_dirs_with_prefix(..., prefix="L")` para `collect_light_dirs(input_files_path, os.path.join(input_path, data_foldername))`. xfail removido de `test_hybrid_pipeline_end_to_end`; variante `_with_workaround` e `marker.txt` removidos. Baseline E2E (dataset limpo, sem workaround): RMSE=0.3420 (std gt=0.9780), a=0.2791, b=3.2083, pearson r=0.9369. 2 novos testes unitários em `tests/test_hybrid_path_selection.py`.
+
 ---
 
 ## Verificado sem achado

@@ -146,6 +146,7 @@ A parábola é ajustada em espaço de índice e o vértice convertido a z por in
 - Localização: `hybrid/main.py:122-128` (laço dependente 134-163)
 - Evidência: `tests/test_e2e_hybrid.py::test_hybrid_pipeline_end_to_end`, Task 12, `xfail(strict=True, raises=ValueError)`, XFAILED; reprodução direta `light_directories=[]`.
 - Correção sugerida: derivar luzes de um componente `L*` em **qualquer** posição do caminho relativo (`Path(path).relative_to(data_path).parts` casando `^L\d+`), idealmente do mesmo varredura estruturada que dá os planos focais (CONV-6).
+- **Correção aplicada:** `e827a17` (2026-06-05) — novo helper `collect_light_dirs` varre todos os componentes do caminho relativo a `data_path` (não só o pai imediato) buscando `re.fullmatch(r"L\d+", part)`; substitui `collect_dirs_with_prefix(..., prefix="L")` no `main()`. xfail removido de `test_hybrid_pipeline_end_to_end`; variante `_with_workaround` removida; `marker.txt` removido de `_build_small_dataset`. Baseline E2E (limpo, sem workaround): RMSE=0.3420 (std gt=0.9780), a=0.2791, b=3.2083, pearson r=0.9369. 2 novos testes em `tests/test_hybrid_path_selection.py`.
 
 ### 2.2 Fotométrico (PS-xx)
 
