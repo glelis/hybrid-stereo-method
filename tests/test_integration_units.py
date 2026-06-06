@@ -291,5 +291,104 @@ def test_cell_to_vertex_grid_nan_cells_get_zero_weight():
     assert np.isfinite(out[..., 0][out[..., 1] > 0]).all()
 
 
+# ---------------------------------------------------------------------------
+# INT-06: reference_scale converte uint8 reference para unidades de altura
+# ---------------------------------------------------------------------------
+
+
+def test_reference_scale_is_emitted_in_command(tmp_path, monkeypatch):
+    """INT-06: hAvg.png é uint8 (0-255) e Z sai em unidades físicas; o C aceita
+    '-reference R scale S' para tornar a comparação comensurável."""
+    import subprocess
+
+    from hybrid_stereo_method.hybrid.integrate import (
+        IntegrateRecursiveConfig,
+        integrate_slopes_to_height,
+    )
+
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        raise subprocess.CalledProcessError(1, cmd, stderr="stop-after-capture")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    ref = np.zeros((5, 5))
+    cfg = IntegrateRecursiveConfig(reference_scale=0.05)
+    with pytest.raises(RuntimeError):
+        integrate_slopes_to_height(
+            np.zeros((4, 4, 3)), tmp_path, "r", config=cfg, reference_map=ref,
+            executable_path="/bin/true",
+        )
+    cmd = captured["cmd"]
+    i = cmd.index("-reference")
+    assert cmd[i + 2 : i + 4] == ["scale", "0.05"], cmd
+
+
+def test_reference_scale_not_emitted_when_default(tmp_path, monkeypatch):
+    """INT-06: quando reference_scale == 1.0 (default), o argumento 'scale' NÃO
+    é emitido (mantém compatibilidade retroativa)."""
+    import subprocess
+
+    from hybrid_stereo_method.hybrid.integrate import (
+        IntegrateRecursiveConfig,
+        integrate_slopes_to_height,
+    )
+
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        raise subprocess.CalledProcessError(1, cmd, stderr="stop-after-capture")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    ref = np.zeros((5, 5))
+    cfg = IntegrateRecursiveConfig()  # reference_scale=1.0 default
+    with pytest.raises(RuntimeError):
+        integrate_slopes_to_height(
+            np.zeros((4, 4, 3)), tmp_path, "r2", config=cfg, reference_map=ref,
+            executable_path="/bin/true",
+        )
+    cmd = captured["cmd"]
+    i = cmd.index("-reference")
+    # next token after path should NOT be "scale"
+    assert cmd[i + 2] != "scale", f"scale should not be emitted for default 1.0: {cmd}"
+
+
+def test_build_integration_config_threads_reference_scale():
+    """INT-06: build_integration_config passa reference_scale ao config."""
+    config = build_integration_config({"reference_scale": 0.5}, debug=False)
+    assert config.reference_scale == 0.5
+
+
+def test_build_integration_config_reference_scale_default():
+    """INT-06: sem reference_scale no YAML, o default é 1.0."""
+    config = build_integration_config({}, debug=False)
+    assert config.reference_scale == 1.0
+
+
+def test_warns_when_use_reference_without_reference_scale(caplog):
+    """INT-06: use_reference=True sem reference_scale gera warning informativo."""
+    with caplog.at_level(logging.WARNING):
+        build_integration_config({"use_reference": True}, debug=False)
+    assert any("reference_scale" in m and "INT-06" in m for m in caplog.messages), (
+        f"warning INT-06 ausente: {caplog.messages}"
+    )
+
+
+def test_no_warning_when_use_reference_with_reference_scale(caplog):
+    """INT-06: use_reference=True COM reference_scale não gera warning."""
+    with caplog.at_level(logging.WARNING):
+        build_integration_config({"use_reference": True, "reference_scale": 0.431}, debug=False)
+    assert not any("INT-06" in m for m in caplog.messages)
+
+
+def test_no_warning_without_use_reference(caplog):
+    """INT-06: sem use_reference, nenhum warning de reference_scale."""
+    with caplog.at_level(logging.WARNING):
+        build_integration_config({}, debug=False)
+    assert not any("reference_scale" in m for m in caplog.messages)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

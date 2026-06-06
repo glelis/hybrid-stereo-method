@@ -41,6 +41,10 @@ class IntegrateRecursiveConfig:
         verbose: Enable verbose output
         report_step: Frequency for debug output (0 = disabled)
         slopes_scale: Scale factors for X/Y slopes (default (1.0, 1.0))
+        reference_scale: Factor converting reference map values into the same units as
+            the integrated height Z. E.g. hAvg.png (uint8 0-255) → physical z_foc units:
+            set to (max_physical_height / 255). When != 1.0 the C solver receives
+            ``-reference path scale <value>`` (INT-06).
     """
     initial_method: str = "zero"
     initial_noise: float = 0.0
@@ -51,6 +55,7 @@ class IntegrateRecursiveConfig:
     verbose: bool = False
     report_step: int = 0
     slopes_scale: tuple[float, float] = field(default_factory=lambda: (1.0, 1.0))
+    reference_scale: float = 1.0
 
 
 def _run_integration(
@@ -117,11 +122,15 @@ def _run_integration(
     # Add reference map if provided
     if reference_fni_path is not None:
         cmd.extend(["-reference", str(reference_fni_path)])
+        if config.reference_scale != 1.0:
+            cmd.extend(["scale", str(config.reference_scale)])
         logger.info(f"Using existing reference map at: {reference_fni_path}")
     elif reference_map is not None:
         reference_fni_path = output_dir / f"{output_prefix}_reference.fni"
         convert_image_array_to_fni(reference_map, reference_fni_path)
         cmd.extend(["-reference", str(reference_fni_path)])
+        if config.reference_scale != 1.0:
+            cmd.extend(["scale", str(config.reference_scale)])
         logger.info(f"Wrote reference map to: {reference_fni_path}")
 
     # Add solver parameters

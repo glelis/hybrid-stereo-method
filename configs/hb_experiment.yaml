@@ -146,6 +146,12 @@ hybrid:
     
     # Whether to use a reference map for error calculation
     use_reference: True
+
+    # Factor converting reference (hAvg.png, 0-255 gray) values into the SAME
+    # height units as the integrated Z (z_foc units when pixel_size is set).
+    # Required for the C error report (devE) to be interpretable (INT-06).
+    # E.g. if 255 gray spans 110 z_foc units of height: 110/255 ≈ 0.431.
+    # reference_scale: 1.0
     
     # Maximum recursion level for the integration algorithm
     max_level: 30

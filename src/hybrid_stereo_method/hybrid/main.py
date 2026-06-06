@@ -154,6 +154,14 @@ def build_integration_config(integration_params: dict, debug: bool) -> Integrate
             "without a hints map the C solver aborts (INT-01)."
         )
 
+    if integration_params.get("use_reference", False) and "reference_scale" not in integration_params:
+        logging.warning(
+            "use_reference=True but hybrid.integration.reference_scale is not set: "
+            "hAvg.png is uint8 (0-255) while the integrated heights are in physical "
+            "units — the C error report (devE) compares incommensurable quantities "
+            "(INT-06). Set reference_scale to convert gray levels to height units."
+        )
+
     return IntegrateRecursiveConfig(
         initial_method=initial_method,
         initial_noise=integration_params.get("initial_noise", 0.0),
@@ -162,6 +170,7 @@ def build_integration_config(integration_params: dict, debug: bool) -> Integrate
         conv_tol=integration_params.get("conv_tol", 0.0000005),
         verbose=debug,
         slopes_scale=(pixel_size, pixel_size),
+        reference_scale=float(integration_params.get("reference_scale", 1.0)),
     )
 
 
