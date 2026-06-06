@@ -389,7 +389,7 @@ máscara legada como referência.
 - **Localização:** `src/hybrid_stereo_method/multifocus/indicators/non_linear_res.py:5-55`; despacho em `applicator.py:36-43`
 - **Tipo:** implementação
 - **Severidade:** baixo
-- **Status:** confirmado (por inspeção)
+- **Status:** corrigido (2026-06-06)
 
 **Descrição:** (1) `applicator.focus_indicator` só despacha para `fourier`, `laplacian` e
 `wavelet`; `non_linear_res.calcular_indicador_foco` não é alcançável pelo pipeline (se
@@ -406,6 +406,15 @@ do fluxo, o impacto atual é nulo, mas o achado fica registrado caso seja reativ
 
 **Sugestão de correção:** se reativado, resolver o ajuste com a mesma ponderação `W`
 (WLS) e adicionar o ramo de despacho com `else: raise ValueError`.
+
+**Correção aplicada:** `1aadea3` (2026-06-06) — ramo `non_linear_res` adicionado ao
+despacho em `applicator.py`; `else: raise ValueError(f"Unknown focus_indicator_type: {t!r}")`
+elimina o UnboundLocalError silencioso. Em `non_linear_res.py`: `lstsq(X, intensidades)`
+substituído por WLS `lstsq(X * sw[:, None], intensidades * sw)` com `sw = sqrt(W.flatten())`
+(coerência entre ajuste e resíduo ponderado); `X`, `sw`, `X_sw` hoistados fora do loop de
+pixels (constantes); residual `F < eps` clampado a 0.0 (evita amplificação de ruído
+numérico ~1e-27 na normalização). 2 testes: `test_focus_indicator_unknown_type_raises`
+e `test_non_linear_res_dispatch_and_plane_residual` em `tests/test_multifocus_synthetic.py`.
 
 ---
 

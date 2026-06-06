@@ -127,6 +127,7 @@ O indicador "fourier" faz FFT/máscara passa-alta/IFFT sobre a imagem inteira; c
 - Localização: `non_linear_res.py:5-55`; despacho em `applicator.py:36-43`
 - Evidência: ramos sem `else`; `non_linear_res.py:41` chama `lstsq` sem pesos.
 - Correção sugerida: se reativado, WLS com a mesma `W` e `else: raise ValueError` no despacho.
+- **Correção aplicada:** `1aadea3` (2026-06-06) — ramo `non_linear_res` adicionado ao despacho; `else: raise ValueError` elimina UnboundLocalError silencioso; `lstsq` substituído por WLS (`sqrt(W)` reescala linhas); `X`, `sw`, `X_sw` hoistados fora do loop; `F < eps` clampado a 0. Plano perfeito tem resíduo ~0; tipo desconhecido levanta ValueError. 2 testes em `tests/test_multifocus_synthetic.py`.
 
 **MF-11 — `k_fuzzy = max(0, min(n, k_fuzzy))` deveria usar `n-1` como teto** (implementação, baixo, confirmado por inspeção)
 O índice válido máximo é `n-1`, mas o clamp permite `k_fuzzy==n`; o `mosaic` se protege contra out-of-bounds, mas o clamp mascara a extrapolação em vez de sinalizá-la e o valor `n` é gravado no CSV de debug.
