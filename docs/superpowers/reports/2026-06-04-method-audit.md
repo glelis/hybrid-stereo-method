@@ -347,6 +347,17 @@ Três pareamentos posicionais sem verificação por identidade: (1) luz↔mosaic
 - Evidência: Task 12 — a guarda de contagem pegou o caso degenerado (0 vs 6, MF-14) e abortou com mensagem clara; o cenário central (N mosaicos em ordem errada com N linhas) **não foi exercitado** (nunca houve N mosaicos). Permanece suspeita.
 - Correção sugerida: parear luz↔mosaico por chave extraída do path (`L<n>`→linha `n`); ordenar `zf_directories` por chave numérica; verificar shape dos hints contra `(H+1,W+1)`.
 
+### 2.6 Regressões (REG-xx)
+
+**REG-01 — `normalize=True` acidental nos mosaicos `sMos.png` por luz — regressão de `aa772ed`** (implementação, alto, confirmado por execução)
+O commit `aa772ed` (fix INT-04/CONV-4) flipou acidentalmente `normalize=False` → `normalize=True` na chamada `save_image(..., "sMos.png", sMos_light, ...)` em `hybrid/main.py`. O comentário imediatamente acima explicava por que `normalize=False` é essencial: os mosaicos são a entrada do PS e um stretch min-max por imagem destrói as relações de intensidade entre luzes que o modelo `I = albedo · (L · N)` requer. A regressão ficou mascarada porque a correção de MF-14 (Task 2) também entrou no mesmo ciclo de correções; o E2E com normalize=False-correto dá RMSE 0.0691 / a 0.9960 / r 0.9975, enquanto com normalize=True (regredido) os maxima de todos os `sMos.png` sobem a 255 e o fit afim degrada para RMSE 0.342 / a 0.279 / r 0.937.
+- Localização: `hybrid/main.py:274` (linha exata após correção)
+- Tipo: implementação
+- Severidade: alto
+- Status: confirmado por execução — `test_hybrid_pipeline_end_to_end` falhou no assert `all(m < 255 for m in maxima)` com `max=[255,255,255,254,255,255]` antes da correção; passou após restaurar `normalize=False`
+- Nova baseline pós-correção: RMSE = 0.0691 (std gt = 0.9780), a = 0.9960, b = 3.1316, pearson r = 0.9975
+- **Correção aplicada:** `a9f9f04` (2026-06-05) — restaura `normalize=False` e adiciona assert radiométrico em `test_e2e_hybrid.py`.
+
 ---
 
 ## 3. Tabela de convenções
