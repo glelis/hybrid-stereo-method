@@ -83,25 +83,22 @@ def compute_argmax_fuzzy(
     return iSel, wSel
 
 
-def find_index_of_max_sum(focus_values: np.array) -> int:
-    """
-    Encontra o índice do valor máximo da soma de três elementos consecutivos em uma lista de valores de foco.
+def find_peak_index(focus_values) -> int:
+    """Índice do pico verdadeiro (argmax), com desempate pela vizinhança.
 
-    Args:
-        focus_values (np.array): Lista ou array de valores de foco.
-
-    Returns:
-        int: O índice do valor máximo da soma de três elementos consecutivos.
+    Substitui ``find_index_of_max_sum`` (MF-05): a soma-de-3 é um passa-baixa
+    que favorece platôs largos e pode escolher uma janela que nem contém o
+    argmax. Empates exatos são desfeitos pela maior soma dos vizinhos.
     """
-    if len(focus_values) < 3:
-        raise ValueError(f"focus_values must contain at least 3 frames, got {len(focus_values)}")
-    max_sum = -np.inf
-    for i in range(1, len(focus_values) - 1):
-        current_sum = focus_values[i - 1] + focus_values[i] + focus_values[i + 1]
-        if current_sum > max_sum:
-            max_sum = current_sum
-            index = i - 1 + int(np.argmax(focus_values[i - 1 : i + 2]))
-    return index
+    fv = np.asarray(focus_values, dtype=np.float64)
+    if fv.size < 3:
+        raise ValueError(f"focus_values must contain at least 3 frames, got {fv.size}")
+    candidates = np.flatnonzero(fv == fv.max())
+    if candidates.size == 1:
+        return int(candidates[0])
+    padded = np.pad(fv, 1, mode="edge")
+    support = padded[candidates] + padded[candidates + 1] + padded[candidates + 2]
+    return int(candidates[np.argmax(support)])
 
 
 def calculate_weights(focus_values: np.array) -> np.array:
@@ -141,7 +138,7 @@ def compute_argmax_fuzzy_1d(focus_values, pixel_location, fuzzy_params=None, csv
         fuzzy_params = {}
 
     n = len(focus_values)
-    k_max = find_index_of_max_sum(focus_values)
+    k_max = find_peak_index(focus_values)
 
     if focus_values[k_max] == 0:
         # MF-03: pico nulo = profundidade indecidível. NaN propaga a invalidez;
