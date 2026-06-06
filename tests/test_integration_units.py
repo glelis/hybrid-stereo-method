@@ -101,6 +101,25 @@ def test_no_warning_without_hints(caplog):
     assert not any("pixel_size" in m for m in caplog.messages)
 
 
+def test_initial_method_defaults_to_zero_and_hints_requires_use_hints():
+    """INT-01: default era 'hints' mesmo sem -hints, e o binário aborta
+    (demand H!=NULL). Default correto: 'zero'; 'hints' exige use_hints."""
+    from hybrid_stereo_method.hybrid.main import build_integration_config
+
+    cfg = build_integration_config({}, debug=False)
+    assert cfg.initial_method == "zero"
+
+    import pytest
+
+    with pytest.raises(ValueError, match="use_hints"):
+        build_integration_config({"initial_method": "hints", "use_hints": False}, debug=False)
+
+    cfg = build_integration_config(
+        {"initial_method": "hints", "use_hints": True, "pixel_size": 1.0}, debug=False
+    )
+    assert cfg.initial_method == "hints"
+
+
 # ---------------------------------------------------------------------------
 # Comportamento físico via binário C
 # ---------------------------------------------------------------------------

@@ -146,8 +146,15 @@ def build_integration_config(integration_params: dict, debug: bool) -> Integrate
         pixel_size = 1.0
     pixel_size = float(pixel_size)
 
+    initial_method = integration_params.get("initial_method", "zero")
+    if initial_method == "hints" and not integration_params.get("use_hints", False):
+        raise ValueError(
+            "hybrid.integration.initial_method='hints' requires use_hints: true — "
+            "without a hints map the C solver aborts (INT-01)."
+        )
+
     return IntegrateRecursiveConfig(
-        initial_method=integration_params.get("initial_method", "hints"),
+        initial_method=initial_method,
         initial_noise=integration_params.get("initial_noise", 0.0),
         max_level=integration_params.get("max_level", 30),
         max_iter=integration_params.get("max_iter", 100000),
