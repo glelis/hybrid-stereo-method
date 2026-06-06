@@ -38,7 +38,7 @@ Detalhamento exato (cada ID contado uma vez pela sua severidade/status final pó
 
 - **Crítico (3, todos confirmados):** MF-01, MF-02 (por inspeção), MF-14 (por execução).
 - **Alto (10):** confirmado — INT-01 (por inspeção, ramo de aborto). Suspeita — MF-03, MF-04, MF-09, PS-02, PS-06, IO-05, INT-04, CONV-4, CONV-6.
-- **Médio (17):** confirmado — PS-03 (teste), INT-08 (teste), IO-02 (inspeção), IO-04 (inspeção). Suspeita — MF-05, MF-06, MF-07, MF-08, MF-12, PS-05, PS-07, PS-08, INT-02, INT-03, INT-05, INT-06, CONV-5.
+- **Médio (17):** confirmado — PS-03 (teste), INT-02 (corrigido `6728745`), INT-03 (corrigido `bdcb126`), INT-08 (teste), IO-02 (inspeção), IO-04 (inspeção). Suspeita — MF-05, MF-06, MF-07, MF-08, MF-12, PS-05, PS-07, PS-08, INT-05, INT-06, CONV-5.
 - **Baixo (12):** confirmado — PS-01 (teste), PS-04 (inspeção de fluxo/risco), PS-09, PS-10, PS-11, MF-10, MF-11, INT-07, IO-01, IO-03, IO-06 (por inspeção). Suspeita — MF-13.
 - **Refutado (2):** CONV-1 e CONV-2 — a inconsistência de **sinal/orientação do integrador** foi refutada por teste (`-normals`, rampa assimétrica); a **metade física** de ambos (sinal-z real / frame y-up POV-Ray das luzes) **permanece em aberto** — não decidível por dados sintéticos.
 
@@ -247,6 +247,7 @@ Se o end-Z não existir, o Python faz fallback para `-ini-Z.fni`, que é o **chu
 - Localização: `hybrid/integrate.py:171-180`
 - Evidência: Task 9 — o crash da rampa (INT-08) levanta `CalledProcessError` **antes** do fallback; `ramp-ini-Z.fni` foi escrito mas nunca lido. Recalibrado para **médio** (impacto potencial > INT-07, mas disparo bloqueado).
 - Correção sugerida: remover o fallback para `-ini-Z.fni`; se end-Z faltar, sempre erro.
+- **Correção aplicada:** `6728745` (2026-06-06) — bloco fallback removido; `_run_integration` levanta `RuntimeError` diretamente se `{prefix}-00-end-Z.fni` não existir, com mensagem que cita `end-Z`. 1 novo teste `test_missing_end_z_raises_instead_of_returning_initial_guess` (fake solver, sem binário C) confirma o comportamento — `DID NOT RAISE` com o código antigo (fallback silencioso devolveu o `-ini-Z.fni`); passa com a correção. **Status: corrigido.**
 
 **INT-03 — NaN nas normais (PS-06) viram peso 0 — não contaminam a malha, mas removem o pixel sem máscara de foreground** (implementação, médio, suspeita)
 Fechamento do lead PS-06. O parser C aceita `+nan` (`strtod`); o NaN não propaga porque `pst_map_ensure_pixel_consistency(G,2)` zera o peso e NaN-iza todos os canais de qualquer pixel não-finito (backstop real). Defeito remanescente: pixels sombreados são silenciosamente zerados/excluídos sem o PS comunicar máscara de foreground — buracos de peso 0 podem introduzir vieses de borda.

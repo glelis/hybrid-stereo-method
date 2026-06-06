@@ -73,7 +73,7 @@ validar que `initial_method=="hints"` ⇒ `use_hints` verdadeiro antes de invoca
 - **Localização:** `src/hybrid_stereo_method/hybrid/integrate.py:171-180`
 - **Tipo:** implementação
 - **Severidade:** médio
-- **Status:** suspeita — comportamento de crash **confirmado por teste** (Task 9); fallback obsoleto/silencioso segue suspeita (decide: Task 12)
+- **Status:** corrigido (`6728745`, 2026-06-06)
 
 **Atualização Task 9 (2026-06-04):** O teste da rampa fez o binário abortar por `demand` de
 canais (`pst_integrate_iterative.c:47`), retorno != 0. Observado empiricamente: `subprocess.run(
