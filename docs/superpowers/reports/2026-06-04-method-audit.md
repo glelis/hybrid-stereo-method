@@ -346,6 +346,7 @@ Três pareamentos posicionais sem verificação por identidade: (1) luz↔mosaic
 - Localização: `hybrid/main.py:177-184` vs `main_wps.py:119-127`; `hybrid/main.py:90` vs `mosaic.py:57`; `(H,W,2)` vs `gus_integrate_recursive.c:519`
 - Evidência: Task 12 — a guarda de contagem pegou o caso degenerado (0 vs 6, MF-14) e abortou com mensagem clara; o cenário central (N mosaicos em ordem errada com N linhas) **não foi exercitado** (nunca houve N mosaicos). Permanece suspeita.
 - Correção sugerida: parear luz↔mosaico por chave extraída do path (`L<n>`→linha `n`); ordenar `zf_directories` por chave numérica; verificar shape dos hints contra `(H+1,W+1)`.
+- **Correção aplicada (pareamento luz↔mosaico):** `c226924` (2026-06-05) — helper `pair_mosaics_to_lights` extrai o índice numérico do diretório-pai `L<n>` de cada mosaico e verifica que o conjunto de índices é exatamente `0..n_lights-1`; ValueError com mensagem clara para faltante/extra/duplicado. Substitui o `natsorted(sMos_path_list)` posicional no Passo 2 de `main()`. Sub-achados (2) e (3) permanecem abertos (MF-02 corrigido separadamente; INT-05 pendente).
 
 ### 2.6 Regressões (REG-xx)
 

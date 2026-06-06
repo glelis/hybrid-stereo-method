@@ -358,6 +358,8 @@ detecta desalinhamentos que a contagem não pega.
 `n` de `lights.npy`) em vez de posição; ordenar `zf_directories` por chave numérica (MF-02);
 verificar shape dos hints contra `(H+1,W+1)` no lado Python (INT-05). NÃO aplicar.
 
+**Status atualizado:** pareamento luz↔mosaico corrigido (`c226924`, 2026-06-05) — ver entrada CONV-6 no relatório principal. Sub-achados (2) zf↔z_foc e (3) shape hints permanecem abertos.
+
 ---
 
 ## (c) Verificado sem achado
