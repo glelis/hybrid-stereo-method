@@ -83,14 +83,19 @@ def focus_indicator(
     p1 = np.percentile(focus_indicator_stack, 1)
     focus_indicator_stack = np.clip(focus_indicator_stack, p1, np.inf)
 
-    min_val = np.min(focus_indicator_stack)
-    max_val = np.max(focus_indicator_stack)
+    # MF-08: floor explícito — desloca o mínimo global do stack para 0 (a antiga
+    # guarda `if min_val < 0` nunca disparava: indicadores são magnitudes >= 0,
+    # então o piso ficava em p1/max). O deslocamento é afim e uniforme entre
+    # frames: não altera o argmax nem o vértice da parábola por pixel.
+    focus_indicator_stack = focus_indicator_stack - np.min(focus_indicator_stack)
 
-    # Normalize to [0,1] range
-    if min_val < 0:
-        focus_indicator_stack = focus_indicator_stack - min_val
+    max_val = np.max(focus_indicator_stack)
     if max_val > 0:
         focus_indicator_stack = focus_indicator_stack / max_val
+    else:
+        logging.warning(
+            "focus indicator stack is constant — no focus signal; returning zeros (MF-08)"
+        )
 
     logging.debug(
         f"Focus indicator after normalization ({focus_indicator_type}) min_val: {np.min(focus_indicator_stack)}, max_val: {np.max(focus_indicator_stack)}"

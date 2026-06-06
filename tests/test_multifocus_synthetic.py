@@ -143,3 +143,24 @@ def test_mosaic_masks_zero_confidence_pixels():
     assert np.isnan(zMos[0, 0]) and np.isnan(zMos[1, 1])
     assert np.isfinite(sMos).all(), "sMos deve sempre ter valor (consumido pelo PS)"
     assert zMos[2, 2] == 30.0
+
+
+def test_focus_indicator_normalization_floor_and_degenerate_stack(caplog):
+    """MF-08: o piso pós-clip deve ser deslocado a 0 explicitamente (a guarda
+    min_val<0 nunca dispara em indicadores |.|>=0), e stack constante (max==0)
+    deve avisar e devolver zeros, não dividir silenciosamente."""
+    import logging
+
+    from hybrid_stereo_method.multifocus.indicators.applicator import focus_indicator
+
+    rng = np.random.default_rng(0)
+    stack = rng.uniform(10.0, 255.0, (3, 16, 16))
+    fi = focus_indicator(stack, "laplacian", laplacian_kernel_size=5)
+    assert fi.min() == 0.0, f"piso não deslocado a 0: min={fi.min()} (MF-08)"
+    assert fi.max() == 1.0
+
+    flat = np.full((3, 16, 16), 7.0)  # sem gradiente -> indicador todo zero
+    with caplog.at_level(logging.WARNING):
+        fi0 = focus_indicator(flat, "laplacian", laplacian_kernel_size=5)
+    assert (fi0 == 0).all()
+    assert any("no focus signal" in r.message for r in caplog.records)
