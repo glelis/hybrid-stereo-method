@@ -195,3 +195,17 @@ def test_resolve_data_dir_corrupt_yaml_returns_none(tmp_path):
     results.mkdir()
     (results / "parameters.yaml").write_text("experiment: [unclosed\n  paths: {")
     assert resolve_data_dir(results, None) is None
+
+
+def test_load_normals_gt_decodes_uint16(tmp_path):
+    """GT real é PNG de 16 bits: decodificação deve usar o máximo do dtype."""
+    z = gaussian_bump(16, amplitude=6.0)
+    normals = normals_from_height(z)
+    d = tmp_path / "sharp"
+    d.mkdir()
+    rgb16 = np.clip((normals + 1.0) / 2.0 * 65535.0, 0, 65535).round().astype(np.uint16)
+    cv2.imwrite(str(d / "sNrm.png"), rgb16[..., ::-1])  # BGR, 16 bits
+    n, fg = load_normals_gt(d)
+    assert fg.mean() > 0.99  # quase tudo é frente válida
+    err = np.linalg.norm(n[fg] - normals[fg], axis=-1)
+    assert err.max() < 1e-3  # quantização de 16 bits é ~256x mais fina que 8

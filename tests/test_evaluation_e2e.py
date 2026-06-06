@@ -29,8 +29,8 @@ def synthetic_run(tmp_path):
     sharp.mkdir(parents=True)
     h16 = ((z - z.min()) / (z.max() - z.min()) * 65535.0).round().astype(np.uint16)
     cv2.imwrite(str(sharp / "hAvg.png"), h16)
-    rgb = np.clip((normals + 1.0) / 2.0 * 255.0, 0, 255).round().astype(np.uint8)
-    cv2.imwrite(str(sharp / "sNrm.png"), rgb[..., ::-1])  # BGR
+    rgb16 = np.clip((normals + 1.0) / 2.0 * 65535.0, 0, 65535).round().astype(np.uint16)
+    cv2.imwrite(str(sharp / "sNrm.png"), rgb16[..., ::-1])  # BGR, 16 bits (como o GT real)
 
     mf = results / "multifocus_stereo" / "average"
     mf.mkdir(parents=True)
@@ -47,7 +47,12 @@ def synthetic_run(tmp_path):
         cv2.imwrite(str(d / "sMos.png"), tex3)
         g = data / light / "sharp"
         g.mkdir(parents=True)
-        cv2.imwrite(str(g / "sVal.png"), tex3)  # idêntico → SSIM 1
+        if li == 0:
+            cv2.imwrite(str(g / "sVal.png"), tex3)  # idêntico, 8 bits → PSNR inf
+        else:
+            # GT de 16 bits (como o dataset real): 257 = 65535/255 mantém a
+            # proporção exata; após a normalização por dtype, SSIM ≈ 1
+            cv2.imwrite(str(g / "sVal.png"), tex3.astype(np.uint16) * 257)
 
     z_vals = [1.0, 3.0, 5.0, 7.0]
     for zv in z_vals:

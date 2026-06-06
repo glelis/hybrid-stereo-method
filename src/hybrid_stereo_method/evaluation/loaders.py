@@ -77,16 +77,17 @@ def load_normals_gt(
 ) -> tuple[np.ndarray, np.ndarray]:
     """Decodifica sNrm.png → (normais unitárias (H, W, 3) float64, máscara de frente).
 
-    Codificação: n = (v/255)*2 - 1 por canal RGB = (nx, ny, nz); cv2 lê BGR,
-    então os canais são reordenados. Pixels válidos têm norma decodificada ≈ 1;
-    fundo (ex.: preto → (-1,-1,-1), norma 1.73) cai fora da janela
-    |norma - 1| <= norm_tolerance e vira NaN na saída.
+    Codificação: n = (v/max_do_dtype)*2 - 1 por canal RGB = (nx, ny, nz) — suporta PNG de
+    8 ou 16 bits (o GT real é 16 bits). cv2 lê BGR, então os canais são reordenados.
+    Pixels válidos têm norma decodificada ≈ 1; fundo (ex.: preto → (-1,-1,-1), norma 1.73)
+    cai fora da janela |norma - 1| <= norm_tolerance e vira NaN na saída.
     """
     img = _read_png(Path(sharp_dir) / "sNrm.png", "sNrm.png (normais GT)")
     if img.ndim != 3 or img.shape[-1] < 3:
         raise MissingArtifactError(f"sNrm.png não é uma imagem de 3 canais: shape {img.shape}")
     rgb = img[..., 2::-1].astype(np.float64)  # BGR(A) → RGB
-    n = rgb / 255.0 * 2.0 - 1.0
+    scale = float(np.iinfo(img.dtype).max) if np.issubdtype(img.dtype, np.integer) else 1.0
+    n = rgb / scale * 2.0 - 1.0
     norm = np.linalg.norm(n, axis=-1)
     foreground = np.abs(norm - 1.0) <= norm_tolerance
     safe_norm = np.where(norm == 0.0, 1.0, norm)
