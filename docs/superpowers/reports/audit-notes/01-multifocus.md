@@ -173,7 +173,7 @@ E2E baseline (após correção): RMSE=0.0690, a=0.9982, b=3.1317, pearson r=0.99
 - **Localização:** `src/hybrid_stereo_method/multifocus/argmax_fuzzy.py:81-101`
 - **Tipo:** conceitual
 - **Severidade:** médio
-- **Status:** suspeita (não manifesta erro>0.5 frames em pilhas com pico único limpo; o cenário multi-pico do exemplo de evidência não foi testado)
+- **Status:** corrigido (`5335ab8`)
 
 **Descrição:** O índice inicial do ajuste é escolhido maximizando a soma de 3 frames
 consecutivos, não o argmax verdadeiro. A soma-de-3 favorece "platôs" largos sobre picos
@@ -199,6 +199,8 @@ largo), que permanece como trabalho futuro.
 de empates/picos múltiplos), ou justificar/documentar a suavização e limitá-la a casos
 ruidosos. Decidir por teste sintético (curva de foco com pico estreito + bump largo).
 
+**Correção aplicada:** `5335ab8` (2026-06-06) — `find_peak_index` (argmax verdadeiro com desempate pela maior soma dos vizinhos via `np.pad(fv, 1, mode="edge")`) substitui `find_index_of_max_sum`. Repro pinado: `fv=[0,0,0,9,0,5,6,5,0,0]` → max-sum escolhia índice 6, argmax verdadeiro é 3. Teste: `tests/test_argmax_fit.py::test_peak_index_is_true_argmax`. Status: corrigido.
+
 ---
 
 ## MF-06: Pesos da regressão = próprios valores de foco enviesam o vértice da parábola
@@ -206,7 +208,7 @@ ruidosos. Decidir por teste sintético (curva de foco com pico estreito + bump l
 - **Localização:** `src/hybrid_stereo_method/multifocus/argmax_fuzzy.py:104-118`, `158,164`
 - **Tipo:** conceitual
 - **Severidade:** médio
-- **Status:** suspeita (não manifesta erro>0.5 frames em pilha uniforme com pico simétrico; suspeita mantida para curvas com pico assimétrico ou baixo SNR)
+- **Status:** corrigido (`a9a6549`)
 
 **Descrição:** `calculate_weights` usa os próprios valores de foco (normalizados pela soma,
 +1e-6) como pesos `w` da regressão parabólica ponderada. Ponderar a regressão pelo valor
@@ -232,6 +234,8 @@ oclusão parcial, ruído não-uniforme) o viés pode ser maior: suspeita mantida
 **Sugestão de correção:** usar regressão não ponderada (pesos uniformes) ou pesos
 baseados em incerteza real; comparar via teste sintético com pico parabólico conhecido
 (o ajuste ponderado deve dar erro de vértice maior que o não ponderado).
+
+**Correção aplicada:** `a9a6549` (2026-06-06) — `calculate_weights` e todo uso de `w_list` removidos; `np.polyfit` chamado sem pesos; fallback simplificado para um único `try/except LinAlgError`. O bloco R² (MF-07) atualizado para estatísticas não-ponderadas (`y_bar = mean(y)`, `ss_res/ss_tot` sem w). CSV de debug: coluna `w_list` removida do header e da linha. Vértice pré-correção k=4.284 (erro 0.016, gaussiana em 4.3), pós k=4.215 (erro 0.085) — ambos < 0.1; erro de recuperação de profundidade: plano 0.181→0.183, bump 0.171→0.173 frames (ambos < 0.5). Teste: `tests/test_argmax_fit.py::test_parabola_vertex_unbiased_by_value_weights`. Status: corrigido.
 
 ---
 
@@ -399,7 +403,7 @@ do fluxo, o impacto atual é nulo, mas o achado fica registrado caso seja reativ
 - **Localização:** `src/hybrid_stereo_method/multifocus/argmax_fuzzy.py:181`
 - **Tipo:** implementação
 - **Severidade:** baixo
-- **Status:** confirmado (por inspeção)
+- **Status:** corrigido (`22f4470`)
 
 **Descrição:** O índice válido máximo do stack é `n-1`, mas o clamp permite `k_fuzzy == n`.
 Um vértice fora do intervalo amostrado já indica um ajuste mal condicionado (pico além do
@@ -415,6 +419,8 @@ ser gravado no CSV de debug como se fosse índice legítimo.
 
 **Sugestão de correção:** usar `min(n - 1, ...)` e, idealmente, baixar a confiança quando
 o vértice cai fora do intervalo `[0, n-1]`.
+
+**Correção aplicada:** `22f4470` (2026-06-06) — ramo `else` (côncavo) reestruturado: se `k_raw < 0 or k_raw > n - 1`, clamp a `[0.0, float(n-1)]` e conf=0 (vértice extrapolado = pico não bracketado); o bloco R² fica apenas no ramo de vértice interno. Pré-correção: `fv=[0,0.05,0.1,0.3,0.7,1.0]` → k_raw=7.5, old clamp `min(n=6, 7.5)=6` > n-1=5, conf=1.0; pós k=5.0, conf=0. Teste: `tests/test_argmax_fit.py::test_vertex_outside_stack_clamps_to_n_minus_1_with_zero_conf`.
 
 ---
 

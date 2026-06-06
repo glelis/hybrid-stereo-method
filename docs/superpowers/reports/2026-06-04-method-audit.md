@@ -91,12 +91,14 @@ O início do ajuste maximiza a soma de 3 frames consecutivos (passa-baixa), favo
 - Localização: `argmax_fuzzy.py:81-101`
 - Evidência: reprodução `fv=[0,0,0,9,0,5,6,5,0,0]` → argmax=3 mas max-sum=6. Tasks 11 (`test_recovers_tilted_plane_depth`/`_bump`): erro mediano 0.181/0.171 frames — **não manifesta erro>0.5 frames em pilhas com pico único limpo**; cenário multi-pico não testado.
 - Correção sugerida: usar argmax verdadeiro como centro, com tratamento de empates.
+- **Correção aplicada:** `5335ab8` (2026-06-06) — `find_peak_index` (argmax verdadeiro com desempate por suporte de vizinhança) substitui `find_index_of_max_sum`. Repro pinado: `fv=[0,0,0,9,0,5,6,5,0,0]` → old max-sum=6, new argmax=3. Teste: `tests/test_argmax_fit.py::test_peak_index_is_true_argmax`.
 
 **MF-06 — Pesos da regressão = próprios valores de foco enviesam o vértice da parábola** (conceitual, médio, suspeita)
 `calculate_weights` usa os valores de foco normalizados como pesos da regressão parabólica; ponderar pela variável dependente quebra a premissa de mínimos quadrados e enviesa o vértice `-B/2A` para o frame de maior valor bruto.
 - Localização: `argmax_fuzzy.py:104-118,158,164`
 - Evidência: Tasks 11 — erros 0.181/0.171 frames; **não manifesta erro>0.5 frames em pilha uniforme com pico simétrico**; suspeita mantida para picos assimétricos/baixo SNR.
 - Correção sugerida: regressão não ponderada ou pesos por incerteza real.
+- **Correção aplicada:** `a9a6549` (2026-06-06) — `calculate_weights` e `w_list` removidos; `np.polyfit` chamado sem pesos; R² (MF-07) atualizado para estatísticas não-ponderadas. Vértice pré-correção k=4.284 (erro 0.016), pós k=4.215 (erro 0.085) — ambos dentro de 0.1 do gt 4.3. Profundidade mediana: plano 0.183 frames, bump 0.173 frames (ambos < 0.5). Teste: `tests/test_argmax_fit.py::test_parabola_vertex_unbiased_by_value_weights`.
 
 **MF-07 — Confiança `|A|/fnoc` não é comparável entre pixels** (conceitual, médio, suspeita)
 A confiança mistura curvatura e amplitude sob normalização global afim; após `normalize()` min-max global fica relativa ao maior `|A|/fnoc` da imagem, sensível a outliers de borda.
@@ -129,6 +131,7 @@ O índice válido máximo é `n-1`, mas o clamp permite `k_fuzzy==n`; o `mosaic`
 - Localização: `argmax_fuzzy.py:181`
 - Evidência: `max(0, min(n, k_fuzzy))` vs clamp correto do mosaic `min(max(int,0), n_frames-1)` e guarda `i0+1>=n_frames`.
 - Correção sugerida: usar `min(n-1, ...)` e baixar confiança quando o vértice cai fora de `[0,n-1]`.
+- **Correção aplicada:** `22f4470` (2026-06-06) — vértice fora de [0, n-1] agora clampado a [0.0, float(n-1)] e conf=0; R² block movido para ramo não-extrapolado. Pré-correção: fv=[0,0.05,0.1,0.3,0.7,1.0] dava k=6 (>n-1=5), conf=1.0; pós k=5.0, conf=0. Teste: `tests/test_argmax_fit.py::test_vertex_outside_stack_clamps_to_n_minus_1_with_zero_conf`.
 
 **MF-12 — Quantização uint8 (PNG) das médias por `zf` antes da medida de foco** (implementação, médio, suspeita)
 A média (float) é gravada/relida como PNG uint8 antes da medida de foco; a média de muitas imagens ganha bits efetivos que são descartados, e a medida de foco (derivadas HF) é sensível aos degraus de quantização.
