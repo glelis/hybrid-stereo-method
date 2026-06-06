@@ -50,7 +50,8 @@ evaluation/
   - `pearson_r`; wrappers de PSNR/SSIM de `skimage.metrics`
     (scikit-image já é dependência do projeto).
 - **`loaders.py`** — resolve artefatos na pasta de resultados e GT por convenção
-  de caminho; decodifica `sNrm.png` → vetores unitários (`(v/255)·2−1`,
+  de caminho; decodifica `sNrm.png` → vetores unitários (`(v/max_do_dtype)·2−1`,
+  PNG de 8 ou 16 bits — o GT real é 16 bits,
   renormalizados); lê `hAvg.png`/`hDev.png` como uint16; FNI via
   `infrastructure/io/image_io.py`.
 - **`evaluators.py`** — `evaluate_multifocus()`, `evaluate_photometric()`,
@@ -88,7 +89,7 @@ python -m hybrid_stereo_method.evaluation.main --results_dir <pasta_timestamped>
 | Arquivo | Conteúdo | Avalia |
 |---|---|---|
 | `hAvg.png` (uint16) | Altura GT | `zMos` (multifocus) e `height_map` final |
-| `sNrm.png` (uint8 RGB) | Normais GT; decodificação `(v/255)·2−1` (norma≈1 verificada empiricamente) | `normal_map` (fotométrico) |
+| `sNrm.png` (RGB 16 bits) | Normais GT; decodificação `(v/max_do_dtype)·2−1` — 8 ou 16 bits (norma≈1 verificada empiricamente) | `normal_map` (fotométrico) |
 | `L*/sharp/sVal.png` | All-in-focus de referência por luz | mosaicos `sMos` |
 | `hDev.png` (uint16) | Desvio/incerteza da altura GT por pixel | máscara opcional de confiabilidade do GT |
 
