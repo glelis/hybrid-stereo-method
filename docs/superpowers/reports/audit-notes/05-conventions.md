@@ -248,6 +248,7 @@ confirmando a previsão; CONV-4 passa de suspeita a **confirmado por execução 
 - **Tipo:** conceitual
 - **Severidade:** médio
 - **Status:** suspeita (decide: testes sintéticos de radiometria, Tasks 10/11/12)
+- **Resolução parcial (composição, 45cbf57):** 2 de 3 pontos fechados; gamma (PS-08) pendente. Médias float em memória (MF-12) fechou o ponto 3 (stretch per-plano IO-05 saiu do caminho de dados); mosaicos float em memória (PS-07, este commit) fechou os pontos 5-6 (clip+uint8 e leitura PNG saíram do caminho de dados). Nenhum dado científico do pipeline híbrido passa por `save_image` antes de ser consumido. Ponto 1 (gamma PS-08) permanece pendente — a entrada `sVal.png` pode ser sRGB e o código não lineariza.
 
 **Descrição:** Consolidação da cadeia radiométrica completa numa única sequência, com cada
 transformação e seu efeito sobre a linearidade/comparabilidade exigida pelo modelo

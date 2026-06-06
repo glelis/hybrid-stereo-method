@@ -254,7 +254,8 @@ ignore nós marcados. NÃO aplicar — registrar para a fase de integração.
 - **Localização:** `src/hybrid_stereo_method/hybrid/main.py:160-163`; releitura em `main_wps.py:109` via `read_images` (`image_io.py:90` `IMREAD_UNCHANGED`)
 - **Tipo:** implementação
 - **Severidade:** médio
-- **Status:** suspeita (decide: `tests/test_photometric_synthetic.py` — clean-data accuracy float vs uint8)
+- **Status:** corrigido
+- **Resolução (45cbf57):** `hybrid/main.py` acumula cada mosaico float em `sMos_by_light` durante o laço de luzes e injeta `parameters["sMos_images"]` (lista em ordem `lights.npy`) logo após o pareamento CONV-6. `main_wps.py` prefere `sMos_images` quando presente, convertendo para `float64` antes da grayscale — o caminho PNG (`sMos_path_list`) é mantido como fallback. `sMos.png` e `sMos.fni` continuam sendo gravados para visualização. Testes: `test_photometric_receives_float_mosaics_in_memory` (spy no estimador confirma `dtype.kind == 'f'`); e2e baseline: RMSE afim = 0.0690, Pearson r = 0.9975.
 
 **Descrição:** O mosaico all-in-focus por luz é gravado **duas vezes**: como `sMos.png`
 (`save_image(..., normalize=False)` → `np.clip(img,0,255).astype(np.uint8)`,

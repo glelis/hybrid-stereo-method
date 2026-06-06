@@ -195,6 +195,7 @@ O mosaico é gravado como `sMos.png` (uint8) e `sMos.fni` (float), mas o PS lê 
 - Localização: `hybrid/main.py:160-163`; releitura em `main_wps.py:109` (`image_io.py:140`)
 - Evidência: seleção `os.path.basename(file)=="sMos.png"` (`hybrid/main.py:181`); `.fni` não referenciado em consumo do PS.
 - Correção sugerida: alimentar o PS com o `.fni` float (ou array em memória); remover o clip a 255.
+- **Correção aplicada:** `45cbf57` (2026-06-06) — `hybrid/main.py` acumula `sMos_by_light` durante o laço de luzes e injeta `parameters["sMos_images"]`; `main_wps.py` prefere `sMos_images` (float64) quando presente, bypassando o round-trip PNG. `sMos.png`/`.fni` gravados só para visualização. Teste: `test_photometric_receives_float_mosaics_in_memory` (spy confirma `dtype.kind=='f'`). E2e baseline: RMSE afim = 0.0690, Pearson r = 0.9975. Fecha também o caminho de dados de IO-04 (`sMos.png` call-site) e IO-05 (by composition with MF-12); CONV-5: 2 de 3 pontos fechados (gamma PS-08 pendente). **Status: corrigido.**
 
 **PS-08 — Linearidade radiométrica (gamma) não é tratada em nenhum ponto** (conceitual, médio, suspeita — depende do protocolo de aquisição)
 O modelo Lambertiano exige intensidades lineares; os `sVal.png` são usados diretamente sem linearização. Se forem sRGB/gamma, o `lstsq` ajusta modelo linear a dados não-lineares e as normais ficam enviesadas. Premissa não verificada.
@@ -302,6 +303,7 @@ O reader aloca `np.zeros` e preenche pixel-a-pixel, sem verificar que todos os `
 - Localização: `image_io.py:137-142`; call-sites na tabela das notas
 - Evidência: `cv2.normalize(...).astype(uint8)` (`:138`) e `np.clip(...).astype(uint8)` (`:140`).
 - Correção sugerida: para dados consumidos a jusante, usar FNI; PNG só para visualização (ou 16-bit + `normalize=False`).
+- **Resolução (composição, 45cbf57):** os dois call-sites de dados consumidos foram fechados por composição — `average_{zf}.png` por MF-12 e `sMos.png` por PS-07. Nenhum dado científico passa por `save_image` antes de ser consumido no pipeline híbrido. PNGs restantes são todos visualização.
 
 **IO-05 — Médias por plano focal salvas com `normalize=True` — cada `average_{zf}.png` é min-max-esticado independentemente** (conceitual, alto, suspeita)
 Cada plano focal é esticado individualmente a [0,255] antes da medida de foco; planos desfocados (baixo contraste) são ampliados ao mesmo intervalo dos nítidos, artificialmente igualando a escala inter-plano e podendo deslocar o argmax de foco — corrompendo `iSel`. Distinto de MF-12 (quantização) e MF-08 (normalização do applicator). O mesmo arquivo sabe usar `normalize=False` nos mosaicos por luz, mas não aqui.
@@ -309,6 +311,7 @@ Cada plano focal é esticado individualmente a [0,255] antes da medida de foco; 
 - Evidência: `save_image(...,f"average_{zf_dir}.png",...)` sem 4º argumento ⇒ `normalize=True` ⇒ `cv2.normalize(...,NORM_MINMAX)` per-arquivo; comparar com `hybrid/main.py:160` (`normalize=False` cross-luz).
 - Correção sugerida: salvar com `normalize=False` (idealmente FNI/16-bit); ou alimentar o multifocus in-memory.
 - **Correção parcial (cross-ref MF-12, 2026-06-05):** o stretch per-plano saiu do CAMINHO DE DADOS (multifocus usa `filtered_images` float em memória); PNG de visualização continua com `normalize=True` — IO-05 não está totalmente resolvido (visualizações ainda esticadas), mas deixou de afetar o resultado científico.
+- **Resolução (composição, 45cbf57):** com PS-07 também fechado (mosaicos float em memória), o conjunto completo de dados científicos do pipeline híbrido não passa por `save_image`. IO-05 afeta apenas a visualização dos `average_{zf}.png`.
 
 **IO-06 — `save_image` chamado com 5 argumentos posicionais em `image_alignment.py` — `TypeError`** (implementação, baixo, confirmado por inspeção — inativo no pipeline)
 A assinatura tem 4 parâmetros; as chamadas passam 5 posicionais (`...,0,255`), o 5º sem parâmetro ⇒ `TypeError`. Inalcançável (`main_align` sem callers); indício de drift de assinatura.
@@ -344,6 +347,7 @@ Consolida a sequência radiométrica: `sVal.png` possivelmente gamma (PS-08); m�
 - Localização: `hybrid/main.py:107-111,154-162` → `multifocus/main.py:96`; `main_wps.py:115` → `wps.py:165`
 - Evidência: cross-ref MF-12, IO-05, PS-07, PS-08, PS-09; passos detalhados nas notas.
 - Correção sugerida: alimentar foco e PS com float in-memory; desativar `normalize` nas médias por-zf; remover o `clip(0,255)`; documentar/impor a premissa de linearidade.
+- **Resolução parcial (composição, 45cbf57):** 2 de 3 pontos fechados. MF-12 fechou o ponto de quantização das médias e IO-05; PS-07 (este commit) fechou os pontos do mosaico uint8/clip e leitura PNG. Nenhum dado científico do pipeline híbrido passa por round-trip PNG. Ponto remanescente: gamma PS-08 (linearidade da entrada `sVal.png`) — pendente Task 9.
 
 **CONV-6 — Pareamento luz↔mosaico garantido só por contagem; ordens e shape entre estágios não verificados por construção** (implementação, alto, suspeita — reforçada por Task 12)
 Três pareamentos posicionais sem verificação por identidade: (1) luz↔mosaico pareado por posição com a única garantia da checagem de contagem (`len(images)!=lights.shape[0]`), não por chave `L<n>`→linha `n`; (2) ordem zf↔z_foc (MF-02); (3) shape hints célula vs vértice (INT-05). O achado novo é (1).
