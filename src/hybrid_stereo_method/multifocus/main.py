@@ -21,6 +21,25 @@ from hybrid_stereo_method.multifocus.mosaic import mosaic
 from hybrid_stereo_method.multifocus.utils import calculate_error_image
 
 
+def check_z_foc_uniformity(z_foc: list[float]) -> None:
+    """Warn when z_foc spacing is non-uniform (MF-13): the sub-frame parabola is
+    fitted in INDEX space and converted to z afterwards, which is only exact when
+    the index->z map is affine (uniform spacing).
+
+    Note: if all steps are 0 (degenerate repeated z_foc), np.allclose with atol=0
+    passes silently — that pathological config is caught by the len/shape check
+    elsewhere.
+    """
+    steps = np.diff(np.asarray(z_foc, dtype=np.float64))
+    if steps.size and not np.allclose(steps, steps[0], rtol=1e-6, atol=0.0):
+        logging.warning(
+            "z_foc spacing is non-uniform (steps %s): the parabolic sub-frame fit "
+            "is performed in index space and is only exact for uniform spacing "
+            "(MF-13) — sub-frame depths may be biased between planes.",
+            np.round(steps, 6).tolist(),
+        )
+
+
 def main(parameters):
     experiment_type = parameters.get("experiment", {}).get("type")
     
@@ -141,7 +160,8 @@ def main(parameters):
         error_msg = f"Erro Crítico: A lista z_foc no arquivo YAML possui {len(zFoc)} elementos, mas a pasta contém {image_stack.shape[0]} imagens. Cada imagem deve possuir seu valor z_foc."
         logging.error(error_msg)
         raise ValueError(error_msg)
-    
+    check_z_foc_uniformity(zFoc)
+
     interpolation_type = mf_params["parameters"]["interpolation"]
     # MF-04: pass wSel so confidence-0 pixels are masked (zMos→NaN, sMos→nearest frame)
     sMos, zMos = mosaic(iSel, image_stack, zFoc, interpolation_type, wSel=wSel)

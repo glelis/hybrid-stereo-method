@@ -145,6 +145,23 @@ def test_mosaic_masks_zero_confidence_pixels():
     assert zMos[2, 2] == 30.0
 
 
+def test_warn_nonuniform_z_foc(caplog):
+    """MF-13: ajuste parabólico em índice + conversão índice->z só é exato com
+    espaçamento uniforme; espaçamento não-uniforme deve gerar aviso explícito."""
+    import logging
+
+    from hybrid_stereo_method.multifocus.main import check_z_foc_uniformity
+
+    with caplog.at_level(logging.WARNING):
+        check_z_foc_uniformity([0.0, 10.0, 20.0, 35.0])
+    assert any("non-uniform" in r.message for r in caplog.records)
+
+    caplog.clear()
+    with caplog.at_level(logging.WARNING):
+        check_z_foc_uniformity([0.0, 10.0, 20.0, 30.0])
+    assert not caplog.records
+
+
 def test_focus_indicator_normalization_floor_and_degenerate_stack(caplog):
     """MF-08: o piso pós-clip deve ser deslocado a 0 explicitamente (a guarda
     min_val<0 nunca dispara em indicadores |.|>=0), e stack constante (max==0)
