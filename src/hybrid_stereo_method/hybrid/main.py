@@ -271,7 +271,7 @@ def main(parameters):
         # normalize=False is essential: these mosaics are the photometric stereo
         # input, and a per-image min-max stretch would destroy the cross-light
         # intensity relationships that the I = albedo * (L . N) model requires.
-        save_image(output_path_multifocus, "sMos.png", sMos_light, normalize=True)
+        save_image(output_path_multifocus, "sMos.png", sMos_light, normalize=False)
         convert_image_array_to_fni(
             sMos_light / 255.0, os.path.join(output_path_multifocus, "sMos.fni")
         )

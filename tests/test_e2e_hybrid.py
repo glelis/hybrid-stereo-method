@@ -136,6 +136,16 @@ def test_hybrid_pipeline_end_to_end(tmp_path, monkeypatch):
     finite = np.isfinite(est)
     assert finite.mean() > 0.95, f"só {finite.mean():.1%} do mapa de altura é finito"
 
+    # REG-01: com normalize=True cada sMos.png é esticado a [0,255] e TODOS os
+    # mosaicos têm max==255; com normalize=False (correto) o máximo de cada luz
+    # preserva a radiometria (< 255, pois albedo<=230 no dataset sintético).
+    smos_paths = sorted(out_dirs[0].glob("multifocus_stereo/L*/sMos.png"))
+    assert len(smos_paths) == N_LIGHTS
+    maxima = [cv2.imread(str(p), cv2.IMREAD_UNCHANGED).max() for p in smos_paths]
+    assert all(m < 255 for m in maxima), (
+        f"sMos.png re-esticado por luz (max={maxima}): regressão REG-01 ativa"
+    )
+
     interior = (slice(8, -8), slice(8, -8))
     rmse, (a, b) = affine_fit_rmse(est[interior], depth_gt[interior])
     corr = float(np.corrcoef(est[interior].ravel(), depth_gt[interior].ravel())[0, 1])
