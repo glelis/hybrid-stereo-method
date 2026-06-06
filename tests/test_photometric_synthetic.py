@@ -72,6 +72,45 @@ def test_wps_robust_to_saturation():
     assert ang.mean() < 5.0, f"robustez insuficiente a saturação: {ang.mean():.2f}°"
 
 
+def test_wps_rejects_8bit_floor_shadows():
+    """PS-02: com o piso de 8 bits (sombras viram 1/255 em vez de 0), o limiar
+    relativo 1e-3 não rejeita nada e o erro angular sobe para ~3.6° médio.
+    Com limiar ABSOLUTO de sombra, os pixels sombreados são rejeitados e o
+    erro volta a < 0.5°."""
+    size = 48
+    n_gt = normals_from_height(gaussian_bump(size, amplitude=10.0, sigma_frac=0.15))
+    lights = ring_lights(5, tilt_deg=75.0)
+    images = [render_lambertian(n_gt, light, albedo=200.0) for light in lights]
+    floor = 255.0 / 255.0  # menor valor não-nulo de um sensor 8 bits, escala 0-255
+    images = [np.maximum(img, floor) for img in images]
+
+    normals, _, _, _ = estimate_normals_argmax_lstsq_robust(
+        images, lights, {"shadow_absolute_threshold": 2.0}
+    )
+    valid = np.isfinite(normals).all(axis=-1)
+    assert valid.any()
+    ang = _angular_error_deg(normals, n_gt, valid)
+    print(f"\npiso 8-bit + limiar absoluto: erro médio = {ang.mean():.3f}°")
+    assert ang.mean() < 0.5, f"sombras de piso 8-bit não rejeitadas: {ang.mean():.2f}°"
+
+
+def test_wps_rejects_saturated_measurements():
+    """PS-02: medições saturadas (>= saturation_threshold) devem sair do lstsq."""
+    size = 32
+    n_gt = normals_from_height(gaussian_bump(size, amplitude=5.0))
+    lights = ring_lights(8, tilt_deg=30.0)
+    images = [render_lambertian(n_gt, light, albedo=300.0) for light in lights]
+    images_sat = [np.minimum(img, 255.0) for img in images]  # clipe do sensor
+
+    normals, _, _, _ = estimate_normals_argmax_lstsq_robust(
+        images_sat, lights, {"saturation_threshold": 250.0}
+    )
+    valid = np.isfinite(normals).all(axis=-1)
+    ang = _angular_error_deg(normals, n_gt, valid)
+    print(f"\nsaturação tratada: erro médio = {ang.mean():.3f}°")
+    assert ang.mean() < 1.0
+
+
 def test_wps_shadowed_pixels_flagged_not_garbage():
     """Luz rasante (tilt 75°) numa superfície inclinada gera attached shadows
     (n.l < 0 -> I = 0). Pixels com < 3 medições válidas devem virar NaN+conf 0,

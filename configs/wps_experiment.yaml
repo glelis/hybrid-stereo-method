@@ -46,3 +46,12 @@ photometric:
     
     # Multiplier for residual standard deviation to identify outliers
     outlier_threshold_multiplier: 3
+
+    # Absolute shadow threshold in the same intensity units as the input
+    # images (0-255 for 8-bit data). Measurements below it are treated as
+    # shadow and excluded (PS-02). ~2/255 rejects the 8-bit noise floor.
+    shadow_absolute_threshold: 2.0
+
+    # Upper threshold: measurements at/above it are treated as saturated and
+    # excluded (PS-02). 250 leaves margin below the 255 clip.
+    saturation_threshold: 250.0
