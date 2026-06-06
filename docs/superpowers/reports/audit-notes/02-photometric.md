@@ -66,7 +66,7 @@ deve mostrar o "albedo" crescendo com o nº de luzes — confirmando o defeito.
 - **Localização:** `src/hybrid_stereo_method/photometric/wps.py:151-152` (default em `:135`)
 - **Tipo:** implementação
 - **Severidade:** alto
-- **Status:** suspeita (teste sintético não confirmou — permanece suspeita para dados 8-bit reais; ver Task 10)
+- **Status:** corrigido (`cfab906`, 2026-06-06)
 
 **Evidência de execução (Task 10):** `test_wps_shadowed_pixels_flagged_not_garbage` PASSED — 100% pixels válidos, 0.00° de erro nos válidos. O teste exercita sombras attached (~10.9% das entradas (pixel,luz) com n·l<0 foram corretamente rejeitadas por entrada; 32.9% dos pixels com ao menos uma luz sombreada). O threshold `pixel_values / v_max > shadow_threshold` é avaliado **por entrada** (por luz): uma luz sombreada (I ≈ eps) é rejeitada sempre que o pixel tem ao menos uma luz iluminada (v_max grande), independentemente de quantas outras luzes estão em sombra. A rejeição funciona como projetada neste regime porque o render float produz zeros exatos nas sombras (I = eps → razão ≈ eps/v_max ≪ 1e-3). A fraqueza do threshold 1e-3 é específica para valores de sombra próximos-mas-não-zero — que o render float não produz. Verificação independente do revisor: substituindo os zeros exatos pelo piso 8-bit (1/255 ≈ 3.9e-3 > 1e-3), o erro angular sobe de 0.004° para 3.6° médio / 20° máximo — confirmando que PS-02 permanece suspeita para dados reais de 8 bits.
 
@@ -104,7 +104,13 @@ sombreados não são descartados.
 
 **Sugestão de correção:** usar limiar **absoluto** em radiância linear (ou uma fração da
 dinâmica global da cena), não relativo ao máximo do pixel; e adicionar um limiar superior
-para saturação/highlight. NÃO aplicar.
+para saturação/highlight.
+
+**Correção aplicada:** `cfab906` (2026-06-06) — `shadow_absolute_threshold` e
+`saturation_threshold` adicionados a `estimate_normals_argmax_lstsq_robust` (ambos `None`
+por padrão, preservando o comportamento anterior). Erro angular piso-8-bit: 3.644° → 0.005°;
+erro angular saturação: 5.213° → 0.006°. Chaves adicionadas em `configs/hb_experiment.yaml`
+e `configs/wps_experiment.yaml`.
 
 ---
 

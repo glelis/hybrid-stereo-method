@@ -163,6 +163,7 @@ O critério `pixel_values/v_max > shadow_threshold` (default `1e-3`) é avaliado
 - Localização: `wps.py:151-152` (default `:135`)
 - Evidência: `test_wps_shadowed_pixels_flagged_not_garbage` PASSED com render float (zeros exatos nas sombras → rejeição funciona). Verificação do revisor: substituindo zeros pelo piso 8 bits, erro angular sobe de 0.004° para 3.6° médio / 20° máx — confirma a fraqueza para dados reais de 8 bits.
 - Correção sugerida: limiar **absoluto** em radiância linear + limiar superior para saturação.
+- **Correção aplicada:** `cfab906` (2026-06-06) — `shadow_absolute_threshold` e `saturation_threshold` adicionados a `estimate_normals_argmax_lstsq_robust`; ambos default `None` (off, comportamento anterior preservado). Confirmado por execução: piso 8-bit erro 3.644° → 0.005° com `shadow_absolute_threshold=2.0`; saturação erro 5.213° → 0.006° com `saturation_threshold=250.0`. Novas chaves em `configs/hb_experiment.yaml` e `configs/wps_experiment.yaml`. 2 novos testes passando; PS-01/PS-03 xfail inalterados.
 
 **PS-03 — Remoção de outliers por 3×média(|residual|): limiar não robusto** (implementação, médio, confirmado)
 O critério `residuals <= 3·mean(|residuals|)` usa a média (não robusta); um outlier grande infla a própria média e mascara o outlier que deveria ser removido (mascaramento clássico).
