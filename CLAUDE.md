@@ -40,6 +40,15 @@ python -m hybrid_stereo_method.hybrid.main --param_file configs/hb_experiment.ya
 
 Configs are organized in sections: `experiment` (paths, settings), `multifocus`, `photometric`, `hybrid.integration`. Paths in configs are absolute and point into `data/raw/` (input) and `data/results/` (output). Outputs go to timestamped folders (`YYYYMMDD_HHMM_<data_folder>`).
 
+Avaliação automatizada contra ground truth (standalone, sobre qualquer resultado já gerado;
+também roda como hook ao final do pipeline híbrido se `evaluation.enabled: true` no YAML):
+
+```bash
+python -m hybrid_stereo_method.evaluation.main --results_dir <pasta_de_resultados> [--data_dir <pasta_do_dataset>]
+```
+
+Saídas em `<results_dir>/evaluation/`: `metrics.json`, `report.md` e mapas de erro PNG.
+
 ## Architecture
 
 ### Hybrid pipeline (`hybrid/main.py`) — the core flow

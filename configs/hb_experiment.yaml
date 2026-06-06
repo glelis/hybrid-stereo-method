@@ -177,3 +177,15 @@ hybrid:
     
     # Convergence tolerance
     conv_tol: 0.0000005
+
+evaluation:
+  # Avaliação automática contra o ground truth ao final do pipeline
+  # (também disponível standalone:
+  #  python -m hybrid_stereo_method.evaluation.main --results_dir <pasta>)
+  enabled: true
+
+  # Também reportar métricas de altura excluindo pixels onde o próprio GT é
+  # incerto (hDev.png alto). Threshold = fração do range do hDev acima da
+  # qual o pixel é excluído.
+  hdev_mask: false
+  hdev_threshold: 0.1

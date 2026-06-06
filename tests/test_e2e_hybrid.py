@@ -122,6 +122,7 @@ def test_hybrid_pipeline_end_to_end(tmp_path, monkeypatch):
                 "conv_tol": 5e-7,
             }
         },
+        "evaluation": {"enabled": True},
     }
 
     hybrid_main(parameters)
@@ -156,5 +157,20 @@ def test_hybrid_pipeline_end_to_end(tmp_path, monkeypatch):
     )
     # Linha de base, não gate de qualidade: registre os números no relatório.
     assert np.isfinite(rmse)
+
+    # Hook de avaliação automática (spec 2026-06-06): parameters.yaml salvo e
+    # evaluation/ gerada. O dataset sintético tem sharp/hAvg.png mas não sNrm,
+    # L*/sharp/sVal nem zf*/shrp.png → essas etapas devem ser "skipped" sem
+    # derrubar o pipeline.
+    import json
+
+    assert (out_dirs[0] / "parameters.yaml").exists(), "config resolvido não foi salvo"
+    eval_json = out_dirs[0] / "evaluation" / "metrics.json"
+    assert eval_json.exists(), "hook de avaliação não gerou metrics.json"
+    eval_metrics = json.loads(eval_json.read_text())
+    assert eval_metrics["multifocus_depth"]["status"] == "ok"
+    assert eval_metrics["integration_height"]["status"] == "ok"
+    assert eval_metrics["photometric_normals"]["status"].startswith("skipped")
+    assert (out_dirs[0] / "evaluation" / "report.md").exists()
 
 
