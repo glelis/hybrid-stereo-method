@@ -38,6 +38,10 @@ def linearize_intensities(img: np.ndarray, gamma: float) -> np.ndarray:
     pipeline assumes the input ``sVal.png`` are linear (gamma=1.0, default);
     if the acquisition applied a gamma curve, set ``photometric.parameters.gamma``
     to decode: I_lin = 255 * (I/255)^gamma.
+
+    Note: in this pipeline the decoding is applied AFTER grayscale conversion;
+    strictly, gamma should be decoded per channel BEFORE mixing. The difference
+    is small (a few percent for gamma=2.2) and only matters when gamma != 1.0.
     """
     if gamma == 1.0:
         return img
