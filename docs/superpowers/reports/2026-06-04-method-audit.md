@@ -38,7 +38,7 @@ Detalhamento exato (cada ID contado uma vez pela sua severidade/status final pó
 
 - **Crítico (3, todos confirmados):** MF-01, MF-02 (por inspeção), MF-14 (por execução).
 - **Alto (10):** confirmado — INT-01 (por inspeção, ramo de aborto). Suspeita — MF-03, MF-04, MF-09, PS-02, PS-06, IO-05, INT-04, CONV-4, CONV-6.
-- **Médio (17):** confirmado — PS-03 (teste), INT-02 (corrigido `6728745`), INT-03 (corrigido `bdcb126`), INT-08 (teste), IO-02 (inspeção), IO-04 (inspeção). Suspeita — MF-05, MF-06, MF-07, MF-08, MF-12, PS-05, PS-07, PS-08, INT-05, INT-06, CONV-5.
+- **Médio (17):** confirmado — PS-03 (teste), INT-02 (corrigido `6728745`), INT-03 (corrigido `bdcb126`), INT-05 (corrigido `1bcefd4`), INT-08 (teste), IO-02 (inspeção), IO-04 (inspeção). Suspeita — MF-05, MF-06, MF-07, MF-08, MF-12, PS-05, PS-07, PS-08, INT-06, CONV-5.
 - **Baixo (12):** confirmado — PS-01 (teste), PS-04 (inspeção de fluxo/risco), PS-09, PS-10, PS-11, MF-10, MF-11, INT-07, IO-01, IO-03, IO-06 (por inspeção). Suspeita — MF-13.
 - **Refutado (2):** CONV-1 e CONV-2 — a inconsistência de **sinal/orientação do integrador** foi refutada por teste (`-normals`, rampa assimétrica); a **metade física** de ambos (sinal-z real / frame y-up POV-Ray das luzes) **permanece em aberto** — não decidível por dados sintéticos.
 
@@ -263,11 +263,12 @@ O termo de hints `woo·(H[0]-Z)²` compete no mesmo sistema de mínimos quadrado
 - Correção sugerida: passar `-hints path scale Hsz weight` com `Hsz`=z_foc→pixel; ou converter `zMos` para unidade de pixel antes de gravar os hints.
 - **Correção aplicada:** `aa772ed` (2026-06-05) — novo `hybrid.integration.pixel_size` (tamanho lateral de 1 px em unidades de z_foc); `build_integration_config` deriva `slopes_scale=(pixel_size, pixel_size)` ⇒ `Z` sai em unidades de z_foc, comensurável com os hints. Confirmado por execução: viés com escala default é exatamente `a = pixel_size` (2.5003 p/ pixel 2.5); com pixel_size, `a = 1.0001`. Warning quando `use_hints` sem `pixel_size`. Achado anexo: `szero=TRUE` hard-coded (`pst_integrate_iterative.c:75`) ⇒ hints nunca ancoram nível absoluto, só forma. 10 testes em `tests/test_integration_units.py`.
 
-**INT-05 — hints `(H,W,2)` (células) entregues a um alvo `(H+1,W+1)` (vértices) — C expande, deslocando meia-célula** (implementação, médio, suspeita)
+**INT-05 — hints `(H,W,2)` (células) entregues a um alvo `(H+1,W+1)` (vértices) — C expande, deslocando meia-célula** (implementação, médio, corrigido `1bcefd4`)
 `Z` tem dimensão de vértices `(NX+1,NY+1)` e o C exige hints desse tamanho; o `zMos_with_confidence.fni` é grade de células `(H,W,2)`, então `tire_read_fni_file` chama `float_image_expand_by_one`, conversão célula→vértice que desloca os hints meia-célula. Docstring Python `(H+1,W+1)` não corresponde ao arquivo de células real.
 - Localização: `gus_integrate_recursive.c:464,691-711`; docstring `integrate.py:217`
 - Evidência: `demand((NX_H==NX_Z)&&(NY_H==NY_Z))` (`:519`); expansão célula→vértice (`:701-707`).
 - Correção sugerida: gerar `zMos` já como grade de vértices `(H+1,W+1)`, ou aceitar/documentar o erro de meia-célula; alinhar a docstring.
+- **Correção aplicada:** `1bcefd4` (2026-06-06) — novo `hybrid/hints.py`: `cell_to_vertex_grid(z, w)` constrói `(H+1, W+1, 2)` a partir das saídas em memória `(zMos_avg, wSel_eff)` via média ponderada pela confiança das até-4 células adjacentes a cada vértice; para campo linear, interpola exatamente na posição do vértice (sem shift). Bloco `use_hints` em `main.py` substituído para usar esse helper em memória e gravar `hints_vertex.fni`; lookup de `zMos_with_confidence.fni` removido. Docstring `integrate.py:217` já estava correta para o caminho in-memory. 2 novos testes unitários: rampa linear e exclusão de células NaN.
 
 **INT-06 — reference `hAvg.png` em uint8 (0-255) comparado a `Z` em unidades de pixel** (conceitual, médio, suspeita)
 Com `use_reference`, `hAvg.png` (uint8) é comparado a `Z` (altura-por-pixel) sem `scale` (`reference_scale=1.0`); `E=Z-R` mistura grandezas incomensuráveis. A comparação remove a média (cancela a constante de integração) mas não a escala nem o tilt, tornando o `devE` reportado não interpretável. Apenas diagnóstico (não realimenta o solve).

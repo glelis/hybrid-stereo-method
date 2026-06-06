@@ -254,7 +254,7 @@ com rms demeaned 0,14% do std a peso 1000). Ver CONV-4 (mesma correção).
 - **Localização:** `gus_integrate_recursive.c:464,691-711` (`tire_read_fni_file` + `float_image_expand_by_one`); docstring divergente em `integrate.py:217`
 - **Tipo:** implementação
 - **Severidade:** médio
-- **Status:** suspeita (decide: teste de bump com hints em grade de células, Task 9)
+- **Status:** corrigido (`1bcefd4`, 2026-06-06)
 
 **Descrição:** O mapa de altura `Z` tem `(NX_G+1)×(NY_G+1)` (vértices da grade,
 `gus_integrate_recursive.c:457-459`), e o C **exige** que `H` tenha exatamente esse tamanho de
@@ -278,6 +278,18 @@ normais). Docstring `(H+1,W+1)` em `integrate.py:217` ≠ arquivo real.
 
 **Sugestão de correção:** gerar `zMos` já como grade de vértices `(H+1,W+1)`, ou documentar e
 aceitar o erro de meia-célula como tolerável; alinhar a docstring. NÃO aplicar.
+
+**Correção aplicada:** `1bcefd4` (2026-06-06) — novo módulo `hybrid/hints.py` com
+`cell_to_vertex_grid(z, w)`: constrói hints `(H+1, W+1, 2)` a partir das saídas em memória
+`(zMos_avg, wSel_eff)` do multifocus, por média ponderada pela confiança das até-4 células
+adjacentes a cada vértice. Para um campo linear, essa média interpola exatamente na posição
+do vértice (sem deslocamento). Células com altura NaN recebem peso efetivo 0. O bloco
+`use_hints` em `hybrid/main.py` chama `cell_to_vertex_grid` em memória e grava
+`hints_vertex.fni` em `integration/`; o lookup de `zMos_with_confidence.fni` foi removido
+(o arquivo permanece em disco para inspeção, mas não é mais usado como hints). Dois testes
+unitários verificam a interpolação linear exata e a exclusão de células NaN. A docstring
+`hints_map: Optional independent height estimate (H+1, W+1, 1-2 channels)` em
+`integrate.py:217` já era precisa para o caminho in-memory — mantida.
 
 ---
 
