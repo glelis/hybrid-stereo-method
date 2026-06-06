@@ -142,11 +142,12 @@ A média (float) é gravada/relida como PNG uint8 antes da medida de foco; a mé
 - Correção sugerida: passar as médias em float (ou ≥16 bits) à medida de foco.
 - **Correção aplicada:** (2026-06-05) — médias float em memória (`filtered_images`) + `.npy` de consulta; PNG só visualização. Baseline RMSE afim: 0.0742 → 0.0691 (melhora de 6,9%). Testes: `tests/test_average_float_path.py`. Cross-ref IO-05.
 
-**MF-13 — Ajuste parabólico em índice + conversão índice→z só é exato se `z_foc` for uniforme** (conceitual, baixo, suspeita)
+**MF-13 — Ajuste parabólico em índice + conversão índice→z só é exato se `z_foc` for uniforme** (conceitual, baixo, corrigido)
 A parábola é ajustada em espaço de índice e o vértice convertido a z por interpolação em `z_foc`; isso só equivale a ajustar em z quando o mapa índice→z é afim (espaçamento uniforme). Todos os configs reais usam passo uniforme (10) — defeito latente.
 - Localização: `argmax_fuzzy.py:156,180`; `mosaic.py:72`
 - Evidência: `x_list=range(k0,k1+1)`, `k_fuzzy=-B/2A`; configs com `z_foc` uniforme (`hb_experiment.yaml:39`) → mapa afim, sem viés.
 - Correção sugerida: ajustar a parábola diretamente em z, ou assertir/documentar espaçamento uniforme.
+- **Correção aplicada:** `9ef5721` (2026-06-06) — mitigação/documentação: `check_z_foc_uniformity()` em `multifocus/main.py` emite `logging.WARNING` quando `z_foc` é não-uniforme. O viés para espaçamento não-uniforme permanece por design. Teste: `test_warn_nonuniform_z_foc` em `tests/test_multifocus_synthetic.py`.
 
 **MF-14 — Detecção de diretórios `L*` só olha o pai imediato — vazia no layout `L<n>/zf<m>/sVal.png` limpo** (implementação, crítico, confirmado por execução)
 `light_directories` é derivado de `os.path.basename(os.path.dirname(path))` com `startswith("L")`; o pai imediato de cada `sVal.png` é sempre `zf<m>`. Em dataset limpo o conjunto fica vazio, o laço de mosaicos não roda e o Passo 2 aborta em `main_wps.py:123` com `ValueError: Number of images (0) does not match number of light directions (6)`. Verificação sobre os 11 datasets reais: apenas **3/11 detectam alguma luz** (os com `selected-pixels.png` avulso sob `L*/`); os outros **8/11 falham** com o mesmo ValueError — a maioria dos dados reais também quebra, e os 3 que "funcionam" dependem de detritos de filesystem, criando risco de associação luz↔mosaico errada (CONV-6).

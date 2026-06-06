@@ -504,6 +504,8 @@ severidade é **baixa** (defeito latente, só se manifesta se algum experimento 
 diretamente em z (`x_list = z_foc[k0:k1+1]` e vértice já em z), ou validar/assertir
 espaçamento uniforme de `z_foc` na entrada (e documentar a premissa). NÃO aplicar.
 
+**Correção aplicada:** `9ef5721` (2026-06-06) — mitigação/documentação da premissa. Adicionada `check_z_foc_uniformity()` em `multifocus/main.py` (nível módulo): calcula `np.diff(z_foc)` e emite `logging.WARNING` quando os passos não são todos iguais (tolerância `rtol=1e-6`, `atol=0`). Chamada imediatamente após a guarda `len(zFoc) != image_stack.shape[0]`. O viés para `z_foc` não-uniforme permanece por design (correção completa exigiria refatorar o ajuste para espaço-z). Teste: `tests/test_multifocus_synthetic.py::test_warn_nonuniform_z_foc` (`caplog` verifica mensagem "non-uniform" para passos [10,10,15]; sem aviso para passos [10,10,10]). Status: **corrigido** (mitigação — premissa documentada e avisada).
+
 ---
 
 ## MF-14: Detecção de diretórios de luz `L*` só olha o pai imediato — vazia no layout `L<n>/zf<m>/sVal.png` limpo
