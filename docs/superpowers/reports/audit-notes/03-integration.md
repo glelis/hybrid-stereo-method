@@ -380,7 +380,7 @@ aplicar.
 - **Localização:** `src/hybrid_stereo_method/hybrid/integrate.py:261-263` (docstring "shape (H, W, 2) or (H, W, 3)"); `csrc/integrate_recursive/gus_integrate_recursive.c:503` (aceita 2 ou 3); `csrc/integrate_recursive/lib-src/pst_integrate_iterative.c:47` (exige 3)
 - **Tipo:** implementação
 - **Severidade:** médio
-- **Status:** confirmado (teste: `tests/test_convention_integration.py::test_constant_slopes_recover_ramp_and_decide_convention`, Task 9 — crash reproduzido)
+- **Status:** corrigido (Task 18, 2026-06-06 — ver SHA fixado abaixo)
 
 **Descrição:** O caminho `-slopes` com um mapa de **2 canais** (dZ/dX, dZ/dY), exatamente o que
 `integrate_slopes_to_height` grava e o que sua docstring documenta como aceitável
@@ -400,9 +400,28 @@ está quebrada para o caso de 2 canais documentado.
 `06-test-results.md`); a tabela de candidatos de convenção do teste nunca foi impressa (crash antes
 do retorno). Consequência transversal: o teste da rampa não pôde decidir CONV-1/CONV-2 por esta via.
 
-**Sugestão de correção:** no wrapper, gravar slopes como 3 canais (dZ/dX, dZ/dY, peso=1) para o
-`-slopes`; ou no C, promover 2→3 no topo antes de recursar; e corrigir a docstring de
-`integrate.py:261-263`. NÃO aplicar.
+**Correção aplicada (Task 18, 2026-06-06):** em `integrate_slopes_to_height`, antes de delegar a
+`_run_integration`, promove 2→3 canais com peso=1:
+```python
+slope_map = np.asarray(slope_map)
+if slope_map.ndim == 3 and slope_map.shape[2] == 2:
+    weights = np.ones_like(slope_map[..., :1])
+    slope_map = np.concatenate([slope_map, weights], axis=-1)
+```
+Docstring atualizada. xfail removido de `test_constant_slopes_recover_ramp_and_decide_convention`.
+
+**Evidência pós-correção:** tabela de candidatos (rampa 32×32, ax=0.05, ay=0.02):
+```
+RMSE por candidato de convenção:
+      0.000052  z = +ax*x + ay*y (y do numpy, para baixo)   ← vencedor
+      0.380857  z = +ax*x - ay*y (y invertido: para cima)
+      0.403960  z = +ay*x + ax*y (eixos trocados)
+      0.952142  z = -ax*x + ay*y
+      1.025489  z = -ax*x - ay*y (tudo invertido)
+```
+Vencedor `z = +ax*x + ay*y` consistente com o resultado via `-normals`. Suíte: 102 passed, 2 xfailed (PS-01, PS-03).
+
+**SHA:** `7214d43` (2026-06-06)
 
 ---
 

@@ -38,7 +38,7 @@ Detalhamento exato (cada ID contado uma vez pela sua severidade/status final pó
 
 - **Crítico (3, todos confirmados):** MF-01, MF-02 (por inspeção), MF-14 (por execução).
 - **Alto (10):** confirmado — INT-01 (por inspeção, ramo de aborto). Suspeita — MF-03, MF-04, MF-09, PS-02, PS-06, IO-05, INT-04, CONV-4, CONV-6.
-- **Médio (17):** confirmado — PS-03 (teste), INT-02 (corrigido `6728745`), INT-03 (corrigido `bdcb126`), INT-05 (corrigido `1bcefd4`), INT-06 (mitigado `c577632`), INT-08 (teste), IO-02 (inspeção), IO-04 (inspeção). Suspeita — MF-05, MF-06, MF-07, MF-08, MF-12, PS-05, PS-07, PS-08, CONV-5.
+- **Médio (17):** confirmado — PS-03 (teste), INT-02 (corrigido `6728745`), INT-03 (corrigido `bdcb126`), INT-05 (corrigido `1bcefd4`), INT-06 (mitigado `c577632`), INT-08 (corrigido `7214d43`), IO-02 (inspeção), IO-04 (inspeção). Suspeita — MF-05, MF-06, MF-07, MF-08, MF-12, PS-05, PS-07, PS-08, CONV-5.
 - **Baixo (12):** confirmado — PS-01 (teste), PS-04 (inspeção de fluxo/risco), PS-09, PS-10, PS-11, MF-10, MF-11, INT-07, IO-01, IO-03, IO-06 (por inspeção). Suspeita — MF-13.
 - **Refutado (2):** CONV-1 e CONV-2 — a inconsistência de **sinal/orientação do integrador** foi refutada por teste (`-normals`, rampa assimétrica); a **metade física** de ambos (sinal-z real / frame y-up POV-Ray das luzes) **permanece em aberto** — não decidível por dados sintéticos.
 
@@ -287,7 +287,16 @@ Copy-paste bug: o `else` de `-maxLevel` atribui `DEFAULT_MAX_ITER`; `DEFAULT_MAX
 O caminho `-slopes` com mapa de 2 canais (o que o wrapper grava e documenta) aborta: o topo aceita 2 ou 3 canais mas o solver iterativo exige exatamente 3, e o topo não promove 2→3. O fluxo híbrido usa `-normals` (inalcançável no pipeline), mas a API pública está quebrada.
 - Localização: `integrate.py:261-263`; `gus_integrate_recursive.c:503`; `pst_integrate_iterative.c:47`
 - Evidência: `test_constant_slopes_recover_ramp_and_decide_convention` (Task 9) — crash `pst_integrate_iterative.c:47: slope map {G} must have 3 channels` (verbatim em 06-test-results); a tabela de convenção nunca foi impressa.
-- Correção sugerida: gravar slopes como 3 canais (dZ/dX, dZ/dY, peso=1); ou promover 2→3 no C; corrigir a docstring.
+- **Correção aplicada:** `7214d43` (2026-06-06) — `integrate_slopes_to_height` promove 2→3 canais com `np.concatenate([slope_map, np.ones_like(slope_map[..., :1])], axis=-1)` antes de delegar a `_run_integration`; docstring atualizada. Evidência pós-correção: tabela de candidatos `test_constant_slopes_recover_ramp_and_decide_convention` (xfail removido):
+  ```
+  RMSE por candidato de convenção:
+        0.000052  z = +ax*x + ay*y (y do numpy, para baixo)   ← vencedor
+        0.380857  z = +ax*x - ay*y (y invertido: para cima)
+        0.403960  z = +ay*x + ax*y (eixos trocados)
+        0.952142  z = -ax*x + ay*y
+        1.025489  z = -ax*x - ay*y (tudo invertido)
+  ```
+  Consistente com o vencedor via `-normals`. Suíte completa: 102 passed, 2 xfailed (PS-01, PS-03).
 
 ### 2.4 Infra/IO (IO-xx)
 
@@ -522,8 +531,9 @@ A Fase 3 deixou uma suíte de regressão permanente em `tests/`:
   em anel, rampas/bumps) — todos no mesmo referencial numpy (documentado no cabeçalho).
 - `tests/test_synthetic_utils.py` — sanidade dos geradores.
 - `tests/test_fni_roundtrip.py` — round-trip FNI Python↔Python (2D/3-canais/negativos/NaN).
-- `tests/test_convention_integration.py` — convenção Python↔C via rampa/bump (`-normals`); expõe
-  INT-08 (`-slopes` 2 canais crasha).
+- `tests/test_convention_integration.py` — convenção Python↔C via rampa/bump (`-normals` e `-slopes`);
+  `test_constant_slopes_recover_ramp_and_decide_convention` decide CONV-1/CONV-2 via `-slopes`
+  (INT-08 corrigido — xfail removido; vencedor confirmado `z = +ax*x + ay*y`).
 - `tests/test_photometric_synthetic.py` — clean-data, albedo (PS-01 xfail), saturação (PS-03 xfail),
   sombras.
 - `tests/test_multifocus_synthetic.py` — recuperação de profundidade (rampa/bump), confiança em
@@ -532,6 +542,10 @@ A Fase 3 deixou uma suíte de regressão permanente em `tests/`:
   workaround mede a baseline.
 
 **Estado final da suíte** (`pytest tests/ -q`, 2026-06-05): **18 passed, 4 xfailed**. Os 4 xfailed
-são evidência confirmatória de achados: `test_wps_albedo_recovers_true_albedo` (PS-01),
+eram evidência confirmatória de achados: `test_wps_albedo_recovers_true_albedo` (PS-01),
 `test_wps_robust_to_saturation` (PS-03), `test_hybrid_pipeline_end_to_end` (MF-14) e
 `test_constant_slopes_recover_ramp_and_decide_convention` (INT-08).
+
+**Estado pós-correções (2026-06-06):** `pytest -q` → **102 passed, 2 xfailed**. Os 2 xfailed
+restantes são PS-01 e PS-03 (pendentes). `test_hybrid_pipeline_end_to_end` (MF-14) e
+`test_constant_slopes_recover_ramp_and_decide_convention` (INT-08) passam sem xfail.
