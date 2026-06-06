@@ -124,6 +124,21 @@ def test_linearize_gamma_helper():
     np.testing.assert_allclose(linearize_intensities(img, gamma=1.0), img)
 
 
+def test_argmax_solver_handles_coplanar_lights():
+    """PS-10: 3 luzes quase coplanares — inv() explode/instável; lstsq com rank
+    check devolve NaN em vez de lixo."""
+    from hybrid_stereo_method.photometric.wps import estimate_normals_argmax
+
+    lights = np.array([[0.0, 0.5, 0.866], [0.0, 0.5, 0.866], [0.0, 0.5, 0.8660001]])
+    images = [np.full((4, 4), v) for v in (100.0, 100.0, 100.0)]
+    normals, _ = estimate_normals_argmax(images, lights)
+    # With rank-checked lstsq, fully degenerate input (rank < 3) must yield NaN
+    assert np.isnan(normals).all(), (
+        f"expected all-NaN for rank-deficient lights, got finite values: "
+        f"{normals[np.isfinite(normals)][:5]}"
+    )
+
+
 def test_convert_to_grayscale_passthrough_for_mono():
     """PS-09: imagem já monocromática (2-D ou HxWx1) não pode crashar o cvtColor."""
     from hybrid_stereo_method.infrastructure.utils import convert_to_grayscale

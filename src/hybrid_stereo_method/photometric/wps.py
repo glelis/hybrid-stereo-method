@@ -40,11 +40,14 @@ def estimate_normals_argmax(images, light_sources, wps_params=None):
             selected_values = pixel_values[top_indices]
             selected_lights = light_sources[top_indices, :]
 
-            # Directly solve the linear system I = L * N
-            normal = np.dot(np.linalg.inv(selected_lights), selected_values)
-
-            # Normalize the normal
-            normal /= np.linalg.norm(normal)
+            # PS-10: lstsq com verificação de posto no lugar de inv() nu — as 3
+            # luzes mais brilhantes podem ser quase coplanares (sistema singular).
+            normal, _, rank, _ = np.linalg.lstsq(selected_lights, selected_values, rcond=None)
+            norm = np.linalg.norm(normal)
+            if rank < 3 or norm == 0 or not np.isfinite(norm):
+                normals[i, j, :] = np.nan
+                continue
+            normal /= norm
             normals[i, j, :] = normal
 
             selected_areas[i, j, top_indices] = 255
