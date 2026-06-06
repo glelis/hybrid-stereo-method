@@ -43,6 +43,17 @@ def test_roundtrip_negative_and_large_values(tmp_path):
     np.testing.assert_allclose(read_fni_to_image_array(path), arr, rtol=1e-6, atol=1e-30)
 
 
+def test_roundtrip_preserves_float64_precision(tmp_path):
+    """IO-01: %.7e truncava float64 a ~8 dígitos; com %.16e o ARQUIVO carrega
+    a precisão de float64 (o reader aloca float32 — o contrato do round-trip
+    Python é float32; o arquivo deve preservar o dado da fonte)."""
+    arr = np.array([[0.123456789012345, -9.87654321098765e10]])
+    path = tmp_path / "p.fni"
+    convert_image_array_to_fni(arr, path)
+    text = path.read_text()
+    assert "+1.2345678901234500e-01" in text, "writer ainda trunca a 7 casas (IO-01)"
+
+
 def test_nan_handling_documented(tmp_path):
     """Sonda de comportamento: normais com NaN (sombra) são escritas em FNI
     pelo pipeline. Este teste DOCUMENTA o que o round-trip Python faz com NaN

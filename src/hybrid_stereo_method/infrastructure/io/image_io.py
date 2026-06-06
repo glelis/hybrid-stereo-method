@@ -170,10 +170,14 @@ def convert_image_array_to_fni(image_array: np.ndarray, output_file: str | Path)
 
         for y in range(ny):
             if nc == 1:
-                row_lines = [f"{x:5d} {y:5d} {image_array[y, x]:+.7e}\n" for x in range(nx)]
+                # IO-01: %.16e preserves full float64 precision in the file;
+                # float32 consumers read a prefix that still rounds correctly.
+                row_lines = [f"{x:5d} {y:5d} {image_array[y, x]:+.16e}\n" for x in range(nx)]
             else:
                 row_lines = [
-                    f"{x:5d} {y:5d} " + " ".join(f"{v:+.7e}" for v in image_array[y, x]) + "\n"
+                    f"{x:5d} {y:5d} "
+                    + " ".join(f"{v:+.16e}" for v in image_array[y, x])
+                    + "\n"
                     for x in range(nx)
                 ]
             f.write("".join(row_lines))
