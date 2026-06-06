@@ -318,3 +318,48 @@ class TestSelectLightStackFiles:
     def test_empty_input_returns_empty(self):
         """Empty file list returns empty list."""
         assert select_light_stack_files([], "L0") == []
+
+
+# ===========================================================================
+# MF-14: collect_light_dirs — detects L<n> at any path depth
+# ===========================================================================
+
+
+def test_collect_light_dirs_finds_lights_at_any_depth(tmp_path):
+    """MF-14: num layout limpo L<n>/zf<m>/sVal.png o pai imediato é sempre zf*,
+    então a detecção por pai imediato devolve vazio. A detecção correta acha o
+    componente L<n> em QUALQUER posição do caminho relativo ao dataset."""
+    from hybrid_stereo_method.hybrid.main import collect_light_dirs
+
+    data = tmp_path / "synth"
+    files = []
+    for li in range(3):
+        for k in range(2):
+            d = data / f"L{li}" / f"zf{k}"
+            d.mkdir(parents=True)
+            f = d / "sVal.png"
+            f.write_bytes(b"")
+            files.append(str(f))
+    (data / "lights.npy").write_bytes(b"")
+    files.append(str(data / "lights.npy"))
+    # detritos que NÃO são luzes: prefixo L sem dígito
+    (data / "Lixo").mkdir()
+    f = data / "Lixo" / "x.png"
+    f.write_bytes(b"")
+    files.append(str(f))
+
+    assert collect_light_dirs(files, str(data)) == ["L0", "L1", "L2"]
+
+
+def test_collect_light_dirs_natural_order(tmp_path):
+    from hybrid_stereo_method.hybrid.main import collect_light_dirs
+
+    data = tmp_path / "d"
+    files = []
+    for name in ["L10", "L2", "L1"]:
+        d = data / name / "zf0"
+        d.mkdir(parents=True)
+        f = d / "sVal.png"
+        f.write_bytes(b"")
+        files.append(str(f))
+    assert collect_light_dirs(files, str(data)) == ["L1", "L2", "L10"]

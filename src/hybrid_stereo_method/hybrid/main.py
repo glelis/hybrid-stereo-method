@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+import re
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -69,6 +70,27 @@ def collect_dirs_with_prefix(files: list[str], prefix: str) -> list[str]:
     """
     dirs = {Path(path).parent.name for path in files if Path(path).parent.name.startswith(prefix)}
     return natsorted(dirs)
+
+
+def collect_light_dirs(files: list[str], data_path: str | Path) -> list[str]:
+    """Return unique ``L<n>`` directory components found at ANY depth under
+    ``data_path``, in natural order.
+
+    Fixes MF-14: the previous detection looked only at the immediate parent of
+    each file, which in the documented layout ``L<n>/zf<m>/sVal.png`` is always
+    a ``zf*`` directory — so no lights were detected on clean datasets and the
+    pipeline aborted in the photometric step.
+    """
+    lights: set[str] = set()
+    for f in files:
+        try:
+            parts = Path(f).relative_to(data_path).parts
+        except ValueError:
+            parts = Path(f).parts
+        for part in parts[:-1]:  # exclude the filename itself
+            if re.fullmatch(r"L\d+", part):
+                lights.add(part)
+    return natsorted(lights)
 
 
 def build_integration_config(integration_params: dict, debug: bool) -> IntegrateRecursiveConfig:
@@ -210,10 +232,13 @@ def main(parameters):
     iSel_avg, wSel_avg, sMos_avg, zMos_avg = multifocus_stereo_main(parameters)
 
     # Process images for each light directory 'L'.
-    # collect_dirs_with_prefix uses natsorted so L0..L11 come in numeric order,
-    # matching the row order of lights.npy (fixes MF-02 for L* dirs; same class of
-    # bug as the zf* ordering above).
-    light_directories = collect_dirs_with_prefix(input_files_path, prefix="L")
+    # collect_light_dirs scans L<n> components at ANY depth in the path tree, so it
+    # works on the documented layout L<n>/zf<m>/sVal.png where the immediate parent is
+    # always zf* (fixes MF-14: collect_dirs_with_prefix only looked at the immediate
+    # parent, finding nothing on clean datasets).
+    light_directories = collect_light_dirs(
+        input_files_path, os.path.join(input_path, data_foldername)
+    )
 
     # Extract configuration for the mosaic
     zFoc = parameters["multifocus"]["parameters"]["z_foc"]

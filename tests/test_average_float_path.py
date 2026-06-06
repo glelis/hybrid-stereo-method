@@ -103,10 +103,6 @@ def _build_small_dataset(root):
 
     np.save(data_dir / "lights.npy", lights)
 
-    # MF-14 workaround: marker file under each L<n>/ so light_directories is non-empty
-    for li in range(N_LIGHTS):
-        (data_dir / f"L{li}" / "marker.txt").write_text("MF-14 workaround\n")
-
     # sharp/hAvg.png (optional, not used — just keep gabaritos=False)
     sharp_dir = data_dir / "sharp"
     sharp_dir.mkdir(parents=True, exist_ok=True)

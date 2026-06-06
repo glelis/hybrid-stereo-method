@@ -4,11 +4,14 @@
 Roda sempre (não é sob demanda): o RMSE com fit afim é a LINHA DE BASE do estado
 atual do pipeline, registrada no relatório. O fit afim absorve escala/offset/sinal
 globais — as convenções de sinal são decididas pela Task 9, não aqui.
+
+MF-14 corrigido (Task 2): collect_light_dirs detecta L<n> em qualquer nível do
+caminho, não só o pai imediato. O xfail foi removido; a variante _with_workaround
+foi removida (o teste limpo agora mede a baseline diretamente).
 """
 import cv2
 import numpy as np
 import pytest
-
 from synthetic_utils import (
     affine_fit_rmse,
     defocus_stack,
@@ -30,23 +33,6 @@ pytestmark = [
     needs_binary,
     pytest.mark.slow,
 ]
-
-# MF-14 (achado da Task 12, raw capturado em 06-test-results.md): a detecção de
-# diretórios de luz em hybrid/main.py:122-128 só inspeciona o pai IMEDIATO de cada
-# arquivo (sempre um `zf*` no layout L<n>/zf<m>/sVal.png), nunca um `L*`. Num dataset
-# limpo (só os stacks sVal.png) light_directories fica VAZIO, nenhum sMos.png por luz é
-# escrito, e o PS aborta com "Number of images (0) does not match ... (6)" em
-# photometric/main_wps.py:123. Nos datasets reais a detecção só funciona por acidente,
-# porque há arquivos avulsos (ex.: L000/selected-pixels.png) cujo pai é `L*`.
-# xfail(strict) adicionado APÓS registrar a saída crua (regra de auditoria). A LINHA DE
-# BASE de RMSE não pôde ser medida por ESTE teste: o pipeline não completa ponta a ponta.
-# A variante *_with_workaround mede a baseline contornando o MF-14 (ver abaixo) e por isso
-# NÃO leva este mark.
-_mf14_xfail = pytest.mark.xfail(
-    reason="MF-14: light_directories vazio em layout L<n>/zf<m>/ limpo -> PS recebe 0 imagens",
-    strict=True,
-    raises=ValueError,
-)
 
 SIZE = 64
 N_FRAMES = 9
@@ -80,7 +66,6 @@ def _build_dataset(root):
     return depth, z_foc
 
 
-@_mf14_xfail
 def test_hybrid_pipeline_end_to_end(tmp_path, monkeypatch):
     import matplotlib
 
@@ -163,89 +148,3 @@ def test_hybrid_pipeline_end_to_end(tmp_path, monkeypatch):
     assert np.isfinite(rmse)
 
 
-def test_hybrid_pipeline_end_to_end_with_workaround(tmp_path, monkeypatch):
-    """Variante com workaround do MF-14: um arquivo marcador diretamente sob cada
-    L<n>/ (como ocorre por acidente nos datasets reais) faz a detecção de luzes
-    funcionar, permitindo medir o BASELINE do restante da cadeia. NÃO valida o
-    frame real do lights.npy (luzes sintéticas no frame numpy — ver notas)."""
-    import matplotlib
-
-    matplotlib.use("Agg", force=True)
-    import hybrid_stereo_method.photometric.main_wps as main_wps_mod
-
-    monkeypatch.setattr(main_wps_mod, "disp_normalmap", lambda **kw: None)
-    monkeypatch.setattr(main_wps_mod, "disp_channels", lambda **kw: None)
-    monkeypatch.setattr(main_wps_mod, "disp_channels_3d", lambda **kw: None)
-
-    from hybrid_stereo_method.hybrid.main import main as hybrid_main
-
-    raw = tmp_path / "raw"
-    depth_gt, z_foc = _build_dataset(raw)
-
-    # workaround MF-14: arquivo marcador com pai imediato L<n> (sem "sVal.png" no nome)
-    for li in range(N_LIGHTS):
-        (raw / "synth" / f"L{li}" / "marker.txt").write_text("MF-14 workaround\n")
-
-    parameters = {
-        "experiment": {
-            "type": "hybrid",
-            "paths": {
-                "input": str(raw),
-                "data_folder": "synth",
-                "output": str(tmp_path / "results"),
-            },
-            "settings": {"debug": False, "gabaritos": False},
-        },
-        "multifocus": {
-            "focus_measure": {
-                "method": "laplacian",
-                "parameters": {"kernel_size": 5, "radius": None},
-                "preprocessing": {
-                    "square": True,
-                    "smooth": True,
-                    "spatial_median_filter": False,
-                    "zero_border": False,
-                },
-            },
-            "optimization": {"r_max": 2},
-            "parameters": {"z_foc": z_foc, "interpolation": "linear_interpolation"},
-        },
-        "photometric": {
-            "solver": {
-                "epsilon": 1e-6,
-                "shadow_threshold": 1e-3,
-                "outlier_threshold_multiplier": 3,
-            }
-        },
-        "hybrid": {
-            "integration": {
-                "initial_method": "zero",
-                "use_hints": False,
-                "use_reference": False,
-                "max_iter": 20000,
-                "conv_tol": 5e-7,
-            }
-        },
-    }
-
-    hybrid_main(parameters)
-
-    out_dirs = list((tmp_path / "results").glob("*_synth"))
-    assert len(out_dirs) == 1, f"esperava 1 pasta de saída, achei {out_dirs}"
-    height_path = out_dirs[0] / "integration" / "height_map.npy"
-    assert height_path.exists(), "pipeline terminou sem height_map.npy"
-
-    height = np.load(height_path)
-    est = height[:SIZE, :SIZE]
-    finite = np.isfinite(est)
-    assert finite.mean() > 0.95, f"só {finite.mean():.1%} do mapa de altura é finito"
-
-    interior = (slice(8, -8), slice(8, -8))
-    rmse, (a, b) = affine_fit_rmse(est[interior], depth_gt[interior])
-    corr = float(np.corrcoef(est[interior].ravel(), depth_gt[interior].ravel())[0, 1])
-    print(
-        f"\n=== BASELINE E2E (workaround MF-14) === affine-fit RMSE = {rmse:.4f} "
-        f"(std gt = {depth_gt[interior].std():.4f}), a = {a:.4f}, b = {b:.4f}, "
-        f"pearson r = {corr:.4f}"
-    )
-    assert np.isfinite(rmse)
