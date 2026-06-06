@@ -218,12 +218,14 @@ O modelo Lambertiano exige intensidades lineares; os `sVal.png` são usados dire
 - Localização: `utils.py:74-85`; chamada em `main_wps.py:115`
 - Evidência: reprodução com PNG mono lançou "Bad number of channels"; heurística divergente em `ps_utils.py:150-155`.
 - Correção sugerida: checar `ndim`/canais e retornar inalterada se já mono; unificar a política de grayscale entre os entry points.
+- **Correção aplicada:** `91b4448` (2026-06-06) — guards `ndim==2` e `ndim==3 and shape[2]==1` adicionados antes do `cvtColor`; docstring expandida com política BGR e nota sobre divergência com `rps`/`ps_utils`. Teste: `test_convert_to_grayscale_passthrough_for_mono` (2-D e HxWx1, FAIL→PASS confirmado). **Status: corrigido.**
 
 **PS-10 — `estimate_normals_argmax` inverte 3 luzes sem guard de singularidade (código morto)** (implementação, baixo, confirmado por inspeção)
 Resolve com `np.linalg.inv(selected_lights)` sobre as 3 luzes mais brilhantes; se quase coplanares, normal instável (sem try/except/rcond). Código morto — sem chamadas; `top_k:3` dos configs só seria usado por essas funções.
 - Localização: `wps.py:8-52` (`:44`)
 - Evidência: `grep "estimate_normals_argmax("` vazio; o híbrido usa `estimate_normals_argmax_lstsq_robust`.
 - Correção sugerida: se reativadas, `lstsq`/`pinv` com `rcond` e checar condicionamento das 3 luzes.
+- **Correção aplicada:** `b199438` (2026-06-06) — `inv()` substituído por `lstsq(..., rcond=None)` com guard de posto: `rank < 3 or norm == 0 or not isfinite(norm)` escreve `NaN` e continua. Pré-correção: `LinAlgError: Singular matrix` (crash). Teste: `test_argmax_solver_handles_coplanar_lights` (3 luzes coplanares → NaN total, FAIL→PASS confirmado). **Status: corrigido.**
 
 **PS-11 — `disp_normalmap`/`disp_channels` trocam canais in-place e bloqueiam em headless** (implementação, baixo, confirmado por inspeção)
 `np.reshape` devolve uma view e o swap `N[:,:,0],N[:,:,2]=...` muta o array do chamador; `cv2.imshow`+`waitKey(0)` bloqueiam e exigem display. Hoje benigno (save antes do display), mas risco latente.
@@ -343,6 +345,7 @@ A assinatura tem 4 parâmetros; as chamadas passam 5 posicionais (`...,0,255`), 
 - Localização: `image_alignment.py:195,213,216`
 - Evidência: assinatura de 4 params (`image_io.py:114-116`); 3 chamadas com 5 posicionais; `main_align` sem caller.
 - Correção sugerida: corrigir para `save_image(path,name,img,normalize=False)`; se `main_align` for código morto, removê-lo.
+- **Correção aplicada:** `c09e6b1` (2026-06-06) — as 3 chamadas corrigidas para `normalize=False` (kwarg explícito) com remoção do `255` espúrio. Verificado: `py_compile` limpo; erros ruff F403/F405 são pré-existentes (`from utils import *`). **Status: corrigido.**
 
 ### 2.5 Convenções (CONV-xx)
 

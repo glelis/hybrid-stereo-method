@@ -347,7 +347,14 @@ mono lançou `Bad number of channels ... scn is 1`. Heurística divergente em
 `ps_utils.py:150-155` (`converter_npy_para_cinza`).
 
 **Sugestão de correção:** checar `img.ndim`/nº de canais e retornar a imagem inalterada se
-já for mono; unificar a política de grayscale entre os dois entry points. NÃO aplicar.
+já for mono; unificar a política de grayscale entre os dois entry points.
+
+- **Correção aplicada:** `91b4448` (2026-06-06) — guards `ndim==2` e `ndim==3 and shape[2]==1`
+  adicionados antes do `cvtColor`; docstring expandida com política BGR canônica e nota sobre
+  divergência com `rps`/`ps_utils` (heurística RGB-vs-BGR permanece documentada mas não
+  unificada). Pré-correção: `cv2.error: Bad number of channels` (crash). Teste:
+  `test_convert_to_grayscale_passthrough_for_mono` (2-D e HxWx1, FAIL→PASS confirmado).
+  **Status: corrigido.**
 
 ---
 
@@ -377,7 +384,13 @@ sem chamadas.
 
 **Sugestão de correção:** se reativadas, usar `lstsq`/`pinv` com `rcond` e checar
 condicionamento das 3 luzes (ou selecionar luzes que maximizem o volume/triângulo esférico).
-NÃO aplicar.
+
+- **Correção aplicada:** `b199438` (2026-06-06) — `inv()` substituído por `lstsq(..., rcond=None)`
+  com guard de posto: quando `rank < 3 or norm == 0 or not isfinite(norm)`, escreve `NaN` e
+  continua (sem crash). Pré-correção: `LinAlgError: Singular matrix` ao chamar `inv()` com luzes
+  coplanares. Pós-correção: `np.isnan(normals).all()` para entrada totalmente degenerada.
+  Teste: `test_argmax_solver_handles_coplanar_lights` (3 luzes idênticas → NaN total,
+  FAIL→PASS confirmado). **Status: corrigido.**
 
 ---
 
