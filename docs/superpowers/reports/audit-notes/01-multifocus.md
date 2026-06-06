@@ -80,7 +80,7 @@ ou `key=lambda s: int(s[2:])`), garantindo correspondência posicional com `z_fo
 - **Localização:** `src/hybrid_stereo_method/multifocus/argmax_fuzzy.py:128-129`; consumo em `mosaic.py:53-74`
 - **Tipo:** conceitual
 - **Severidade:** alto
-- **Status:** suspeita (evidência: path existe no código mas difícil de ativar em condições realistas)
+- **Status:** corrigido (`80069c4`) — pico nulo retorna NaN + conf 0; mascarado pelo mosaic (MF-04)
 
 **Descrição:** Quando o pico de foco é nulo (`focus_values[k_max] == 0`, região sem
 textura/contraste), `compute_argmax_fuzzy_1d` retorna `(n/2, 0)`: índice do meio com
@@ -128,6 +128,8 @@ regiões de foco fisicamente nulo (espelhos, saturação completa, área fora do
 **Sugestão de correção:** propagar invalidez (NaN ou sentinela) em vez de `n/2`, ou fazer
 o `mosaic`/integração mascararem pixels com `wSel == 0`.
 
+**Correção aplicada:** `80069c4` (2026-06-06) — pico nulo retorna `(np.nan, 0)` em vez de `(n/2, 0)`; mascarado pelo mosaic (MF-04). Teste: `test_zero_peak_returns_nan_not_middle_frame` em `tests/test_multifocus_synthetic.py`.
+
 ---
 
 ## MF-04: `mosaic` ignora a confiança `wSel` ao compor `sMos`/`zMos`
@@ -135,7 +137,7 @@ o `mosaic`/integração mascararem pixels com `wSel == 0`.
 - **Localização:** `src/hybrid_stereo_method/multifocus/mosaic.py:51-74`
 - **Tipo:** implementação
 - **Severidade:** alto
-- **Status:** suspeita
+- **Status:** corrigido (`bd7a76e`)
 
 **Descrição:** `mosaic(iSel, image_stack, zFoc, ...)` recebe apenas o mapa de índices
 `iSel`; a confiança `wSel` não é passada nem consultada. Todo pixel — inclusive os de
@@ -153,6 +155,16 @@ convexos; `mosaic.py:64-65` mapeia `i0<0`→frame 0, e `k_fuzzy==0`→`z_foc[0]`
 **Sugestão de correção:** passar `wSel` ao `mosaic` e mascarar/interpolar pixels abaixo de
 um limiar de confiança, ou ao menos propagar o canal de confiança para o `sMos` usado pelo
 fotométrico.
+
+**Correção aplicada:** `bd7a76e` (2026-06-06) — `mosaic()` aceita novos parâmetros `wSel` e
+`min_confidence`; pixels com `wSel[i,j] <= min_confidence` ou `iSel` não-finito recebem
+`zMos=NaN` (inválido explícito) e `sMos=frame mais próximo` (PS precisa de valor em todo
+pixel). `multifocus/main.py`: viz NaN-safe com `nan_to_num(0)` antes de `save_image` e FNIs
+normalizados; `wSel` exportado raw (R² já em [0,1]); `zMos_with_confidence` usa
+`wSel_export=where(isfinite(zMos), wSel, 0)` — peso 0 nos pixels inválidos exclui o hint
+no integrador C. `hybrid/main.py` laço de luzes: `mosaic(..., wSel=wSel_avg)`.
+Teste: `test_mosaic_masks_zero_confidence_pixels` (em `tests/test_multifocus_synthetic.py`).
+E2E baseline (após correção): RMSE=0.0690, a=0.9982, b=3.1317, pearson r=0.9975.
 
 ---
 

@@ -77,12 +77,14 @@ Quando o pico de foco é nulo, `compute_argmax_fuzzy_1d` retorna `(n/2, 0)`; o `
 - Localização: `argmax_fuzzy.py:128-129`; consumo em `mosaic.py:53-74`
 - Evidência: `test_textureless_region_gets_zero_confidence` (Task 11) — o path NÃO foi ativado; o mecanismo realista é o **vazamento de desfoco** (textura vizinha espalhada para dentro do patch), produzindo iSel mediano `1.90` (gt 4.0, n/2 4.5), não n/2. Medidas de foco falham abertas perto de fronteiras de textura.
 - Correção sugerida: propagar invalidez (NaN/sentinela) em vez de `n/2`, ou mascarar pixels com `wSel==0`.
+- **Correção aplicada:** `80069c4` (2026-06-06) — pico nulo retorna NaN + conf 0; mascarado pelo mosaic (MF-04). Teste: `test_zero_peak_returns_nan_not_middle_frame`.
 
 **MF-04 — `mosaic` ignora a confiança `wSel` ao compor `sMos`/`zMos`** (implementação, alto, suspeita)
 `mosaic(iSel, image_stack, zFoc, ...)` não recebe nem consulta `wSel`; todo pixel — inclusive confiança 0 e fits convexos rejeitados (`k_fuzzy=0` → `z_foc[0]`) — é tratado como válido.
 - Localização: `mosaic.py:51-74`
 - Evidência: assinatura sem `wSel`; `argmax_fuzzy.py:175` zera `k_fuzzy`, `mosaic.py:64-65` mapeia para frame 0/`z_foc[0]`.
 - Correção sugerida: passar `wSel` e mascarar/interpolar abaixo de um limiar de confiança.
+- **Correção aplicada:** `bd7a76e` (2026-06-06) — `mosaic()` aceita `wSel/min_confidence`; pixels inválidos recebem `zMos=NaN`, `sMos=frame mais próximo`; `zMos_with_confidence` usa `wSel_export=where(isfinite(zMos), wSel, 0)` (peso 0 exclui hints inválidos no integrador C); `hybrid/main.py` passa `wSel=wSel_avg` no laço de luzes. Teste: `test_mosaic_masks_zero_confidence_pixels`.
 
 **MF-05 — `find_index_of_max_sum` pode escolher janela que não contém o pico verdadeiro** (conceitual, médio, suspeita)
 O início do ajuste maximiza a soma de 3 frames consecutivos (passa-baixa), favorecendo platôs largos sobre picos estreitos e altos; em curvas multi-pico o sub-pixel pode aterrissar no lobo errado.
