@@ -74,8 +74,10 @@ def normalize(x: np.ndarray) -> np.ndarray:
 def convert_to_grayscale(img: np.ndarray) -> np.ndarray:
     """Convert an RGB/BGR image to grayscale (Rec.601 weights, BGR order).
 
-    Already-monochrome inputs (2-D or HxWx1) pass through unchanged (PS-09 —
-    cvtColor raises on single-channel input). Note: the legacy ``rps`` path
+    Already-monochrome inputs (2-D or HxWx1) pass through without color
+    conversion (PS-09 — cvtColor raises on single-channel input); the
+    float64→float32 cast applies uniformly to ALL paths, including the mono
+    passthrough. Note: the legacy ``rps`` path
     (``ps_utils.converter_npy_para_cinza``) uses a divergent RGB-vs-BGR
     heuristic; this function is the canonical policy for the hybrid pipeline.
 
