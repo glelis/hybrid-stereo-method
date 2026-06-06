@@ -9,6 +9,10 @@ Convenções (as mesmas presumidas pelo pipeline Python, e testadas contra o C):
 import cv2
 import numpy as np
 
+# affine_fit_rmse foi promovida ao pacote (origem única); reexport para os
+# testes existentes que importam daqui.
+from hybrid_stereo_method.evaluation.metrics import affine_fit_rmse  # noqa: F401
+
 
 def gaussian_bump(size, amplitude=6.0, sigma_frac=0.22):
     """Mapa de altura z[y, x] = A * exp(-((x-cx)^2 + (y-cy)^2) / (2 s^2))."""
@@ -80,18 +84,3 @@ def defocus_stack(sharp, depth, z_foc, blur_per_unit=1.5):
         frac = idx - i0
         frames.append((1.0 - frac) * bank[i0, rows, cols] + frac * bank[i0 + 1, rows, cols])
     return np.stack(frames)
-
-
-def affine_fit_rmse(est, gt):
-    """RMSE de gt vs (a*est + b) com a, b ótimos por mínimos quadrados.
-
-    Atenção: o fit afim absorve escala global, offset E INVERSÃO DE SINAL —
-    use-o para medir forma, e o teste de rampa para decidir convenções de sinal.
-    Retorna (rmse, (a, b)).
-    """
-    est = np.asarray(est, dtype=np.float64).ravel()
-    gt = np.asarray(gt, dtype=np.float64).ravel()
-    a = np.stack([est, np.ones_like(est)], axis=1)
-    coef, *_ = np.linalg.lstsq(a, gt, rcond=None)
-    rmse = float(np.sqrt(np.mean((a @ coef - gt) ** 2)))
-    return rmse, (float(coef[0]), float(coef[1]))
