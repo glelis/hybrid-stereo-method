@@ -314,12 +314,14 @@ O reader aloca `np.zeros` e preenche pixel-a-pixel, sem verificar que todos os `
 - Localização: `image_io.py:222-243`
 - Evidência: `np.zeros(...)` + loop sem contagem; `return` incondicional.
 - Correção sugerida: contador/máscara de pixels preenchidos e `ValueError` se `count != ny*nx`; ou inicializar com NaN.
+- **Correção aplicada:** `ff67af4` (2026-06-06) — `filled = np.zeros((ny,nx), dtype=bool)` rastreia cada pixel escrito; após o loop, `if not filled.all(): raise ValueError("FNI file incomplete: N of M pixels missing (IO-02)")`. Teste: `test_truncated_fni_raises`. **Status: corrigido.**
 
 **IO-03 — Parser FNI pula silenciosamente linhas de dados com menos de `2+nc` campos** (implementação, baixo, confirmado por inspeção)
 `if len(parts) < 2+nc: continue` descarta linhas truncadas sem aviso (pixel fica 0, ver IO-02); assimetria: **falta** de campos é silenciada, mas **excesso** levanta `ValueError`.
 - Localização: `image_io.py:231-232`
 - Evidência: `continue` para falta vs `raise` para excesso (`:236-237`).
 - Correção sugerida: unificar — linha malformada deve levantar (ou logar aviso).
+- **Correção aplicada:** `ff67af4` (2026-06-06) — `continue` substituído por `raise ValueError("Malformed FNI data line ...")` para linhas cujo primeiro token é dígito (linha de dados) mas com menos de `2+nc` campos; linhas cujo primeiro token não é dígito (comentários, linhas de C tools) continuam a ser puladas. Assimetria com excesso de campos resolvida: tanto falta quanto excesso agora levantam. Teste: `test_malformed_short_line_raises`. Integração não afetada: `test_integration_units.py` (não-slow) 17/17 passed — o C escreve sempre um pixel completo por linha. **Status: corrigido.**
 
 **IO-04 — `save_image(normalize=True)` (default) quantiza e min-max-estica arrays float salvos como PNG** (implementação, médio, confirmado por inspeção)
 `save_image` sempre grava uint8; o ramo default ainda aplica min-max stretch destrutivo. `read_image` preserva profundidade mas o writer nunca produz 16-bit — round-trip float→PNG→float perde precisão e (no default) escala. A tabela de call-sites classifica cada uso; o achado específico é IO-05.
