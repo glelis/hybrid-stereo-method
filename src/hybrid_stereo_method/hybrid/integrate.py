@@ -166,18 +166,17 @@ def _run_integration(
         logger.error(f"stdout: {e.stdout}")
         raise RuntimeError(f"Integration failed: {e.stderr}") from e
 
-    # Read the output height map
-    # Output is written to {PREFIX}-00-end-Z.fni for level 0 final result
+    # Read the output height map written by the solver at level 0.
+    # INT-02: no fallback to {prefix}-ini-Z.fni — that file is the INITIAL
+    # GUESS (zero or raw hints); silently returning it would disguise a failed
+    # integration as a result.
     height_fni_path = output_dir / f"{output_prefix}-00-end-Z.fni"
-
     if not height_fni_path.exists():
-        # Try alternative naming
-        height_fni_path = output_dir / f"{output_prefix}-ini-Z.fni"
-        if not height_fni_path.exists():
-            raise RuntimeError(
-                f"Height map output not found at: {height_fni_path}\n"
-                f"Check output directory: {output_dir}"
-            )
+        raise RuntimeError(
+            f"Integration finished without writing the final height map "
+            f"({height_fni_path.name}) — refusing to fall back to the initial "
+            f"guess. Check solver output in: {output_dir}"
+        )
 
     height_map = read_fni_to_image_array(height_fni_path)
     logger.info(f"Read height map from: {height_fni_path}, shape: {height_map.shape}")

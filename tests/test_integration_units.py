@@ -235,5 +235,25 @@ def test_integrator_accepts_confidence_weight_channel(tmp_path):
     assert np.isfinite(out).all()
 
 
+def test_missing_end_z_raises_instead_of_returning_initial_guess(tmp_path):
+    """INT-02: se o solver 'sucede' sem escrever -00-end-Z.fni, devolver o chute
+    inicial (-ini-Z.fni) silenciosamente mascara a falha — deve levantar."""
+    from hybrid_stereo_method.hybrid.integrate import integrate_slopes_to_height
+
+    fake = tmp_path / "fake_solver.sh"
+    fake.write_text("#!/bin/sh\nexit 0\n")
+    fake.chmod(0o755)
+    # escreve um -ini-Z.fni que o fallback antigo devolveria
+    slopes = np.zeros((4, 4, 3))
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "x-ini-Z.fni").write_text(
+        "begin float_image_t (format of 2006-03-25)\nNC = 1\nNX = 1\nNY = 1\n"
+        "    0     0 +0.0000000e+00\n\nend float_image_t\n"
+    )
+    with pytest.raises(RuntimeError, match="end-Z"):
+        integrate_slopes_to_height(slopes, out, "x", executable_path=fake)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
