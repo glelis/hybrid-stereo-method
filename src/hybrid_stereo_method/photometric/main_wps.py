@@ -143,6 +143,11 @@ def main(parameters):
     logging.info("... Saving normal map ...")
     np.save(normal_map_path, normals)
 
+    # PS-06/INT-03: persist the confidence so the integrator can use it as the
+    # per-pixel weight channel (shadowed pixels carry weight 0 explicitly).
+    confidence_path = os.path.join(output_path, "confidence.npy")
+    np.save(confidence_path, confidence)
+
     # Add residuals as a new channel to normals
     confidence_extra_exp = np.expand_dims(confidence, axis=-1)
     normals_with_confidence = np.concatenate((normals, confidence_extra_exp), axis=-1)

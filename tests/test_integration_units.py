@@ -214,5 +214,26 @@ def test_hints_at_default_weight_do_not_distort_commensurable_solution(tmp_path)
     assert rmse < 0.2 * gt_phys.std()
 
 
+@needs_binary
+@pytest.mark.slow
+def test_integrator_accepts_confidence_weight_channel(tmp_path):
+    """PS-06/INT-03: normal map (H,W,4) com canal 3 = confiança; pixels com
+    peso 0 (sombra) não devem contaminar nem crashar a integração."""
+    from synthetic_utils import gaussian_bump, normals_from_height
+
+    size = 32
+    z = gaussian_bump(size, amplitude=4.0)
+    n = normals_from_height(z)
+    conf = np.ones((size, size), dtype=np.float64)
+    n4 = np.concatenate([n, conf[..., None]], axis=-1)
+    # zona "sombreada": NaN nas normais + confiança 0 (o que o wps produz)
+    n4[10:14, 10:14, :3] = np.nan
+    n4[10:14, 10:14, 3] = 0.0
+
+    out = integrate_normals_to_height(n4, tmp_path, "w4")
+    assert out.shape == (size + 1, size + 1)
+    assert np.isfinite(out).all()
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

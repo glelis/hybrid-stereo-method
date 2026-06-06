@@ -353,6 +353,26 @@ def main(parameters):
         logging.info(f"Loading normal map from: {normal_map_path}")
         normal_map = np.load(normal_map_path)
 
+        # PS-06/INT-03: attach the photometric confidence as the weight channel
+        # (H,W,4) so shadowed/degenerate pixels (NaN normals, confidence 0) are
+        # excluded by weight instead of relying only on the C NaN backstop.
+        confidence_path = os.path.join(
+            parameters["output_path_photometric"], "confidence.npy"
+        )
+        if os.path.exists(confidence_path):
+            confidence = np.load(confidence_path)
+            normal_map = np.concatenate(
+                [normal_map, confidence[..., None].astype(normal_map.dtype)], axis=-1
+            )
+            logging.info(
+                "Attached confidence weight channel to normal map: shape %s",
+                normal_map.shape,
+            )
+        else:
+            logging.warning(
+                "confidence.npy not found — integrating normals without weight channel"
+            )
+
         # Configure integration parameters.
         # build_integration_config derives slopes_scale from pixel_size so the
         # integrated heights come out in z_foc units, commensurable with the
