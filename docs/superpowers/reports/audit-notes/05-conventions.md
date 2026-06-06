@@ -39,7 +39,7 @@ Convenção de veredito:
 - **Localização:** dataset `zf*` (pastas `organized_by_focus/zf*/`, reorganização pós-geração; o gerador emite pastas `F00/F01/...` por luz, não `zf*` diretamente) → `z_foc` (`configs/hb_experiment.yaml:39`) → `mosaic.py:57,72` → hints (`hybrid/main.py:231`) → `Z` do C (`gus_integrate_recursive.c:457-459`) → `height_map.npy` (`hybrid/main.py:266`)
 - **Tipo:** conceitual
 - **Severidade:** alto
-- **Status:** **REFUTADO (caminho `-normals`)** — sinal end-to-end preservado (teste: `tests/test_convention_integration.py::test_ramp_normals_decide_convention`, PASSED; rampa via normais, vencedor `z = +ax*x + ay*y`, RMSE `0.000052` vs `1.025` do candidato totalmente invertido). A via `-slopes`/2-canais segue indecidida-por-essa-via porque crashou (INT-08; `test_constant_slopes_recover_ramp_and_decide_convention`). Ressalva: isto decide o sinal/orientação do **integrador** no round-trip numpy↔C; o sinal-físico `zMos` (hints) vs. `Z` permanece sondado pela Task 12.
+- **Status:** **mitigado (b2c1eeb, 2026-06-06)** — a convenção adotada é agora documentada end-to-end (CONV-1): image rows = y DOWN, normais n = (-dz/dx, -dz/dy, 1)/|.|, z cresce em direção à câmera. O sinal do integrador foi REFUTADO por teste (`test_ramp_normals_decide_convention`, PASSED; rampa via normais, vencedor `z = +ax*x + ay*y`, RMSE `0.000052`). A decisão física (sinal `zMos` hints real vs `Z`) continua exigindo dado real com ground-truth — procedimento documentado no config (`flip_lights_y`). A via `-slopes`/2-canais segue indecidida-por-essa-via porque crashou (INT-08; `test_constant_slopes_recover_ramp_and_decide_convention`). Ressalva: isto decide o sinal/orientação do **integrador** no round-trip numpy↔C; o sinal-físico `zMos` (hints) vs. `Z` permanece sondado pela Task 12.
 
 **Atualização Task 12 (2026-06-04):** O E2E híbrido (`tests/test_e2e_hybrid.py`,
 XFAIL strict) **não conseguiu sondar** o sinal-físico `zMos`(hints) vs. `Z`: o pipeline
@@ -109,10 +109,10 @@ combiná-los. NÃO aplicar.
 
 ## CONV-2: Convenção do eixo Y das luzes (lights.npy) vs. imagem numpy não é documentada nem reconciliada
 
-- **Localização:** `lights.npy` (gerado fora do pacote — tuplas POV-Ray em `data/raw/photometric_stereo/ex19_povball-txF/2025-01-15-glelis-pov/make_images.py:44-58`) → `np.load` (`main_wps.py:119`) → `wps.py:165,194` → `normal_map.npy` → `pst_basic.c:49-50` (`dZdY=-ny/nz`) → grade de integração C
+- **Localização:** `lights.npy` (gerado fora do pacote — tuplas POV-Ray em `data/raw/photometric_stereo/ex19_povball-txF/2025-01-15-glelis-pov/make_images.py:44-58`) → `np.load` (`main_wps.py:119`) → `reconcile_lights` (`main_wps.py`) → `wps.py:165,194` → `normal_map.npy` → `pst_basic.c:49-50` (`dZdY=-ny/nz`) → grade de integração C
 - **Tipo:** conceitual
 - **Severidade:** alto
-- **Status:** **REFUTADO apenas no eixo-y do integrador** (teste: `tests/test_convention_integration.py::test_ramp_normals_decide_convention`, PASSED; vencedor `z = +ax*x + ay*y`, o flip-de-y `+ax*x-ay*y` rejeitado com RMSE `0.380857` vs `0.000052`). O `y` do numpy é preservado no round-trip via `-normals`. **PERMANECE EM ABERTO** a outra metade de CONV-2: o referencial-y do `lights.npy` (y-up POV-Ray) vs. eixos da imagem durante o PS — elo separado, não exercido pelo teste de rampa.
+- **Status:** **mitigado (b2c1eeb, 2026-06-06)** — reconciliação explícita via `flip_lights_y`; decisão física continua exigindo dado real (procedimento documentado no config). A função `reconcile_lights(light_sources, flip_y)` em `main_wps.py` nega a coluna y quando `photometric.flip_lights_y: true` (POV-Ray y-up → numpy y-down). Default `false` = identidade, não muta a entrada. O eixo-y do integrador foi REFUTADO por teste (`test_ramp_normals_decide_convention`, PASSED; vencedor `z = +ax*x + ay*y`, o flip-de-y `+ax*x-ay*y` rejeitado com RMSE `0.380857` vs `0.000052`). O referencial-y do `lights.npy` real (y-up POV-Ray) vs. eixos da imagem permanece em aberto — só decidível com `lights.npy` real + ground-truth de altura real.
 
 **Atualização Task 12 (2026-06-04):** A cadeia E2E (`tests/test_e2e_hybrid.py`) **NÃO**
 fechou esta metade — e, por construção, **não poderia**. (1) O pipeline aborta antes do PS
