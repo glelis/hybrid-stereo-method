@@ -279,6 +279,10 @@ def main(parameters):
     zFoc = parameters["multifocus"]["parameters"]["z_foc"]
     interpolation_type = parameters["multifocus"]["parameters"]["interpolation"]
 
+    # PS-07: collect float mosaics in memory, keyed by light dir name, to bypass
+    # the uint8 PNG round-trip when feeding the photometric step.
+    sMos_by_light: dict[str, np.ndarray] = {}
+
     for light_dir in light_directories:
         logging.info(f"... Processing light directory: {light_dir} ...")
 
@@ -298,6 +302,9 @@ def main(parameters):
         # Generate the mosaic for this light, given the mapping `iSel_avg` and configuration `zFoc`
         logging.info("...... Generating mosaic from average iSel ...")
         sMos_light, _ = mosaic(iSel_avg, image_stack, zFoc, interpolation_type)
+
+        # PS-07: keep the float mosaic in memory (H,W,3) — PNG stays visualization only.
+        sMos_by_light[light_dir] = sMos_light
 
         # Save the mosaic images to the output directory.
         # normalize=False is essential: these mosaics are the photometric stereo
@@ -334,6 +341,11 @@ def main(parameters):
     n_lights = int(np.load(parameters["lights_path"]).shape[0])
     # CONV-6: pair light<n> -> lights.npy row n by KEY, not by sort position
     parameters["sMos_path_list"] = pair_mosaics_to_lights(mosaic_paths, n_lights)
+
+    # PS-07: hand the float mosaics to the PS in lights.npy row order, bypassing
+    # the uint8 PNG round-trip (sMos.png stays as visualization only).
+    parameters["sMos_images"] = [sMos_by_light[f"L{i}"] for i in range(n_lights)]
+
     parameters["output_path_photometric"] = os.path.join(output_path, "photometric_stereo")
 
     # Execute the photometric stereo method

@@ -106,7 +106,11 @@ def main(parameters):
     logging.info("... Loading images ...")
 
     if experiment_type == "hybrid":
-        images = read_images(parameters.get("sMos_path_list"))
+        if parameters.get("sMos_images") is not None:
+            logging.info("... Using in-memory float mosaics (sMos_images) — PS-07 ...")
+            images = [np.asarray(img, dtype=np.float64) for img in parameters["sMos_images"]]
+        else:
+            images = read_images(parameters.get("sMos_path_list"))
     else:
         images_paths = find_all_files(images_path)
         images = read_images(images_paths, info=True)

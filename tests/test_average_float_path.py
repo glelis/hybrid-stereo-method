@@ -140,51 +140,7 @@ def test_float_averages_npy_files_written_and_pipeline_completes(tmp_path, monke
 
     from hybrid_stereo_method.hybrid.main import main as hybrid_main
 
-    raw = tmp_path / "raw"
-    depth_gt, z_foc = _build_small_dataset(raw)
-
-    parameters = {
-        "experiment": {
-            "type": "hybrid",
-            "paths": {
-                "input": str(raw),
-                "data_folder": "synth_mf12",
-                "output": str(tmp_path / "results"),
-            },
-            "settings": {"debug": False, "gabaritos": False},
-        },
-        "multifocus": {
-            "focus_measure": {
-                "method": "laplacian",
-                "parameters": {"kernel_size": 5, "radius": None},
-                "preprocessing": {
-                    "square": True,
-                    "smooth": True,
-                    "spatial_median_filter": False,
-                    "zero_border": False,
-                },
-            },
-            "optimization": {"r_max": 2},
-            "parameters": {"z_foc": z_foc, "interpolation": "linear_interpolation"},
-        },
-        "photometric": {
-            "solver": {
-                "epsilon": 1e-6,
-                "shadow_threshold": 1e-3,
-                "outlier_threshold_multiplier": 3,
-            }
-        },
-        "hybrid": {
-            "integration": {
-                "initial_method": "zero",
-                "use_hints": False,
-                "use_reference": False,
-                "max_iter": 5000,
-                "conv_tol": 5e-6,
-            }
-        },
-    }
-
+    parameters = _build_parameters(tmp_path)
     hybrid_main(parameters)
 
     # (wiring assertion 1) filtered_images must be a non-empty list of float arrays after
@@ -239,4 +195,92 @@ def test_float_averages_npy_files_written_and_pipeline_completes(tmp_path, monke
     finite_frac = np.isfinite(height).mean()
     assert finite_frac > 0.90, (
         f"Only {finite_frac:.1%} of height map is finite — pipeline may have failed"
+    )
+
+
+def _build_parameters(tmp_path):
+    """Build a minimal parameters dict for the hybrid pipeline on a synthetic dataset.
+
+    Shared by test_float_averages_npy_files_written_and_pipeline_completes and
+    test_photometric_receives_float_mosaics_in_memory.
+    """
+    raw = tmp_path / "raw"
+    _build_small_dataset(raw)
+    return {
+        "experiment": {
+            "type": "hybrid",
+            "paths": {
+                "input": str(raw),
+                "data_folder": "synth_mf12",
+                "output": str(tmp_path / "results"),
+            },
+            "settings": {"debug": False, "gabaritos": False},
+        },
+        "multifocus": {
+            "focus_measure": {
+                "method": "laplacian",
+                "parameters": {"kernel_size": 5, "radius": None},
+                "preprocessing": {
+                    "square": True,
+                    "smooth": True,
+                    "spatial_median_filter": False,
+                    "zero_border": False,
+                },
+            },
+            "optimization": {"r_max": 2},
+            "parameters": {
+                "z_foc": [float(k) for k in range(N_FRAMES)],
+                "interpolation": "linear_interpolation",
+            },
+        },
+        "photometric": {
+            "solver": {
+                "epsilon": 1e-6,
+                "shadow_threshold": 1e-3,
+                "outlier_threshold_multiplier": 3,
+            }
+        },
+        "hybrid": {
+            "integration": {
+                "initial_method": "zero",
+                "use_hints": False,
+                "use_reference": False,
+                "max_iter": 5000,
+                "conv_tol": 5e-6,
+            }
+        },
+    }
+
+
+@needs_binary
+def test_photometric_receives_float_mosaics_in_memory(tmp_path, monkeypatch):
+    """PS-07: o PS deve receber os mosaicos float em memória (sMos_images);
+    o sMos.png uint8 vira só visualização."""
+    import matplotlib
+
+    matplotlib.use("Agg", force=True)
+    import hybrid_stereo_method.photometric.main_wps as main_wps_mod
+    from hybrid_stereo_method.hybrid.main import main as hybrid_main
+
+    monkeypatch.setattr(main_wps_mod, "disp_normalmap", lambda **kw: None)
+    monkeypatch.setattr(main_wps_mod, "disp_channels", lambda **kw: None)
+    monkeypatch.setattr(main_wps_mod, "disp_channels_3d", lambda **kw: None)
+
+    captured = {}
+    real_estimator = main_wps_mod.estimate_normals_argmax_lstsq_robust
+
+    def spy_estimator(images, lights, params):
+        captured["dtypes"] = [np.asarray(img).dtype for img in images]
+        return real_estimator(images, lights, params)
+
+    monkeypatch.setattr(
+        main_wps_mod, "estimate_normals_argmax_lstsq_robust", spy_estimator
+    )
+
+    parameters = _build_parameters(tmp_path)  # reuse/extract from the existing test
+    hybrid_main(parameters)
+
+    assert captured, "estimator não foi chamado"
+    assert all(dt.kind == "f" for dt in captured["dtypes"]), (
+        f"PS recebeu dtypes {captured['dtypes']} — caminho uint8/PNG ainda ativo (PS-07)"
     )
