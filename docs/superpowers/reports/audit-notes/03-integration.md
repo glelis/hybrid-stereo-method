@@ -349,7 +349,7 @@ status é "mitigado" e não "corrigido".
 - **Localização:** `csrc/integrate_recursive/gus_integrate_recursive.c:783`
 - **Tipo:** implementação
 - **Severidade:** baixo
-- **Status:** confirmado (por inspeção) — inativo no fluxo Python atual
+- **Status:** corrigido (`c25567f`, 2026-06-06)
 
 **Descrição:** No parser, o ramo que define o default de `maxLevel` quando `-maxLevel` é
 omitido atribui `o->maxLevel = DEFAULT_MAX_ITER` (=100000, `gus_integrate_recursive.c:783`),
@@ -372,6 +372,16 @@ mencionar default 30. `integrate.py:130` sempre fornece `-maxLevel`, neutralizan
 
 **Sugestão de correção:** trocar `DEFAULT_MAX_ITER` por `DEFAULT_MAX_LEVEL` na linha 783. NÃO
 aplicar.
+
+**Correção aplicada (`c25567f`, 2026-06-06):** linha 783 alterada de `DEFAULT_MAX_ITER` para
+`DEFAULT_MAX_LEVEL`. Simultaneamente reparado o build do C (bloqueado em qualquer worktree por
+symlinks quebrados em `include/` e `lib/` que apontavam para um caminho inexistente
+`/src/hybrid_method/integrate_recursive/lib-src/`): todos os symlinks foram corrigidos para
+relativos (`../lib-src/*`); o comentário aninhado `/*# Option 1 ...` nas linhas 8-9 foi
+convertido para `//`-comments eliminando `-Werror=comment`. Rebuild: apenas o objeto principal
+recompilado e linkado contra a `libgus.a` pré-compilada (sem reconstrução da biblioteca). Binário
+validado: 32 testes unitários/integração + 7 E2E passam; baseline E2E RMSE=0.0703, a=0.9956,
+r=0.9974 (idêntico ao pré-existente).
 
 ---
 

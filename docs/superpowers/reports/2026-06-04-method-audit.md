@@ -463,13 +463,18 @@ CONV-2 (y-up POV-Ray). Não há atalho sintético.
 
 ### Bloqueios
 
-- **Build do C (`make`) falha — NÃO bloqueante.** `cd csrc/integrate_recursive && make` falha com
-  dois erros de compilação: (1) `-Werror=comment` por um `/*` aninhado em comentário de bloco
-  (`gus_integrate_recursive.c:9`); (2) `#include <bool.h>` não encontrado no include de sistema
-  (`:312`; o `bool.h` do projeto vive em `include/`). **Porém o binário `gus_integrate_recursive`
-  está versionado (rastreado pelo git) e é funcional** — `DEFAULT_EXECUTABLE.exists()` é `True`, o
-  guard `needs_binary` não pulou os testes, e a integração rodou contra o binário pré-compilado.
-  Recompilar do zero exigiria editar fonte C de produção (fora do escopo do diagnóstico).
+- **Build do C (`make`) — REPARADO (`c25567f`, 2026-06-06).** O build falhava por três causas
+  acumuladas: (1) `-Werror=comment` por um `/*` aninhado em comentário de bloco
+  (`gus_integrate_recursive.c:9`) — corrigido convertendo as duas linhas para `//`-comments;
+  (2) todos os symlinks em `include/` e `lib/libgus.a` apontavam para um caminho absoluto
+  inexistente (`/home/lelis/.../src/hybrid_method/integrate_recursive/lib-src/`), em vez dos
+  arquivos presentes em `lib-src/` — corrigidos para symlinks relativos `../lib-src/*`; (3) o
+  sub-make em `lib-src/` tentava recompilar todos os `.ho` ao detectar timestamps
+  iguais — resolvido com `touch lib-src/*.ho lib-src/*.o lib-src/libgus.a` para tornar os
+  prebuilts mais novos, evitando recompilação da biblioteca (que seria bloqueada por dependências
+  de sistema — X11/GL). Apenas o objeto principal foi recompilado e linkado contra a
+  `libgus.a` pré-compilada. Binário rebuiltado e validado: 32 testes + 7 E2E passam; baseline
+  RMSE=0.0703, a=0.9956, r=0.9974 idênticos.
 - **O que permanece aberto (requer dados reais):**
   - **CONV-2 (metade real):** o referencial-y do `lights.npy` real (y-up POV-Ray) vs eixos da
     imagem durante o PS — só decidível com `lights.npy` real + ground-truth de altura real,
