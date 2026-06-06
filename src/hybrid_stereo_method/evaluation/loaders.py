@@ -7,10 +7,18 @@ Convenções de caminho (ver spec 2026-06-06-automated-evaluation-design.md):
 
 from __future__ import annotations
 
+import logging
+import os
+import re
 from pathlib import Path
 
 import cv2
 import numpy as np
+
+from hybrid_stereo_method.infrastructure.io.image_io import (
+    read_fni_to_image_array,
+    read_yaml_parameters,
+)
 
 
 class MissingArtifactError(FileNotFoundError):
@@ -83,3 +91,112 @@ def load_normals_gt(
     safe_norm = np.where(norm == 0.0, 1.0, norm)
     n_unit = np.where(foreground[..., None], n / safe_norm[..., None], np.nan)
     return n_unit, foreground
+
+
+# --- artefatos do pipeline ---------------------------------------------------
+
+_LIGHT_RE = re.compile(r"L\d+")
+_ZF_RE = re.compile(r"zf(\d+(?:\.\d+)?)")
+
+
+def load_zmos(results_dir: str | Path) -> np.ndarray:
+    """zMos.fni do multifocus (unidades z_foc, NaN = pixel inválido) → float64."""
+    path = Path(results_dir) / "multifocus_stereo" / "average" / "zMos.fni"
+    if not path.exists():
+        raise MissingArtifactError(f"zMos.fni (profundidade multifocus) não encontrado: {path}")
+    return read_fni_to_image_array(path).astype(np.float64)
+
+
+def load_normal_map(results_dir: str | Path) -> np.ndarray:
+    """normal_map.npy do fotométrico ((H, W, 3), pode conter NaN)."""
+    path = Path(results_dir) / "photometric_stereo" / "normal_map.npy"
+    if not path.exists():
+        raise MissingArtifactError(f"normal_map.npy (fotométrico) não encontrado: {path}")
+    return np.load(path)
+
+
+def load_height_map(results_dir: str | Path) -> np.ndarray:
+    """height_map.npy da integração (vertex-grid (H+1, W+1))."""
+    path = Path(results_dir) / "integration" / "height_map.npy"
+    if not path.exists():
+        raise MissingArtifactError(f"height_map.npy (integração) não encontrado: {path}")
+    return np.load(path)
+
+
+def vertex_to_cell(z_vertex: np.ndarray) -> np.ndarray:
+    """Vertex-grid (H+1, W+1) → cell-grid (H, W): média dos 4 vértices da célula.
+
+    A altura integrada vive nos vértices (INT-05); o GT (hAvg.png) é cell-grid.
+    """
+    z = np.asarray(z_vertex, dtype=np.float64)
+    return 0.25 * (z[:-1, :-1] + z[:-1, 1:] + z[1:, :-1] + z[1:, 1:])
+
+
+def load_shrp_z_gt(data_dir: str | Path) -> tuple[np.ndarray, list[float]]:
+    """GT de seleção de foco: z_gt = z_foc[argmax(pilha shrp)] por pixel.
+
+    Os valores de z_foc são parseados dos NOMES das pastas zf* (ex.:
+    "zf045.0000-df020.0000" → 45.0) — sem dependência de config. Usa a luz
+    (pasta-mãe) com mais planos zf*/shrp.png. Retorna (z_gt (H, W) float64,
+    lista ordenada dos z parseados).
+    """
+    by_parent: dict[Path, list[tuple[float, Path]]] = {}
+    for root, _dirs, files in os.walk(data_dir):
+        m = _ZF_RE.match(Path(root).name)
+        if m and "shrp.png" in files:
+            by_parent.setdefault(Path(root).parent, []).append(
+                (float(m.group(1)), Path(root) / "shrp.png")
+            )
+    if not by_parent:
+        raise MissingArtifactError(f"nenhuma pasta zf*/shrp.png encontrada sob {data_dir}")
+    parent = max(by_parent, key=lambda p: len(by_parent[p]))
+    pairs = sorted(by_parent[parent])
+    z_vals = [z for z, _ in pairs]
+    frames = []
+    for _z, path in pairs:
+        img = _read_png(path, "shrp.png").astype(np.float64)
+        if img.ndim == 3:
+            img = img.mean(axis=-1)
+        frames.append(img)
+    stack = np.stack(frames)
+    z_gt = np.asarray(z_vals, dtype=np.float64)[np.argmax(stack, axis=0)]
+    logging.info("GT de seleção de foco: %d planos zf de %s", len(z_vals), parent)
+    return z_gt, z_vals
+
+
+def find_smos_pairs(
+    results_dir: str | Path, data_dir: str | Path | None
+) -> list[tuple[str, Path, Path]]:
+    """Pares (luz, sMos.png estimado, sVal.png GT) para as luzes presentes nos dois lados."""
+    mf = Path(results_dir) / "multifocus_stereo"
+    if data_dir is None or not mf.is_dir():
+        return []
+    gt_by_light: dict[str, Path] = {}
+    for root, _dirs, files in os.walk(data_dir):
+        r = Path(root)
+        if r.name == "sharp" and _LIGHT_RE.fullmatch(r.parent.name) and "sVal.png" in files:
+            gt_by_light[r.parent.name] = r / "sVal.png"
+    pairs = []
+    for d in sorted(p for p in mf.iterdir() if p.is_dir() and _LIGHT_RE.fullmatch(p.name)):
+        smos = d / "sMos.png"
+        if smos.exists() and d.name in gt_by_light:
+            pairs.append((d.name, smos, gt_by_light[d.name]))
+    return pairs
+
+
+def resolve_data_dir(results_dir: str | Path, data_dir: str | Path | None) -> Path | None:
+    """Pasta do dataset: argumento explícito > parameters.yaml salvo no resultado > None."""
+    if data_dir is not None:
+        return Path(data_dir)
+    params_path = Path(results_dir) / "parameters.yaml"
+    if params_path.exists():
+        try:
+            params = read_yaml_parameters(params_path)
+            paths = params["experiment"]["paths"]
+            candidate = Path(paths["input"]) / paths["data_folder"]
+            if candidate.is_dir():
+                return candidate
+            logging.warning("data_dir do parameters.yaml não existe: %s", candidate)
+        except (KeyError, TypeError) as exc:
+            logging.warning("parameters.yaml sem experiment.paths utilizável: %s", exc)
+    return None
