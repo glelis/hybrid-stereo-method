@@ -192,7 +192,7 @@ def main_align(base_path):
     
     # Save the reference image directly to the aligned folder
     ref_save_as = "align_" + str(ref_idx) + ".jpg"
-    save_image(save_path, ref_save_as, reference_img, 0, 255)
+    save_image(save_path, ref_save_as, reference_img, normalize=False)
 
     # Iterate over the files, aligning each image with the reference image
     for i in range(len(all_files)):
@@ -210,9 +210,9 @@ def main_align(base_path):
         imMatches, aligned_img = align_im1_to_im2(reference_img, target_img)
 
         print("Saving a feature matching image : ", match_path)
-        save_image(match_path, match_save_as, imMatches, 0, 255)
+        save_image(match_path, match_save_as, imMatches, normalize=False)
 
         print("Saving an aligned image : ", save_path)
-        save_image(save_path, align_save_as, aligned_img, 0, 255)
+        save_image(save_path, align_save_as, aligned_img, normalize=False)
 
         print("\n")
