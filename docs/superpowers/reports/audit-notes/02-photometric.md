@@ -307,6 +307,15 @@ as imagens já forem lineares.
 **Sugestão de correção:** documentar e/ou impor a premissa de linearidade (linearizar na
 entrada se os PNGs forem gamma-encoded). NÃO aplicar.
 
+**Correção aplicada:** `7a4c8fc` (2026-06-06) — `linearize_intensities(img, gamma)` adicionada em
+`main_wps.py` (module-level, antes de `main`); aplicada após `convert_to_grayscale` com
+`gamma = parameters["photometric"]["parameters"].get("gamma", 1.0)`. Default 1.0 é a identidade
+(assume `sVal.png` linear); configurar `gamma: 2.2` para decodificar sRGB. Config
+`photometric.parameters.gamma: 1.0` adicionada a `hb_experiment.yaml` e `wps_experiment.yaml`
+com comentário explicativo referenciando PS-08/CONV-5. Teste: `test_linearize_gamma_helper`
+(verifica I=0→0, I=255→255, I=127.5→255·(0.5^2.2) com rtol=1e-12; identidade para gamma=1.0).
+Fecha também o 3º ponto de CONV-5. **Status: corrigido.**
+
 ---
 
 ## PS-09: `convert_to_grayscale` falha em entrada já monocromática e mistura convenções de coeficientes

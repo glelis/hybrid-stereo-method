@@ -202,6 +202,7 @@ O modelo Lambertiano exige intensidades lineares; os `sVal.png` são usados dire
 - Localização: cadeia inteira; nenhum decode de gamma encontrado
 - Evidência: ausência de linearização; intensidades cruas em `np.linalg.lstsq` (`wps.py:165`).
 - Correção sugerida: documentar/impor a premissa de linearidade (linearizar na entrada se gamma-encoded).
+- **Correção aplicada:** `7a4c8fc` (2026-06-06) — `linearize_intensities(img, gamma)` adicionada em `main_wps.py` (module-level); aplicada após `convert_to_grayscale` com `gamma = parameters["photometric"]["parameters"].get("gamma", 1.0)`. Default 1.0 é a identidade (assume `sVal.png` linear); set `gamma: 2.2` para decodificar sRGB. Config `photometric.parameters.gamma: 1.0` adicionada a `hb_experiment.yaml` e `wps_experiment.yaml` com comentário explicativo. Teste: `test_linearize_gamma_helper` (verifica a=0.0, a=255.0 e ponto intermediário 255·(0.5^2.2) com rtol=1e-12; verifica gamma=1.0 é identidade). Fecha também CONV-5 (3º ponto — todos os 3 pontos agora corrigidos). **Status: corrigido.**
 
 **PS-09 — `convert_to_grayscale` falha em entrada já monocromática e mistura convenções de coeficientes** (implementação, baixo, confirmado por inspeção / coeficientes: suspeita)
 `cv2.cvtColor(BGR2GRAY)` lança exceção em imagem mono-canal (inalcançável com os dados atuais, mas caso de borda para datasets cinza). Divergência de convenção: este caminho usa Rec.601 BGR; o caminho `rps`/`ps_utils` usa `0.3/0.59/0.11` com heurística RGB-vs-BGR por média de canais.
@@ -348,6 +349,7 @@ Consolida a sequência radiométrica: `sVal.png` possivelmente gamma (PS-08); m�
 - Evidência: cross-ref MF-12, IO-05, PS-07, PS-08, PS-09; passos detalhados nas notas.
 - Correção sugerida: alimentar foco e PS com float in-memory; desativar `normalize` nas médias por-zf; remover o `clip(0,255)`; documentar/impor a premissa de linearidade.
 - **Resolução parcial (composição, 45cbf57):** 2 de 3 pontos fechados. MF-12 fechou o ponto de quantização das médias e IO-05; PS-07 (este commit) fechou os pontos do mosaico uint8/clip e leitura PNG. Nenhum dado científico do pipeline híbrido passa por round-trip PNG. Ponto remanescente: gamma PS-08 (linearidade da entrada `sVal.png`) — pendente Task 9.
+- **Fechado por composição (`7a4c8fc`, 2026-06-06):** 3 de 3 pontos fechados. PS-08 (este commit) fecha o ponto remanescente adicionando `linearize_intensities` com config `gamma`. MF-12 (bd23651) + PS-07 (45cbf57) + PS-08 (7a4c8fc) = cadeia radiométrica completa: médias float, mosaicos float, gamma documentado/opcional. **Status: corrigido/fechado por composição.**
 
 **CONV-6 — Pareamento luz↔mosaico garantido só por contagem; ordens e shape entre estágios não verificados por construção** (implementação, alto, suspeita — reforçada por Task 12)
 Três pareamentos posicionais sem verificação por identidade: (1) luz↔mosaico pareado por posição com a única garantia da checagem de contagem (`len(images)!=lights.shape[0]`), não por chave `L<n>`→linha `n`; (2) ordem zf↔z_foc (MF-02); (3) shape hints célula vs vértice (INT-05). O achado novo é (1).
@@ -381,7 +383,7 @@ Resumo das 6 convenções com vereditos finais pós-testes (Fases 2 e 3). Veredi
 | 2 | Normais e luzes (frame / y-up vs y-down) | `lights.npy` POV-Ray → wps → normal→slope C (`pst_basic.c:49-50`) | **eixo-y integrador: REFUTADO**; **luzes vs imagem (frame real): em aberto** | flip-y `+ax·x-ay·y` rejeitado (RMSE 0.381 vs 5.2e-5). Reconciliação y-up(luzes)↔y-down(imagem) não exercida — luzes sintéticas no mesmo frame numpy; requer `lights.npy` real. |
 | 3 | Origem/orientação da imagem (round-trip FNI) | writer FNI Python → C → reader Python | **consistente** | `test_fni_roundtrip` 4/4 (Task 8): round-trip preserva o array sem flip/transposição; `test_ramp_normals` confirma orientação+sinal ponta a ponta. |
 | 4 | Escala dos gradientes (slope adimensional vs z físico) | slope `-nx/nz` adimensional → sistema altura-por-pixel + hints em `z_foc` | **inconsistente (CONV-4)** | `slopes_scale` default `(1,1)` nunca configurado; hints sem `scale`. Task 12-ext: `|a|≈1` é coincidência sintética, não exercita a escala real. |
-| 5 | Radiometria entre etapas (linearidade) | `sVal.png` uint8 → médias re-esticadas + mosaicos clipados → foco/PS | **inconsistente (CONV-5)** | Quebra em 3 pontos (IO-05, MF-12, PS-07/PS-08); nenhum estágio reintroduz linearidade. |
+| 5 | Radiometria entre etapas (linearidade) | `sVal.png` uint8 → médias re-esticadas + mosaicos clipados → foco/PS | **corrigido (CONV-5)** | 3/3 pontos fechados: MF-12 (bd23651) médias float, PS-07 (45cbf57) mosaicos float, PS-08 (7a4c8fc) gamma opcional. |
 | 6 | Contratos de arquivo (pareamento/ordem/shape) | `natsorted(sMos)`, `sorted(zf)`, `(H,W,2)` | **inconsistente (CONV-6)** | Pareamento luz↔mosaico só por contagem; Task 12: guarda pegou 0 vs 6 (MF-14); N-trocados não exercitado. |
 
 ---
