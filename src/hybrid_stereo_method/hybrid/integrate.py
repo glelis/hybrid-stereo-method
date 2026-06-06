@@ -268,7 +268,10 @@ def integrate_slopes_to_height(
     Args:
         slope_map: Slope map array with shape (H, W, 2) or (H, W, 3).
             Channel 0 is dZ/dX, channel 1 is dZ/dY. Channel 2 (optional)
-            is the reliability weight.
+            is the reliability weight. A 2-channel input is promoted to 3
+            channels automatically (weight=1) before writing the FNI file,
+            because the iterative C solver requires exactly 3 channels
+            (INT-08).
         output_dir: Directory for output files.
         output_prefix: Prefix for output file names.
         config: Solver configuration.
@@ -280,6 +283,13 @@ def integrate_slopes_to_height(
     Returns:
         Height map as numpy array with shape (H+1, W+1).
     """
+    slope_map = np.asarray(slope_map)
+    if slope_map.ndim == 3 and slope_map.shape[2] == 2:
+        # INT-08: o topo do C aceita 2 ou 3 canais mas o solver iterativo exige
+        # exatamente 3 (canal 2 = peso). Promove 2->3 com peso 1.
+        weights = np.ones_like(slope_map[..., :1])
+        slope_map = np.concatenate([slope_map, weights], axis=-1)
+
     return _run_integration(
         "-slopes",
         "slopes",

@@ -6,6 +6,9 @@ monotônica não tem simetria, então flip de y, inversão de sinal ou troca de 
 produzem um candidato diferente como melhor ajuste.
 Se um assert de convenção falhar, NÃO conserte o teste: o candidato vencedor
 impresso É o achado (CONV-xx).
+
+INT-08 corrigido: o wrapper agora promove mapas de slope 2→3 canais (peso=1)
+antes de delegar ao binário C; xfail removido de test_constant_slopes_recover_ramp_and_decide_convention.
 """
 import numpy as np
 import pytest
@@ -26,14 +29,10 @@ needs_binary = pytest.mark.skipif(
 pytestmark = [needs_binary, pytest.mark.slow]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="INT-08: integrate_slopes_to_height com 2 canais aborta o binário — "
-    "pst_integrate_iterative.c:47 exige 3 canais; XPASS = bug corrigido, reavaliar CONV via -slopes",
-)
 def test_constant_slopes_recover_ramp_and_decide_convention(tmp_path):
-    """Intenção original: decidir CONV-1/CONV-2 — hoje serve de guarda de regressão
-    do crash INT-08; a decisão de convenção foi feita por test_ramp_normals_decide_convention.
+    """Decide CONV-1/CONV-2 via -slopes: o wrapper promove 2→3 canais (INT-08 corrigido).
+    Se o assert de convenção falhar, NÃO conserte o teste: o candidato vencedor
+    impresso É o achado.
     """
     size, ax, ay = 32, 0.05, 0.02
     slopes = np.zeros((size, size, 2))
