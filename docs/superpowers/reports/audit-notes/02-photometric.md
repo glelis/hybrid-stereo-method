@@ -163,8 +163,13 @@ Dados limpos: **0.004°** (clean-data error inalterado).
 1-sided 1.0×1.4826×MAD exclui ~16% da cauda nominal; medição de ~35% de luzes rejeitadas em
 24 luzes limpas). Investigação: a rejeição real a k=1.0 em dados limpos é < 1% (23.79/24
 luzes usadas em média); o problema da cauda não se manifesta nos dados sintéticos desta suíte.
-Teste a k=1.5 e k=2.0: 5.79° e 7.56° > limiar de 5° — ambos falham. Default mantido em 1.0;
-trade-off precisa de decisão humana (mais luzes limpas vs robustez a saturação em 8 luzes).
+Teste a k=1.5 e k=2.0: 5.79° e 7.56° > limiar de 5° — ambos falham. Default mantido em 1.0.
+NUANCE: as duas medições usaram níveis de ruído diferentes — a sobre-rejeição (~35% em 24
+luzes) foi medida com ruído gaussiano σ=2.0, a de <1% com ruído baixo/nulo; o MAD cresce com
+o ruído e o corte 1-sided fica mais agressivo. Em datasets REAIS ruidosos com muitas luzes,
+considerar elevar `saturation_outlier_multiplier` (a chave está exposta no config) — o
+trade-off (rejeição de luzes limpas vs robustez a saturação) depende do dataset e fica como
+decisão do pesquisador.
 
 ---
 
