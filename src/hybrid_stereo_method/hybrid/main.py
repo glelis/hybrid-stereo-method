@@ -86,7 +86,10 @@ def collect_light_dirs(files: list[str], data_path: str | Path) -> list[str]:
         try:
             parts = Path(f).relative_to(data_path).parts
         except ValueError:
-            parts = Path(f).parts
+            logging.warning(
+                "collect_light_dirs: %r is not under data_path %r; skipping", f, str(data_path)
+            )
+            continue
         for part in parts[:-1]:  # exclude the filename itself
             if re.fullmatch(r"L\d+", part):
                 lights.add(part)

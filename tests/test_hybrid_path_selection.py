@@ -363,3 +363,26 @@ def test_collect_light_dirs_natural_order(tmp_path):
         f.write_bytes(b"")
         files.append(str(f))
     assert collect_light_dirs(files, str(data)) == ["L1", "L2", "L10"]
+
+
+def test_collect_light_dirs_skips_files_outside_data_path(tmp_path, caplog):
+    """Arquivo fora do data_path não pode injetar luz fantasma (ex.: um
+    componente L5 no caminho ACIMA da raiz do dataset)."""
+    import logging
+
+    from hybrid_stereo_method.hybrid.main import collect_light_dirs
+
+    data = tmp_path / "synth"
+    d = data / "L0" / "zf0"
+    d.mkdir(parents=True)
+    inside = d / "sVal.png"
+    inside.write_bytes(b"")
+    outside_root = tmp_path / "L5" / "other"
+    outside_root.mkdir(parents=True)
+    outside = outside_root / "sVal.png"
+    outside.write_bytes(b"")
+
+    with caplog.at_level(logging.WARNING):
+        result = collect_light_dirs([str(inside), str(outside)], str(data))
+    assert result == ["L0"]
+    assert any("skipping" in r.message for r in caplog.records)
