@@ -73,6 +73,11 @@ def _to_255_scale(img: np.ndarray) -> np.ndarray:
     return img.astype(np.float64)
 
 
+# Exceções de artefato ilegível/corrompido que viram "skipped" por etapa
+# (spec: "avaliação parcial é melhor que nenhuma"; nunca exceção não tratada).
+_LOAD_ERRORS = (MissingArtifactError, ValueError, OSError)
+
+
 def run_evaluation(
     results_dir: str | Path,
     data_dir: str | Path | None = None,
@@ -112,7 +117,7 @@ def run_evaluation(
             gt_valid = load_hdev_mask(sharp_dir, float(config.get("hdev_threshold", 0.1)))
             if gt_valid is None:
                 logging.warning("hdev_mask habilitado, mas hDev.png ausente — sem máscara")
-    except MissingArtifactError as exc:
+    except _LOAD_ERRORS as exc:
         gt_reason = str(exc)
         logging.warning("GT de altura indisponível: %s", gt_reason)
 
@@ -120,7 +125,7 @@ def run_evaluation(
     zmos: np.ndarray | None = None
     try:
         zmos = load_zmos(results_dir)
-    except MissingArtifactError as exc:
+    except _LOAD_ERRORS as exc:
         metrics["multifocus_depth"] = {"status": f"skipped: {exc}"}
     if zmos is not None:
         if gt_height is None:
@@ -141,7 +146,7 @@ def run_evaluation(
         try:
             z_gt, z_vals = load_shrp_z_gt(data_dir)
             metrics["focus_selection"] = evaluate_focus_selection(zmos, z_gt, z_vals)
-        except MissingArtifactError as exc:
+        except _LOAD_ERRORS as exc:
             metrics["focus_selection"] = {"status": f"skipped: {exc}"}
 
     # --- 3. multifocus: mosaicos por luz ------------------------------------
@@ -171,7 +176,7 @@ def run_evaluation(
         else:
             n_gt, fg = load_normals_gt(sharp_dir)
             metrics["photometric_normals"] = evaluate_normals(n_est, n_gt, fg)
-    except MissingArtifactError as exc:
+    except _LOAD_ERRORS as exc:
         metrics["photometric_normals"] = {"status": f"skipped: {exc}"}
 
     # --- 5. integração: altura final ----------------------------------------
@@ -181,7 +186,7 @@ def run_evaluation(
         if height_vertex.ndim == 3:
             height_vertex = height_vertex[..., 0]
         height_cell = vertex_to_cell(height_vertex)
-    except MissingArtifactError as exc:
+    except _LOAD_ERRORS as exc:
         metrics["integration_height"] = {"status": f"skipped: {exc}"}
     if height_cell is not None:
         if gt_height is None:

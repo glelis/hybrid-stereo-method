@@ -145,3 +145,15 @@ def test_run_evaluation_no_gt_at_all(tmp_path):
     metrics = run_evaluation(empty, data_dir=None)
     statuses = [v["status"] for k, v in metrics.items() if k != "meta"]
     assert statuses and all(s.startswith("skipped") for s in statuses)
+
+
+def test_run_evaluation_corrupt_artifact_skips_only_that_stage(synthetic_run):
+    """Artefato corrompido (não ausente) vira skipped — nunca derruba o run."""
+    results, data, _ = synthetic_run
+    (results / "multifocus_stereo" / "average" / "zMos.fni").write_text("lixo\nnão é FNI\n")
+    metrics = run_evaluation(results, data_dir=data)
+    assert metrics["multifocus_depth"]["status"].startswith("skipped")
+    assert metrics["focus_selection"]["status"].startswith("skipped")  # depende do zMos
+    assert metrics["photometric_normals"]["status"] == "ok"
+    assert metrics["integration_height"]["status"] == "ok"
+    assert metrics["mosaics"]["status"] == "ok"
