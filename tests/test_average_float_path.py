@@ -284,3 +284,33 @@ def test_photometric_receives_float_mosaics_in_memory(tmp_path, monkeypatch):
     assert all(dt.kind == "f" for dt in captured["dtypes"]), (
         f"PS recebeu dtypes {captured['dtypes']} — caminho uint8/PNG ainda ativo (PS-07)"
     )
+
+
+@needs_binary
+def test_pipeline_with_vertex_grid_hints(tmp_path, monkeypatch):
+    """INT-05: pipeline completo com use_hints=True — o hints_vertex.fni
+    (H+1, W+1, 2) deve ser aceito pelo solver C (demand de shape/canais) e a
+    integração deve completar com altura finita."""
+    import matplotlib
+
+    matplotlib.use("Agg", force=True)
+    import hybrid_stereo_method.photometric.main_wps as main_wps_mod
+    from hybrid_stereo_method.hybrid.main import main as hybrid_main
+
+    monkeypatch.setattr(main_wps_mod, "disp_normalmap", lambda **kw: None)
+    monkeypatch.setattr(main_wps_mod, "disp_channels", lambda **kw: None)
+    monkeypatch.setattr(main_wps_mod, "disp_channels_3d", lambda **kw: None)
+
+    parameters = _build_parameters(tmp_path)
+    parameters["hybrid"]["integration"]["use_hints"] = True
+    parameters["hybrid"]["integration"]["hints_weight"] = 0.1
+    parameters["hybrid"]["integration"]["pixel_size"] = 1.0  # z_foc step == pixel step
+
+    hybrid_main(parameters)
+
+    out_dirs = list((tmp_path / "results").glob("*_synth_mf12"))
+    assert len(out_dirs) == 1, f"Expected 1 output dir, got {out_dirs}"
+    hints_path = out_dirs[0] / "integration" / "hints_vertex.fni"
+    assert hints_path.exists(), "hints_vertex.fni não foi escrito (INT-05)"
+    height = np.load(out_dirs[0] / "integration" / "height_map.npy")
+    assert np.isfinite(height).all()
