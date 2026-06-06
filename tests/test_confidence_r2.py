@@ -109,11 +109,16 @@ def test_convex_curve_zero_confidence():
 
 
 def test_all_zero_returns_zero_confidence():
-    """focus_values[k_max] == 0 -> (n/2, 0) (comportamento existente)."""
+    """focus_values[k_max] == 0 -> (NaN, 0) — MF-03: pico nulo é indecidível.
+
+    Comportamento anterior (antes de MF-03): retornava (n/2, 0), propagando um
+    índice plausível sem base observacional. Agora retorna NaN para que o mosaic
+    possa mascarar o pixel via confiança 0 em vez de inventar n/2.
+    """
     y = np.zeros(9, dtype=np.float64)
     k, c = compute_argmax_fuzzy_1d(y, [0, 0], {"r_max": 2})
     assert c == 0.0
-    assert k == 9 / 2
+    assert np.isnan(k), f"pico nulo devolveu k={k} em vez de NaN (MF-03)"
 
 
 # --------------------------------------------------------------------------- #

@@ -144,7 +144,9 @@ def compute_argmax_fuzzy_1d(focus_values, pixel_location, fuzzy_params=None, csv
     k_max = find_index_of_max_sum(focus_values)
 
     if focus_values[k_max] == 0:
-        return n / 2, 0
+        # MF-03: pico nulo = profundidade indecidível. NaN propaga a invalidez;
+        # o consumidor (mosaic) mascara via confiança 0 em vez de inventar n/2.
+        return np.nan, 0
 
     # Calcula o raio r da regressão
     r_max = fuzzy_params.get("r_max", 2)

@@ -6,10 +6,12 @@ diretamente comparável ao ground truth. Falha = achado MF-xx.
 """
 
 import numpy as np
+import pytest
 from synthetic_utils import defocus_stack, gaussian_bump, texture
 
 from hybrid_stereo_method.multifocus.argmax_fuzzy import compute_argmax_fuzzy
 from hybrid_stereo_method.multifocus.indicators.applicator import focus_indicator
+from hybrid_stereo_method.multifocus.mosaic import mosaic
 
 
 def _run_multifocus(depth, size, n_frames, seed=3):
@@ -114,3 +116,30 @@ def test_confidence_is_scale_invariant_goodness_of_fit():
     assert np.allclose(wSel, wSel_scaled, atol=1e-6), (
         "confiança R² não é invariante à escala global"
     )
+
+
+def test_zero_peak_returns_nan_not_middle_frame():
+    """MF-03: pico de foco nulo é indecidível — deve virar NaN/conf 0, não n/2."""
+    from hybrid_stereo_method.multifocus.argmax_fuzzy import compute_argmax_fuzzy_1d
+
+    k, conf = compute_argmax_fuzzy_1d(np.zeros(9), [0, 0], {"r_max": 2})
+    assert conf == 0
+    assert np.isnan(k), f"pico nulo devolveu k={k} em vez de NaN (MF-03)"
+
+
+def test_mosaic_masks_zero_confidence_pixels():
+    """MF-04: pixels com confiança 0 não podem entrar no zMos como profundidade
+    válida — viram NaN; o sMos usa o frame mais próximo (precisa de valor)."""
+    n, h, w = 5, 4, 4
+    stack = np.random.default_rng(0).uniform(0, 255, (n, h, w, 3))
+    z_foc = [10.0, 20.0, 30.0, 40.0, 50.0]
+    iSel = np.full((h, w), 2.0)
+    iSel[0, 0] = np.nan  # MF-03: pixel indecidível
+    wSel = np.ones((h, w))
+    wSel[1, 1] = 0.0  # confiança zero
+
+    sMos, zMos = mosaic(iSel, stack, z_foc, "linear_interpolation", wSel=wSel)
+
+    assert np.isnan(zMos[0, 0]) and np.isnan(zMos[1, 1])
+    assert np.isfinite(sMos).all(), "sMos deve sempre ter valor (consumido pelo PS)"
+    assert zMos[2, 2] == 30.0
