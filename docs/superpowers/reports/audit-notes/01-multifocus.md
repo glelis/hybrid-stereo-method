@@ -305,7 +305,7 @@ regiões sem textura. A detecção de "sem sinal" permanece no ramo `focus_value
 - **Localização:** `src/hybrid_stereo_method/multifocus/indicators/applicator.py:80-93`
 - **Tipo:** implementação
 - **Severidade:** médio
-- **Status:** suspeita
+- **Status:** corrigido (`903472d`, 2026-06-06)
 
 **Descrição:** Após calcular o indicador de foco, o stack inteiro é clipado no percentil 1
 *global* e dividido pelo máximo *global*. (1) O clip `np.clip(stack, p1, +inf)` substitui
@@ -327,6 +327,15 @@ cD**2)` em wavelet.py:19 — logo o ramo de subtração praticamente nunca execu
 **Sugestão de correção:** decidir explicitamente o piso (subtrair `min_val`
 incondicionalmente após clip, ou não clipar o fundo) e tratar `max_val == 0` com aviso/
 máscara. Validar por teste sintético que o vértice do ajuste é insensível à escolha.
+
+**Correção aplicada:** `903472d` (2026-06-06) — substituído o par de guardas
+(`if min_val < 0` / `if max_val > 0`) por deslocamento incondicional
+`focus_indicator_stack -= np.min(focus_indicator_stack)` pós-clip, seguido de
+`if max_val > 0: stack /= max_val` e `else: logging.warning("…no focus signal…")`.
+O deslocamento afim e uniforme entre frames não altera o argmax por pixel nem o vértice
+da parábola sub-pixel (MF-07 R² também é invariante a deslocamento de escala).
+A guarda `if min_val < 0` nunca disparava porque todos os indicadores retornam
+`|.|>=0`. Teste: `tests/test_multifocus_synthetic.py::test_focus_indicator_normalization_floor_and_degenerate_stack`.
 
 ---
 

@@ -113,6 +113,7 @@ O clip no percentil 1 global achata o fundo dos frames de baixa energia; a guard
 - Localização: `applicator.py:80-93`
 - Evidência: `p1=np.percentile(stack,1); np.clip(stack,p1,inf)`; indicadores retornam magnitude ≥0 (`laplacian.py:36`, `fourier.py:36`, `wavelet.py:19`).
 - Correção sugerida: decidir o piso explicitamente; tratar `max_val==0` com aviso/máscara.
+- **Correção aplicada:** `903472d` (2026-06-06) — substituído o par de guardas (`if min_val<0` / `if max_val>0`) por deslocamento incondicional `stack -= stack.min()` pós-clip seguido de `if max_val>0: stack/=max_val else: logging.warning("…no focus signal…")`. O deslocamento é afim e uniforme entre frames (não altera argmax nem vértice da parábola); a guarda antiga nunca disparava pois indicadores são `|.|>=0`. Teste: `tests/test_multifocus_synthetic.py::test_focus_indicator_normalization_floor_and_degenerate_stack` — verifica `fi.min()==0.0, fi.max()==1.0` para stack normal e `fi==0` + WARNING para stack constante.
 
 **MF-09 — Indicador de Fourier é global (FFT da imagem inteira), não local por pixel** (conceitual, alto, suspeita)
 O indicador "fourier" faz FFT/máscara passa-alta/IFFT sobre a imagem inteira; cada pixel da reconstrução depende de todas as frequências (kernel de suporte global), espalhando resposta de bordas (ringing) e violando a localidade da seleção por pixel.
