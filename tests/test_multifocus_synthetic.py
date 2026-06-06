@@ -162,6 +162,22 @@ def test_warn_nonuniform_z_foc(caplog):
     assert not caplog.records
 
 
+def test_focus_indicator_unknown_type_raises():
+    """MF-10: tipo desconhecido caía em UnboundLocalError silencioso."""
+    with pytest.raises(ValueError, match="Unknown focus_indicator_type"):
+        focus_indicator(np.zeros((2, 8, 8)), "tipografado")
+
+
+def test_non_linear_res_dispatch_and_plane_residual():
+    """MF-10: 'non_linear_res' despachável; num plano perfeito o resíduo do
+    ajuste de plano é ~0 (o WLS usa os MESMOS pesos W do resíduo)."""
+    y, x = np.mgrid[0:16, 0:16].astype(np.float64)
+    plane = 3.0 * x - 2.0 * y + 5.0
+    fi = focus_indicator(np.stack([plane, plane]), "non_linear_res")
+    assert fi.shape == (2, 16, 16)
+    assert np.allclose(fi, 0.0, atol=1e-8), "plano perfeito deve ter resíduo ~0"
+
+
 def test_focus_indicator_normalization_floor_and_degenerate_stack(caplog):
     """MF-08: o piso pós-clip deve ser deslocado a 0 explicitamente (a guarda
     min_val<0 nunca dispara em indicadores |.|>=0), e stack constante (max==0)

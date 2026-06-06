@@ -5,6 +5,7 @@ import numpy as np
 
 from hybrid_stereo_method.multifocus.indicators.fourier import calculate_fourier_focus_indicator
 from hybrid_stereo_method.multifocus.indicators.laplacian import calculate_laplacian_focus_indicator
+from hybrid_stereo_method.multifocus.indicators.non_linear_res import calcular_indicador_foco
 from hybrid_stereo_method.multifocus.indicators.wavelet import calculate_wavelet_focus_indicator
 from hybrid_stereo_method.multifocus.utils import zero_borders
 
@@ -41,6 +42,12 @@ def focus_indicator(
 
         elif focus_indicator_type == "wavelet":
             focus_indicator = calculate_wavelet_focus_indicator(img)
+
+        elif focus_indicator_type == "non_linear_res":
+            focus_indicator = calcular_indicador_foco(img)
+
+        else:
+            raise ValueError(f"Unknown focus_indicator_type: {focus_indicator_type!r}")
 
         if square:
             # Square the reconstructed image (enhances differences)
