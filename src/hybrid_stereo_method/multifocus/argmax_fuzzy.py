@@ -100,19 +100,18 @@ def find_peak_index(focus_values) -> int:
     return int(candidates[np.argmax(support)])
 
 
-
 def compute_argmax_fuzzy_1d(focus_values, pixel_location, fuzzy_params=None, csv_writer=None):
     """Argmax difuso e confiança de um perfil de foco 1D (ao longo dos frames).
 
-    Ajusta uma parábola ponderada na vizinhança do pico e devolve o vértice
-    (``k_fuzzy``) como profundidade sub-frame. A confiança (``conf``) é o R²
-    (coeficiente de determinação) desse ajuste local — invariante a ganho/offset
-    da curva e em [0,1], com significado uniforme entre pixels/imagens (MF-07).
+    Ajusta uma parábola (não-ponderada, MF-06) na vizinhança do pico e devolve
+    o vértice (``k_fuzzy``) como profundidade sub-frame. A confiança (``conf``)
+    é o R² (coeficiente de determinação) desse ajuste local — invariante a
+    ganho/offset da curva e em [0,1], com significado uniforme entre
+    pixels/imagens (MF-07).
 
-    Toda a lógica de rejeição é preservada: vértice fora de janela / curva
-    convexa ou quase plana -> conf 0; ``fnoc < 0`` -> conf 0; janela plana
-    (``ss_tot ≈ 0``, sem pico decidível) -> conf 0; fallbacks degenerados ->
-    conf 0. R² é grampeado a [0,1] (ajustes ponderados podem dar ss_res > ss_tot).
+    Lógica de rejeição: vértice extrapolado fora de [0, n-1] → conf 0 (MF-11);
+    curva convexa ou quase plana → conf 0; ``fnoc < 0`` → conf 0; janela plana
+    (``ss_tot ≈ 0``, sem pico decidível) → conf 0; fallbacks degenerados → conf 0.
 
     Returns:
         tuple[float, float]: ``(k_fuzzy, conf)``.
@@ -174,28 +173,34 @@ def compute_argmax_fuzzy_1d(focus_values, pixel_location, fuzzy_params=None, csv
         fnoc = 0
 
     else:  # calcula o ponto de maximo da funcao
-        k_fuzzy = -B / (2 * A)  # ponto de maximo da funcao x
-        k_fuzzy = max(0, min(n, k_fuzzy))  # garante que o ponto esta dentro do intervalo
-
-        fnoc = -(B**2) / (4 * A) + C  # valor do foco funcao no ponto maximo y(x)
-        if fnoc < 0:
+        k_raw = -B / (2 * A)
+        if k_raw < 0 or k_raw > n - 1:
+            # MF-11: vértice fora do stack — pico não bracketado pelos frames.
+            # Clampa ao índice VÁLIDO máximo (n-1, não n) e zera a confiança.
+            k_fuzzy = max(0.0, min(float(n - 1), k_raw))
             conf = 0
+            fnoc = 0
         else:
-            # MF-07: confianca = R^2 (nao-ponderado, pesos removidos pelo MF-06) do
-            # ajuste parabolico local (invariante a escala da curva de foco, em [0,1]).
-            # Substitui o antigo |A|/fnoc, cuja escala dependia da normalizacao global.
-            x_arr = np.asarray(x_list, dtype=np.float64)
-            y_arr = np.asarray(y_list, dtype=np.float64)
-            y_hat = A * x_arr**2 + B * x_arr + C
-            y_bar = float(np.mean(y_arr))
-            ss_res = float(np.sum((y_arr - y_hat) ** 2))
-            ss_tot = float(np.sum((y_arr - y_bar) ** 2))
-            if ss_tot < polyfit_epsilon:
-                # janela plana: sem variacao para explicar, pico indecidivel
+            k_fuzzy = k_raw
+            fnoc = -(B**2) / (4 * A) + C  # valor do foco funcao no ponto maximo y(x)
+            if fnoc < 0:
                 conf = 0
             else:
-                r2 = 1.0 - ss_res / ss_tot
-                conf = float(min(1.0, max(0.0, r2)))  # grampeia a [0,1]
+                # MF-07: confianca = R^2 (nao-ponderado, pesos removidos pelo MF-06) do
+                # ajuste parabolico local (invariante a escala da curva de foco, em [0,1]).
+                # Substitui o antigo |A|/fnoc, cuja escala dependia da normalizacao global.
+                x_arr = np.asarray(x_list, dtype=np.float64)
+                y_arr = np.asarray(y_list, dtype=np.float64)
+                y_hat = A * x_arr**2 + B * x_arr + C
+                y_bar = float(np.mean(y_arr))
+                ss_res = float(np.sum((y_arr - y_hat) ** 2))
+                ss_tot = float(np.sum((y_arr - y_bar) ** 2))
+                if ss_tot < polyfit_epsilon:
+                    # janela plana: sem variacao para explicar, pico indecidivel
+                    conf = 0
+                else:
+                    r2 = 1.0 - ss_res / ss_tot
+                    conf = float(min(1.0, max(0.0, r2)))  # grampeia a [0,1]
 
     if csv_writer is not None:
         # Save debug information to the shared CSV file

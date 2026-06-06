@@ -24,3 +24,14 @@ def test_parabola_vertex_unbiased_by_value_weights():
     k, conf = compute_argmax_fuzzy_1d(fv, [0, 0], {"r_max": 2})
     assert conf > 0
     assert abs(k - 4.3) < 0.1, f"vértice enviesado: {k:.3f} (gt 4.3) — MF-06"
+
+
+def test_vertex_outside_stack_clamps_to_n_minus_1_with_zero_conf():
+    """MF-11: clamp era min(n, k) — índice n não existe; e vértice extrapolado
+    (fora de [0, n-1]) significa pico não-bracketado -> conf 0."""
+    from hybrid_stereo_method.multifocus.argmax_fuzzy import compute_argmax_fuzzy_1d
+
+    fv = np.array([0.0, 0.05, 0.1, 0.3, 0.7, 1.0])  # acelerada: k_raw=7.5 > n-1=5
+    k, conf = compute_argmax_fuzzy_1d(fv, [0, 0], {"r_max": 2})
+    assert k <= len(fv) - 1, f"k={k} excede o índice máximo válido {len(fv)-1}"
+    assert conf == 0, "vértice extrapolado deve ter confiança 0"
