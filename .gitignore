@@ -25,3 +25,7 @@ data/processed/
 venv/
 src/hybrid_stereo_method.egg-info/
 
+
+# Coverage artifacts
+.coverage
+src/.coverage
