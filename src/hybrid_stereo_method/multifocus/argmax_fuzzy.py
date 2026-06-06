@@ -42,7 +42,6 @@ def compute_argmax_fuzzy(
                 "focus_values",
                 "x_list",
                 "y_list",
-                "w_list",
                 "k_fuzzy",
                 "conf",
                 "fnoc",
@@ -101,22 +100,6 @@ def find_peak_index(focus_values) -> int:
     return int(candidates[np.argmax(support)])
 
 
-def calculate_weights(focus_values: np.array) -> np.array:
-    """
-    Calculate weights for the focus values. Higher focus values will have higher weights.
-
-    Args:
-        focus_values (list): List of focus values.
-
-    Returns:
-        list: List of weights corresponding to the focus values.
-    """
-    total_focus = sum(focus_values)
-    if total_focus == 0:
-        return [1] * len(focus_values)  # Avoid division by zero, return equal weights
-    # Add small regularization to avoid zero weights which can cause SVD to not converge
-    return [(value / total_focus) + 1e-6 for value in focus_values]
-
 
 def compute_argmax_fuzzy_1d(focus_values, pixel_location, fuzzy_params=None, csv_writer=None):
     """Argmax difuso e confiança de um perfil de foco 1D (ao longo dos frames).
@@ -172,20 +155,17 @@ def compute_argmax_fuzzy_1d(focus_values, pixel_location, fuzzy_params=None, csv
     # aproxima uma funcao de segundo grau nos valores focus_values[k0..k1]
     x_list = list(range(k0, k1 + 1))  # posicao dos pontos
     y_list = list(focus_values[k0 : k1 + 1])
-    w_list = calculate_weights(focus_values[k0 : k1 + 1])
 
+    # MF-06: ajuste nao-ponderado — pesos proporcionais ao valor de foco (antigo
+    # calculate_weights) enviesam o vertice para o frame de maior valor bruto,
+    # quebrando a premissa de minimos quadrados (pesos devem refletir incerteza,
+    # nao magnitude do sinal).
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            A, B, C = tuple(
-                np.polyfit(x_list, y_list, 2, w=w_list)
-            )  # coeficientes da funcao de segundo grau
+            A, B, C = tuple(np.polyfit(x_list, y_list, 2))  # coeficientes da funcao de segundo grau
     except np.linalg.LinAlgError:
-        try:
-            A, B, C = tuple(np.polyfit(x_list, y_list, 2))
-        except np.linalg.LinAlgError:
-            # If all fits fail, fallback to returning the max index
-            return k_max, 0
+        return k_max, 0
 
     polyfit_epsilon = fuzzy_params.get("polyfit_epsilon", 1.0e-9)
     if A > 0 or abs(A) < polyfit_epsilon:  # se a funcao for convexa ou muito proxima de zero
@@ -201,20 +181,15 @@ def compute_argmax_fuzzy_1d(focus_values, pixel_location, fuzzy_params=None, csv
         if fnoc < 0:
             conf = 0
         else:
-            # MF-07: confianca = R^2 (ponderado) do ajuste parabolico local
-            # (invariante a escala da curva de foco, em [0,1]). Substitui o antigo
-            # |A|/fnoc, cuja escala dependia da normalizacao global do stack. O R^2
-            # usa os MESMOS pesos do ajuste (np.polyfit acima e ponderado): assim
-            # ele mede o quao bem a parabola explica os pontos que o ajuste de fato
-            # priorizou (o pico), evitando penalizar caudas onde o peso e ~0.
+            # MF-07: confianca = R^2 (nao-ponderado, pesos removidos pelo MF-06) do
+            # ajuste parabolico local (invariante a escala da curva de foco, em [0,1]).
+            # Substitui o antigo |A|/fnoc, cuja escala dependia da normalizacao global.
             x_arr = np.asarray(x_list, dtype=np.float64)
             y_arr = np.asarray(y_list, dtype=np.float64)
-            w_arr = np.asarray(w_list, dtype=np.float64)
             y_hat = A * x_arr**2 + B * x_arr + C
-            w_sum = float(np.sum(w_arr))
-            y_bar = float(np.sum(w_arr * y_arr) / w_sum) if w_sum > 0 else float(np.mean(y_arr))
-            ss_res = float(np.sum(w_arr * (y_arr - y_hat) ** 2))
-            ss_tot = float(np.sum(w_arr * (y_arr - y_bar) ** 2))
+            y_bar = float(np.mean(y_arr))
+            ss_res = float(np.sum((y_arr - y_hat) ** 2))
+            ss_tot = float(np.sum((y_arr - y_bar) ** 2))
             if ss_tot < polyfit_epsilon:
                 # janela plana: sem variacao para explicar, pico indecidivel
                 conf = 0
@@ -231,7 +206,6 @@ def compute_argmax_fuzzy_1d(focus_values, pixel_location, fuzzy_params=None, csv
                 [float(v) for v in focus_values],
                 [int(x) for x in x_list],
                 [float(y) for y in y_list],
-                [float(w) for w in w_list],
                 float(k_fuzzy),
                 float(conf),
                 float(fnoc),
