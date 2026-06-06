@@ -200,8 +200,7 @@ def write_report_md(
                 "| | multifocus sozinho | resultado final |",
                 "|---|---|---|",
                 f"| RMSE afim | {_fmt(hg['rmse_multifocus'])} | {_fmt(hg['rmse_final'])} |",
-                f"| Pearson r | {_fmt(hg['pearson_multifocus'])} | "
-                f"{_fmt(hg['pearson_final'])} |",
+                f"| Pearson r | {_fmt(hg['pearson_multifocus'])} | {_fmt(hg['pearson_final'])} |",
                 "",
                 f"**Ganho** (RMSE_multifocus / RMSE_final): **{_fmt(hg['gain'], 2)}** "
                 "(> 1 = a combinação melhorou; máscara comum aos dois mapas).",
