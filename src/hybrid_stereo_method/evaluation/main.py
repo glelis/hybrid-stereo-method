@@ -66,6 +66,13 @@ def _package_version() -> str:
         return "unknown"
 
 
+def _to_255_scale(img: np.ndarray) -> np.ndarray:
+    """Imagem inteira (8 ou 16 bits) → float64 na escala 0-255 (PSNR/SSIM comuns)."""
+    if np.issubdtype(img.dtype, np.integer):
+        return img.astype(np.float64) * (255.0 / float(np.iinfo(img.dtype).max))
+    return img.astype(np.float64)
+
+
 def run_evaluation(
     results_dir: str | Path,
     data_dir: str | Path | None = None,
@@ -151,7 +158,7 @@ def run_evaluation(
             if est is None or gt_img is None:
                 logging.warning("mosaico ilegível para %s — pulado", light)
                 continue
-            loaded_pairs.append((light, est, gt_img))
+            loaded_pairs.append((light, _to_255_scale(est), _to_255_scale(gt_img)))
         metrics["mosaics"] = evaluate_mosaics(loaded_pairs)
 
     # --- 4. fotométrico: normais --------------------------------------------
