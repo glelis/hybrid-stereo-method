@@ -166,31 +166,35 @@ O código normaliza a normal (descartando `||m||`=albedo) e recomputa `albedo=||
 - Localização: `wps.py:198` (origem `:189-194`)
 - Evidência: `test_wps_albedo_recovers_true_albedo` (Task 10, xfail) — albedo mediano 1.7 (4 luzes) e 2.4 (8 luzes) vs ρ=200; ratio `med/sqrt(N)` constante = 0.8526, confirmando `albedo≈sqrt(N)·f(geometria)`.
 - Correção sugerida: `albedo=||m||` antes de normalizar (`ρ=||m||`, `n̂=m/||m||`).
+- **Correção aplicada:** `75c6471` (2026-06-06) — `rho=||m||`, `normal=m/rho`, `albedo[i,j]=rho`. Antes: 1.7/2.4 para 4/8 luzes. Após: **200.0** para ambos (XFAIL→PASS). **Status: corrigido.**
 
 **PS-02 — Limiar de sombra relativo ao máximo do pixel quase nunca rejeita em 8 bits** (implementação, alto, suspeita — não confirmado pelo teste sintético float; permanece para 8 bits reais)
 O critério `pixel_values/v_max > shadow_threshold` (default `1e-3`) é avaliado por entrada; em dados 8 bits o menor valor não-nulo é `1/255≈3.9e-3 > 1e-3`, então sombras parciais entram no `lstsq`. Highlights/saturação não são tratados aqui.
 - Localização: `wps.py:151-152` (default `:135`)
 - Evidência: `test_wps_shadowed_pixels_flagged_not_garbage` PASSED com render float (zeros exatos nas sombras → rejeição funciona). Verificação do revisor: substituindo zeros pelo piso 8 bits, erro angular sobe de 0.004° para 3.6° médio / 20° máx — confirma a fraqueza para dados reais de 8 bits.
 - Correção sugerida: limiar **absoluto** em radiância linear + limiar superior para saturação.
-- **Correção aplicada:** `cfab906` (2026-06-06) — `shadow_absolute_threshold` e `saturation_threshold` adicionados a `estimate_normals_argmax_lstsq_robust`; ambos default `None` (off, comportamento anterior preservado). Confirmado por execução: piso 8-bit erro 3.644° → 0.005° com `shadow_absolute_threshold=2.0`; saturação erro 5.213° → 0.006° com `saturation_threshold=250.0`. Novas chaves em `configs/hb_experiment.yaml` e `configs/wps_experiment.yaml`. 2 novos testes passando; PS-01/PS-03 xfail inalterados.
+- **Correção aplicada:** `cfab906` (2026-06-06) — `shadow_absolute_threshold` e `saturation_threshold` adicionados a `estimate_normals_argmax_lstsq_robust`; ambos default `None` (off, comportamento anterior preservado). Confirmado por execução: piso 8-bit erro 3.644° → 0.005° com `shadow_absolute_threshold=2.0`; saturação erro 5.213° → 0.006° com `saturation_threshold=250.0`. Novas chaves em `configs/hb_experiment.yaml` e `configs/wps_experiment.yaml`. 2 novos testes passando.
 
 **PS-03 — Remoção de outliers por 3×média(|residual|): limiar não robusto** (implementação, médio, confirmado)
 O critério `residuals <= 3·mean(|residuals|)` usa a média (não robusta); um outlier grande infla a própria média e mascara o outlier que deveria ser removido (mascaramento clássico).
 - Localização: `wps.py:163-185`
 - Evidência: `test_wps_robust_to_saturation` (Task 10, xfail) — 2 de 8 luzes saturadas a 60% do máximo produziram erro angular médio 15.13° (limiar do teste 5°).
 - Correção sugerida: mediana + MAD (ou IQR); opcionalmente limitar iterações.
+- **Correção aplicada:** `c1d715d` (2026-06-06) — critério simétrico `r_med+k*1.4826*MAD` + critério unilateral para saturação (`sat_med+k_sat*1.4826*sat_mad`, k_sat default 1.0); `mad==0` early-break. Antes: 15.13° com 2/8 luzes saturadas. Após: **2.86°** (XFAIL→PASS). **Status: corrigido.**
 
 **PS-04 — `residual_std` da confiança é o do ajuste antes da última remoção de outliers** (implementação, baixo, verificado por inspeção de fluxo — risco de manutenção)
 Hoje correto por construção: o único `break` ocorre quando `mask` mantém todos, alinhando `residuals`/`normal`/`selected_*`. O achado é a fragilidade a refatoração (acoplamento implícito sem asserção).
 - Localização: `wps.py:163-176,203-206`
 - Evidência: `break` só quando `sum(mask)==len` (`wps.py:175`); alinhamento garantido pela topologia do laço, não por invariante explícita.
 - Correção sugerida: recomputar `residuals` do `normal`/conjunto finais antes de derivar confiança.
+- **Correção aplicada:** `75c6471` (2026-06-06) — `residuals = np.abs(np.dot(selected_lights, m) - selected_values)` pós-loop, invariante agora explícita. **Status: corrigido.**
 
 **PS-05 — Confiança `(N/M)·1/(1+residual_std)` não é invariante a ganho radiométrico** (conceitual, médio, suspeita)
 Os resíduos estão na unidade de `I` (0-255), mas `L·n̂` é O(1) (`n̂` unitário); `1/(1+residual_std)→0` para quase tudo em 0-255, e a confiança muda se a entrada for 0-1 (não invariante a ganho). Sem consumidor ativo (limita o impacto a relatório).
 - Localização: `wps.py:200-206`
 - Evidência: `residual_std=np.std(residuals)` sobre resíduos em unidade de `I`; `n̂` unitário ⇒ escalas diferentes.
 - Correção sugerida: normalizar o resíduo pela escala do sinal (`/(albedo+eps)`) ou trabalhar em 0-1 com albedo explícito.
+- **Correção aplicada:** `75c6471` (2026-06-06) — `residual_std = np.std(residuals) / (rho + epsilon)` (rho=albedo do mesmo commit, PS-01). Teste: `test_confidence_invariant_to_radiometric_gain` — conf(0-255)==conf(0-1) dentro de rtol=1e-3/atol=1e-4 (PASS). **Status: corrigido.**
 
 **PS-06 — NaN nas normais (sombra/degenerado) escritos no FNI consumido pelo solver C** (implementação, alto, suspeita — lead fechado por INT-03)
 Pixels com <3 luzes válidas ou solução degenerada recebem `np.nan`, salvos sem tratamento em `normal_map.npy` e formatados como `+nan` no FNI; sem máscara de validade pela via das normais.
@@ -298,7 +302,7 @@ O caminho `-slopes` com mapa de 2 canais (o que o wrapper grava e documenta) abo
         0.952142  z = -ax*x + ay*y
         1.025489  z = -ax*x - ay*y (tudo invertido)
   ```
-  Consistente com o vencedor via `-normals`. Suíte completa: 102 passed, 2 xfailed (PS-01, PS-03).
+  Consistente com o vencedor via `-normals`. Suíte completa pós-INT-08: 102 passed, 2 xfailed (PS-01, PS-03). Após PS-03 (`c1d715d`) e PS-01/PS-04/PS-05 (`75c6471`): **110 passed, 0 xfailed**. E2E baseline: RMSE=0.0703, Pearson r=0.9974.
 
 ### 2.4 Infra/IO (IO-xx)
 
@@ -553,5 +557,9 @@ eram evidência confirmatória de achados: `test_wps_albedo_recovers_true_albedo
 `test_constant_slopes_recover_ramp_and_decide_convention` (INT-08).
 
 **Estado pós-correções (2026-06-06):** `pytest -q` → **102 passed, 2 xfailed**. Os 2 xfailed
-restantes são PS-01 e PS-03 (pendentes). `test_hybrid_pipeline_end_to_end` (MF-14) e
-`test_constant_slopes_recover_ramp_and_decide_convention` (INT-08) passam sem xfail.
+restantes eram PS-01 e PS-03 (pendentes). `test_hybrid_pipeline_end_to_end` (MF-14) e
+`test_constant_slopes_recover_ramp_and_decide_convention` (INT-08) passavam sem xfail.
+
+**Estado final com PS-03 + PS-01/PS-04/PS-05 (2026-06-06):** `pytest -m "not slow" -q` → **95 passed, 0 xfailed**
+(total com slow: **110 passed, 0 xfailed**). PS-01/PS-03/PS-04/PS-05 xfails eliminados. Novo teste
+`test_confidence_invariant_to_radiometric_gain` (PS-05). E2E baseline: RMSE=0.0703, Pearson r=0.9974.

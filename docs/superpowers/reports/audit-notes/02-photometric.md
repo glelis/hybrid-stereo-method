@@ -26,7 +26,7 @@ os achados são "suspeita", salvo quando o código por si só prova o defeito
 - **Localização:** `src/hybrid_stereo_method/photometric/wps.py:198`
 - **Tipo:** conceitual
 - **Severidade:** baixo
-- **Status:** confirmado (teste: `tests/test_photometric_synthetic.py::test_wps_albedo_recovers_true_albedo`)
+- **Status:** corrigido (`75c6471`, 2026-06-06)
 
 **Evidência de execução:** com ρ=200 e dados sintéticos limpos, albedo mediano = **1.7** para 4 luzes e **2.4** para 8 luzes. Ratio `med / sqrt(n_lights)` constante = 0.8526 em ambos — confirma exatamente a lei de escala `albedo ≈ sqrt(N) × f(geometria)` prevista. Teste marcado `@pytest.mark.xfail(strict=True)` após captura da falha bruta. xfail aplicado DEPOIS de capturar as medições.
 
@@ -58,6 +58,10 @@ deve mostrar o "albedo" crescendo com o nº de luzes — confirmando o defeito.
 
 **Sugestão de correção:** definir `albedo[i,j] = np.linalg.norm(m)` onde `m` é a solução
 `lstsq` **antes** de normalizar (`ρ = ||m||`, `n̂ = m/||m||`). NÃO aplicar.
+
+**Correção aplicada:** `75c6471` (2026-06-06) — `rho = np.linalg.norm(m)`, `normal = m/rho`,
+`albedo[i,j] = rho`. Guard `rho==0 or not isfinite(rho)` preservado. Antes: albedo mediano ≈1.7 (4 luzes)
+/ ≈2.4 (8 luzes) para ρ=200. Após: albedo mediano = **200.0** para ambos (XFAIL → PASS confirmado). **Status: corrigido.**
 
 ---
 
@@ -119,7 +123,7 @@ e `configs/wps_experiment.yaml`.
 - **Localização:** `src/hybrid_stereo_method/photometric/wps.py:163-185`
 - **Tipo:** implementação
 - **Severidade:** médio
-- **Status:** confirmado (teste: `tests/test_photometric_synthetic.py::test_wps_robust_to_saturation`)
+- **Status:** corrigido (`c1d715d`, 2026-06-06)
 
 **Evidência de execução:** com 2 das 8 luzes saturadas em 60% do máximo, erro angular médio = **15.13°** (limiar do teste: 5°). O mascaramento clássico (a média dos resíduos é inflada pelos outliers, elevando o limiar até não rejeitar nada) se manifesta claramente. Teste marcado `@pytest.mark.xfail(strict=True)` após captura da falha bruta.
 
@@ -143,6 +147,14 @@ enviesadas quando a saturação infla `r_avg`.
 **Sugestão de correção:** usar mediana + MAD (ou IQR) para o limiar de outlier em vez de
 3×média; opcionalmente limitar o número de iterações. NÃO aplicar.
 
+**Correção aplicada:** `c1d715d` (2026-06-06) — dois critérios combinados:
+(a) Simétrico: `residuals <= r_med + k*1.4826*MAD` (mascaramento resolvido);
+(b) Unilateral: rejeita medições onde `I_pred - I_obs > sat_med + k_sat*1.4826*sat_mad`
+(saturação sempre cria underprediction unilateral). `saturation_outlier_multiplier` default 1.0
+(mais apertado que k_sym=3 do critério simétrico); `mad==0` → break (resíduos idênticos).
+Antes: erro angular médio 15.13° com 2/8 luzes saturadas. Após: 2.86°.
+Teste: `test_wps_robust_to_saturation` (XFAIL → PASS confirmado). **Status: corrigido.**
+
 ---
 
 ## PS-04: `residual_std` usado na confiança é o do ajuste ANTES da última remoção de outliers
@@ -150,7 +162,7 @@ enviesadas quando a saturação infla `r_avg`.
 - **Localização:** `src/hybrid_stereo_method/photometric/wps.py:163-176`, `203-206`
 - **Tipo:** implementação
 - **Severidade:** baixo
-- **Status:** verificado por inspeção de fluxo — risco de manutenção
+- **Status:** corrigido (`75c6471`, 2026-06-06)
 
 **Descrição:** A análise de fluxo mostra que **todos** os caminhos que alcançam o bloco de
 confiança (guard `>= 3`) chegam com `residuals`, `normal` e `selected_*` mutuamente
@@ -175,6 +187,8 @@ invariante explícita.
 e do conjunto final antes de derivar confiança, removendo a dependência da ordem do
 `break`. NÃO aplicar.
 
+**Correção aplicada:** `75c6471` (2026-06-06) — `residuals = np.abs(np.dot(selected_lights, m) - selected_values)` recomputa os resíduos do modelo final **m** sobre o conjunto final, após o loop. A invariante de alinhamento agora é explícita e não depende da topologia do loop. **Status: corrigido.**
+
 ---
 
 ## PS-05: Confiança `(N/M)·1/(1+residual_std)` não é invariante a ganho radiométrico
@@ -182,7 +196,7 @@ e do conjunto final antes de derivar confiança, removendo a dependência da ord
 - **Localização:** `src/hybrid_stereo_method/photometric/wps.py:200-206`
 - **Tipo:** conceitual
 - **Severidade:** médio
-- **Status:** suspeita (decide: teste sintético confiança 0-1 vs 0-255)
+- **Status:** corrigido (`75c6471`, 2026-06-06)
 
 **Descrição:** A confiança é `(N/M) · 1/(1 + residual_std)` (`wps.py:204-205`), onde
 `residual_std` é o desvio-padrão dos resíduos `|L·n̂ − I|`. Esses resíduos estão na **mesma
@@ -210,6 +224,11 @@ na integração ou em fusão de dados.
 **Sugestão de correção:** normalizar o resíduo pela escala do sinal (ex.: `residual_std /
 (albedo + eps)` ou trabalhar com intensidades em 0-1 e albedo explícito) para tornar a
 confiança invariante a ganho. NÃO aplicar.
+
+**Correção aplicada:** `75c6471` (2026-06-06) — `residual_std = np.std(residuals) / (rho + epsilon)`,
+onde `rho = ||m||` (PS-01, mesmo commit). A divisão por `rho` cancela o ganho radiométrico:
+`conf(255×I) = conf(I)`. Teste: `test_confidence_invariant_to_radiometric_gain` — conf(0-255)
+vs conf(0-1) dentro de rtol=1e-3/atol=1e-4 (PASS confirmado). **Status: corrigido.**
 
 ---
 
