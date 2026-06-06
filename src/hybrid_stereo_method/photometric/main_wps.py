@@ -31,6 +31,20 @@ from hybrid_stereo_method.photometric.wps import (
 )
 
 
+def linearize_intensities(img: np.ndarray, gamma: float) -> np.ndarray:
+    """Decode gamma-encoded intensities to linear radiance (PS-08).
+
+    The Lambertian model I = rho * (L . n) requires LINEAR intensities. The
+    pipeline assumes the input ``sVal.png`` are linear (gamma=1.0, default);
+    if the acquisition applied a gamma curve, set ``photometric.parameters.gamma``
+    to decode: I_lin = 255 * (I/255)^gamma.
+    """
+    if gamma == 1.0:
+        return img
+    img = np.asarray(img, dtype=np.float64)
+    return 255.0 * np.power(np.clip(img, 0.0, None) / 255.0, gamma)
+
+
 def main(parameters):
     experiment_type = parameters.get("experiment", {}).get("type")
     
@@ -117,6 +131,11 @@ def main(parameters):
 
     # Convert to grayscale
     images = [convert_to_grayscale(img) for img in images]
+
+    # Decode gamma if acquisition is not linear (PS-08/CONV-5).
+    # Default gamma=1.0 is the identity (assumes sVal.png are already linear).
+    gamma = float(parameters.get("photometric", {}).get("parameters", {}).get("gamma", 1.0))
+    images = [linearize_intensities(img, gamma) for img in images]
 
     # Load light sources
     logging.info("... Loading light sources ...")

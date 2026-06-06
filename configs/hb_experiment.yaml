@@ -84,12 +84,18 @@ photometric:
   parameters:
     # Solver method to use
     method: 'wodham_implementation_argmax'
-    
+
     # Scale factor for input images
     data_scale: 1.0
-    
+
     # Extension of input images
     image_extension: "png"
+
+    # Gamma of the acquisition. The Lambertian model requires LINEAR
+    # intensities (PS-08/CONV-5); 1.0 (default) means the sVal.png are already
+    # linear. If they are sRGB/gamma-encoded, set the encoding gamma (e.g. 2.2)
+    # to decode before solving.
+    gamma: 1.0
     
   solver:
     # Parameters for Weighted/Robust solvers

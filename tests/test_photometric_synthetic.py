@@ -7,8 +7,7 @@ Falha = achado PS-xx; não conserte o teste.
 """
 import numpy as np
 import pytest
-
-from synthetic_utils import gaussian_bump, normals_from_height, ring_lights, render_lambertian
+from synthetic_utils import gaussian_bump, normals_from_height, render_lambertian, ring_lights
 
 from hybrid_stereo_method.photometric.wps import estimate_normals_argmax_lstsq_robust
 
@@ -109,6 +108,20 @@ def test_wps_rejects_saturated_measurements():
     ang = _angular_error_deg(normals, n_gt, valid)
     print(f"\nsaturação tratada: erro médio = {ang.mean():.3f}°")
     assert ang.mean() < 1.0
+
+
+def test_linearize_gamma_helper():
+    """PS-08: o modelo Lambertiano exige intensidades lineares; se a aquisição
+    for gamma-encoded, decodificar com I_lin = 255*(I/255)^gamma."""
+    from hybrid_stereo_method.photometric.main_wps import linearize_intensities
+
+    img = np.array([[0.0, 127.5, 255.0]])
+    out = linearize_intensities(img, gamma=2.2)
+    np.testing.assert_allclose(out[0, 0], 0.0)
+    np.testing.assert_allclose(out[0, 2], 255.0)
+    np.testing.assert_allclose(out[0, 1], 255.0 * (0.5 ** 2.2), rtol=1e-12)
+    # gamma=1.0 é a identidade (default: dados assumidos lineares)
+    np.testing.assert_allclose(linearize_intensities(img, gamma=1.0), img)
 
 
 def test_wps_shadowed_pixels_flagged_not_garbage():
