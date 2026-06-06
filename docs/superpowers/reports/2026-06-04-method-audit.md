@@ -307,6 +307,7 @@ O writer FNI usa `f"{...:+.7e}"` (8 dígitos significativos): exato para float32
 - Localização: `image_io.py:173,176`
 - Evidência: round-trip `0.123456789012345 → +1.2345679e-01 → 0.12345679`; reader aloca float32 (`:223`). `test_fni_roundtrip` (Task 8) max rel diff ~6e-8 (epsilon float32).
 - Correção sugerida: `%.17g` (ou ≥`%.15e`) para FNIs com dados físicos; documentar precisão.
+- **Correção aplicada:** `4e1ad88` (2026-06-06) — ambos os format specs `:+.7e` substituídos por `:+.16e` com comentário IO-01; o arquivo FNI passa a carregar a precisão do float64 fonte. float32 consumers (reader Python + integrador C) continuam corretos — leem o prefixo, sem perda além do próprio float32. Teste: `test_roundtrip_preserves_float64_precision` verifica `+1.2345678901234500e-01` no texto do arquivo. **Status: corrigido.**
 
 **IO-02 — `read_fni_to_image_array` deixa pixels ausentes silenciosamente em 0** (implementação, médio, confirmado por inspeção)
 O reader aloca `np.zeros` e preenche pixel-a-pixel, sem verificar que todos os `ny*nx` foram escritos; um FNI truncado deixa regiões em 0 (indistinguível de altura/slope/confiança legítima 0), contaminando o resultado sem sinal.
