@@ -72,16 +72,26 @@ def normalize(x: np.ndarray) -> np.ndarray:
 
 
 def convert_to_grayscale(img: np.ndarray) -> np.ndarray:
-    """Convert an RGB/BGR image to grayscale.
+    """Convert an RGB/BGR image to grayscale (Rec.601 weights, BGR order).
+
+    Already-monochrome inputs (2-D or HxWx1) pass through unchanged (PS-09 —
+    cvtColor raises on single-channel input). Note: the legacy ``rps`` path
+    (``ps_utils.converter_npy_para_cinza``) uses a divergent RGB-vs-BGR
+    heuristic; this function is the canonical policy for the hybrid pipeline.
 
     Args:
-        img: Input color image in BGR format.
+        img: Input image. BGR 3-channel, BGR 4-channel, or already mono (2-D or
+            HxWx1). float64 inputs are cast to float32 before conversion.
 
     Returns:
-        Grayscale version of the input image.
+        Grayscale image with shape (H, W).
     """
     if img.dtype == np.float64:
         img = img.astype(np.float32)
+    if img.ndim == 2:
+        return img
+    if img.ndim == 3 and img.shape[2] == 1:
+        return img[:, :, 0]
     return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
 

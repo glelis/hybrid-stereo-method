@@ -124,6 +124,20 @@ def test_linearize_gamma_helper():
     np.testing.assert_allclose(linearize_intensities(img, gamma=1.0), img)
 
 
+def test_convert_to_grayscale_passthrough_for_mono():
+    """PS-09: imagem já monocromática (2-D ou HxWx1) não pode crashar o cvtColor."""
+    from hybrid_stereo_method.infrastructure.utils import convert_to_grayscale
+
+    mono = np.full((8, 8), 7, dtype=np.uint8)
+    out = convert_to_grayscale(mono)
+    assert out.shape == (8, 8)
+    np.testing.assert_array_equal(out, mono)
+
+    mono1 = mono[..., None]
+    out1 = convert_to_grayscale(mono1)
+    assert out1.shape == (8, 8)
+
+
 def test_wps_shadowed_pixels_flagged_not_garbage():
     """Luz rasante (tilt 75°) numa superfície inclinada gera attached shadows
     (n.l < 0 -> I = 0). Pixels com < 3 medições válidas devem virar NaN+conf 0,
