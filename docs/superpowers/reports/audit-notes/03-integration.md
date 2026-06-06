@@ -32,7 +32,7 @@ gradientes (`:449-450`), garante consistência de pixel (`:451`), aloca `Z` com 
 - **Localização:** `src/hybrid_stereo_method/hybrid/main.py:214`; consumido em `gus_integrate_recursive.c:543-546` (`demand(H != NULL, ...)`)
 - **Tipo:** implementação
 - **Severidade:** alto
-- **Status:** confirmado (por inspeção) — o ramo de aborto; "suspeita" para o impacto numérico do chute
+- **Status:** corrigido (`80f49cc`)
 
 **Descrição:** `IntegrateRecursiveConfig(initial_method=integration_params.get("initial_method", "hints"), ...)`
 usa default `"hints"` (`main.py:214`). Se o YAML omitir `initial_method` **e** `use_hints`

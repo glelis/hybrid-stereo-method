@@ -227,6 +227,7 @@ O `.get("initial_method","hints")` diverge do default `"zero"` do dataclass e do
 - Localização: `hybrid/main.py:214`; `gus_integrate_recursive.c:543-546`
 - Evidência: `.get("initial_method","hints")` vs dataclass `"zero"` (`integrate.py:45`); `demand`→`affirm` aborta (`affirm.h:29`).
 - Correção sugerida: default `"zero"` no `.get` (alinhar dataclass/binário); ou validar `initial=="hints" ⇒ use_hints`.
+- **Correção aplicada:** `80f49cc` (2026-06-05) — default alterado para `"zero"` no `.get`; validação antecipada `ValueError` quando `initial_method=="hints"` e `use_hints` não estiver ativo, com mensagem que cita INT-01. 1 novo teste em `tests/test_integration_units.py` (`test_initial_method_defaults_to_zero_and_hints_requires_use_hints`), passando junto com os 10 existentes.
 
 **INT-02 — `-00-end-Z.fni` ausente → lê silenciosamente o chute inicial `-ini-Z.fni`** (implementação, médio, suspeita — crash confirmado por teste; fallback obsoleto segue suspeita)
 Se o end-Z não existir, o Python faz fallback para `-ini-Z.fni`, que é o **chute inicial** (zero ou hints crus), devolvendo-o como resultado sem aviso. O caminho perigoso (returncode 0 sem end-Z) é inalcançável hoje (report final incondicional); os riscos vivos (end-Z em outro cwd, `-ini-Z` obsoleto) são especulativos.
