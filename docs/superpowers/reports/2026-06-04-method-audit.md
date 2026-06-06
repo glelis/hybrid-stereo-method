@@ -7,7 +7,14 @@ Este relatório consolida a varredura de corretude (matemática/teórica) e de i
 Cada estágio tem suas notas completas (evidência verbatim, reproduções, linhas) nos arquivos
 de `docs/superpowers/reports/audit-notes/`, referenciados em cada seção. Aqui constam entradas
 compactas com ID, tipo, severidade, status, localização, evidência decisiva e sugestão de
-correção. **Nenhuma correção foi aplicada** — o entregável é diagnóstico.
+correção.
+
+> **Estado:** diagnóstico concluído em 2026-06-05; **campanha de correções concluída em 2026-06-06**
+> (plano `docs/superpowers/plans/2026-06-05-method-audit-corrections.md`). **Todos os achados ativos
+> foram corrigidos ou mitigados** (mitigados = decisão dependente de dados reais ainda pendente); cada
+> bloco individual traz o SHA da correção em "Correção aplicada". O texto diagnóstico original abaixo é
+> preservado; as seções-resumo (§1.1, §1.2, §3, §4, §5.3) foram consolidadas para o estado
+> pós-correções.
 
 Convenção de severidade: **crítico** (corrompe o resultado científico) · **alto** (erro
 mensurável) · **médio** (degrada robustez/precisão em casos comuns) · **baixo** (caso de borda).
@@ -25,6 +32,8 @@ Total de IDs: **44** (MF 14, PS 11, INT 8, IO 6, CONV 5; CONV-3 não gerou achad
 refutados** e contados à parte, deixando **42 achados ativos**. "Confirmado" inclui confirmação por
 inspeção (o código prova o defeito) e por execução de teste.
 
+**Tabela A — diagnóstico (2026-06-05, estado no fechamento da auditoria):**
+
 | Severidade | Confirmado | Suspeita | Total ativo |
 |---|---|---|---|
 | Crítico | 3 | 0 | **3** |
@@ -33,6 +42,20 @@ inspeção (o código prova o defeito) e por execução de teste.
 | Baixo | 11 | 1 | **12** |
 | **Total ativo** | **19** | **23** | **42** |
 | Refutado (à parte) | — | — | **2** |
+
+**Tabela B — estado pós-correções (2026-06-06):** a campanha endereçou os 42 achados ativos + os 2
+refutados (cuja metade física permanecia aberta) + 1 regressão nova introduzida e corrigida na própria
+campanha (REG-01).
+
+| Estado pós-correções | N | IDs |
+|---|---|---|
+| **Corrigido** | **40** | os 42 ativos exceto MF-13 e INT-06 (inclui CONV-5/IO-04/IO-05 fechados por composição) |
+| **Mitigado** (decisão de dados reais pendente) | **2** | MF-13 (z_foc uniforme; aviso), INT-06 (reference_scale; metade física aberta) |
+| **Refutado** (integrador) — metade física **mitigada/aberta** | **2** | CONV-1, CONV-2 (sinal/eixo-y do integrador refutados por teste; metade física real só decidível com `lights.npy`/gt reais — `flip_lights_y` provê o mecanismo) |
+| **+ REG-01** (regressão nova, **corrigida**) | **1** | `normalize=True` reintroduzido no `sMos.png` → restaurado `normalize=False` (a9f9f04) |
+
+Cada SHA está pinado no respectivo bloco "Correção aplicada". Suíte de regressão final:
+**112 passed, 0 xfailed** (ver §5.3 e `audit-notes/06-test-results.md`).
 
 Detalhamento exato (cada ID contado uma vez pela sua severidade/status final pós-testes):
 
@@ -44,11 +67,11 @@ Detalhamento exato (cada ID contado uma vez pela sua severidade/status final pó
 
 ### 1.2 Os achados mais importantes
 
-1. **MF-14 (crítico, confirmado por execução)** — A detecção de diretórios de luz `L*` só inspeciona o pai imediato, que no layout documentado `L<n>/zf<m>/sVal.png` é sempre um `zf*`; em dataset limpo nenhuma luz é detectada e o pipeline aborta — **8/11 datasets reais também falham**.
-2. **MF-01 (crítico, confirmado por inspeção)** — A média por plano focal usa `in` (substring), de modo que `"zf1"` casa também `zf10/zf11/zf12` (≥10 planos, todos os configs usam 12), misturando quatro planos na "média do zf1".
-3. **MF-02 (crítico, confirmado por inspeção)** — `sorted()` lexicográfico dos diretórios `zf` desalinha a ordem dos frames de `z_foc` (ordem natural no YAML), permutando o mapa índice→profundidade.
-4. **INT-04 + CONV-4 (alto, suspeita)** — Hints em unidades físicas de `z_foc` são somados, no mesmo sistema de mínimos quadrados, a alturas em unidades de pixel, com `slopes_scale`/`hints scale` nunca configurados — grandezas incomensuráveis ponderadas por `hints_weight`.
-5. **PS-02 (alto, suspeita) / IO-05 (alto, suspeita)** — O limiar de sombra relativo (`1e-3`) é inócuo abaixo do piso de 8 bits (`1/255≈3.9e-3`); e as médias por plano focal são min-max-esticadas individualmente (`normalize=True`), destruindo a comparabilidade de intensidade entre planos antes da medida de foco.
+1. **MF-14 (crítico, confirmado por execução)** — A detecção de diretórios de luz `L*` só inspeciona o pai imediato, que no layout documentado `L<n>/zf<m>/sVal.png` é sempre um `zf*`; em dataset limpo nenhuma luz é detectada e o pipeline aborta — **8/11 datasets reais também falham**. **Corrigido: `e827a17`.**
+2. **MF-01 (crítico, confirmado por inspeção)** — A média por plano focal usa `in` (substring), de modo que `"zf1"` casa também `zf10/zf11/zf12` (≥10 planos, todos os configs usam 12), misturando quatro planos na "média do zf1". **Corrigido: `e9eabb2`.**
+3. **MF-02 (crítico, confirmado por inspeção)** — `sorted()` lexicográfico dos diretórios `zf` desalinha a ordem dos frames de `z_foc` (ordem natural no YAML), permutando o mapa índice→profundidade. **Corrigido: `e9eabb2`.**
+4. **INT-04 + CONV-4 (alto, suspeita → confirmado por execução)** — Hints em unidades físicas de `z_foc` são somados, no mesmo sistema de mínimos quadrados, a alturas em unidades de pixel, com `slopes_scale`/`hints scale` nunca configurados — grandezas incomensuráveis ponderadas por `hints_weight`. **Corrigido: `aa772ed`** (config `pixel_size` deriva `slopes_scale`; viés de escala confirmado e eliminado).
+5. **PS-02 (alto) / IO-05 (alto)** — O limiar de sombra relativo (`1e-3`) é inócuo abaixo do piso de 8 bits (`1/255≈3.9e-3`); e as médias por plano focal são min-max-esticadas individualmente (`normalize=True`), destruindo a comparabilidade de intensidade entre planos antes da medida de foco. **Corrigido: PS-02 `cfab906`; IO-05 fechado por composição (MF-12 `bd23651`) — float in-memory tira o stretch do caminho de dados.**
 
 ---
 
@@ -420,11 +443,34 @@ Resumo das 6 convenções com vereditos finais pós-testes (Fases 2 e 3). Veredi
 | 5 | Radiometria entre etapas (linearidade) | `sVal.png` uint8 → médias re-esticadas + mosaicos clipados → foco/PS | **corrigido (CONV-5)** | 3/3 pontos fechados: MF-12 (bd23651) médias float, PS-07 (45cbf57) mosaicos float, PS-08 (7a4c8fc) gamma opcional. |
 | 6 | Contratos de arquivo (pareamento/ordem/shape) | `natsorted(sMos)`, `sorted(zf)`, `(H,W,2)` | **inconsistente (CONV-6)** | Pareamento luz↔mosaico só por contagem; Task 12: guarda pegou 0 vs 6 (MF-14); N-trocados não exercitado. |
 
+**Resolução pós-correções (2026-06-06)** — os vereditos acima são o estado do diagnóstico; as
+inconsistências foram endereçadas:
+- **#1/#4 (escala/unidade z e gradientes):** corrigido por `aa772ed` — `pixel_size` deriva
+  `slopes_scale`; `Z` sai em unidades de `z_foc`, comensurável com os hints (viés confirmado
+  `a=2.5003`→`a=1.0001` em rampa física). **Sinal-físico de #1 permanece aberto** (dados reais).
+- **#2 (frame luzes vs imagem):** eixo-y do integrador refutado por teste; a metade física real é
+  mitigada por `flip_lights_y` explícito + docs (`b2c1eeb`), decisão final pendente de `lights.npy` real.
+- **#3:** consistente (sem mudança).
+- **#5 (radiometria):** CONV-5 fechado por composição (MF-12 `bd23651` float in-memory tira o stretch
+  por-plano e a re-quantização do caminho de dados; PS-07 `45cbf57` PS consome float; PS-08 `7a4c8fc`
+  linearização gamma opcional).
+- **#6 (contratos):** corrigido por `c226924` (pareamento luz↔mosaico por chave `L<n>`), `e9eabb2`
+  (ordem zf por `natsorted`) e `1bcefd4` (hints em grade de vértices, shape verificado).
+
 ---
 
 ## 4. Linha de base end-to-end
 
 Notas completas: [`audit-notes/06-test-results.md`](audit-notes/06-test-results.md).
+
+> **Baseline pós-correções (2026-06-06):** com MF-14 corrigido (`e827a17`), o E2E **limpo**
+> `test_hybrid_pipeline_end_to_end` completa sem workaround:
+> `affine-fit RMSE = 0.0703 (std gt = 0.9780), a = 0.9956, b = 3.1329, pearson r = 0.9974`.
+> Trajetória: auditoria 0.0742 → pós-MF-12 0.0691 → REG-01 ativa 0.3420 (regressão, corrigida em
+> `a9f9f04`) → pós-correções **0.0703**. Suíte: **112 passed, 0 xfailed** (os 4 xfails de evidência
+> agora passam). Detalhes na seção "Baseline pós-correções (2026-06-06)" de
+> [`audit-notes/06-test-results.md`](audit-notes/06-test-results.md). O texto abaixo é o registro
+> diagnóstico original (época da auditoria, ainda com o workaround MF-14).
 
 A linha de base do estado atual do pipeline **só pôde ser medida via workaround do MF-14**. O teste
 E2E limpo (`test_hybrid_pipeline_end_to_end`, layout `L<n>/zf<m>/sVal.png` sem detritos) **não
@@ -475,17 +521,19 @@ CONV-2 (y-up POV-Ray). Não há atalho sintético.
   de sistema — X11/GL). Apenas o objeto principal foi recompilado e linkado contra a
   `libgus.a` pré-compilada. Binário rebuiltado e validado: 32 testes + 7 E2E passam; baseline
   RMSE=0.0703, a=0.9956, r=0.9974 idênticos.
-- **O que permanece aberto (requer dados reais):**
+- **O que permanece aberto (requer dados reais) — apenas as metades físicas de CONV-1/CONV-2:**
   - **CONV-2 (metade real):** o referencial-y do `lights.npy` real (y-up POV-Ray) vs eixos da
     imagem durante o PS — só decidível com `lights.npy` real + ground-truth de altura real,
-    comparando a orientação do mapa integrado com/sem flip do eixo-y das luzes.
+    comparando a orientação do mapa integrado com/sem flip do eixo-y das luzes. **Mitigado:** o
+    mecanismo explícito existe — flag `flip_lights_y` (config) que nega a coluna y das luzes no
+    boundary numpy↔C (`b2c1eeb`), com docs do procedimento; falta só a calibração final com dados reais.
   - **CONV-1 (sinal-z físico):** o desacordo de sinal `zMos`(hints) real vs `Z` integrado — idem,
     requer E2E com hints e ground-truth de altura real (refutado apenas no integrador via
-    `-normals`).
-  - **CONV-4 (unidades):** o desacordo de escala slopes-adimensionais vs hints em `z_foc` físico
-    não foi exercitado (o sintético tem `a≈1` por construção). **Recomendação de teste:** rodar o
-    E2E com `z_foc` de passo realista (ex.: 10) e hints ativos, medindo o viés de escala no fit
-    afim com/sem `slopes_scale` configurado.
+    `-normals`). **Mitigado** pela mesma via.
+  - **CONV-4 (unidades) — FECHADO (`aa772ed`):** o desacordo de escala slopes-adimensionais vs hints
+    em `z_foc` físico **foi exercitado e corrigido**. O config `pixel_size` deriva
+    `slopes_scale=(s,s)`, levando `Z` a unidades de `z_foc`; rampa física com passo realista confirmou
+    o viés previsto (`a=2.5003` sem `pixel_size` → `a=1.0001` com), eliminando-o. Não permanece aberto.
 
 ---
 
@@ -552,22 +600,24 @@ A Fase 3 deixou uma suíte de regressão permanente em `tests/`:
 - `tests/test_convention_integration.py` — convenção Python↔C via rampa/bump (`-normals` e `-slopes`);
   `test_constant_slopes_recover_ramp_and_decide_convention` decide CONV-1/CONV-2 via `-slopes`
   (INT-08 corrigido — xfail removido; vencedor confirmado `z = +ax*x + ay*y`).
-- `tests/test_photometric_synthetic.py` — clean-data, albedo (PS-01 xfail), saturação (PS-03 xfail),
-  sombras.
+- `tests/test_photometric_synthetic.py` — clean-data, albedo (PS-01, agora PASS), saturação (PS-03,
+  agora PASS via mediana+MAD), sombras, confiança invariante a ganho (PS-05).
 - `tests/test_multifocus_synthetic.py` — recuperação de profundidade (rampa/bump), confiança em
   região sem textura.
-- `tests/test_e2e_hybrid.py` — E2E híbrido: o teste limpo é `xfail(strict)` (MF-14); a variante com
-  workaround mede a baseline.
+- `tests/test_e2e_hybrid.py` — E2E híbrido: o teste limpo agora **passa** (MF-14 corrigido) e mede a
+  baseline; a variante com workaround foi removida.
+- `tests/test_argmax_fit.py` — ajuste parabólico do argmax sub-pixel (MF-05/MF-06/MF-11).
+- `tests/test_hybrid_path_selection.py` — seleção de diretórios `L*`/`zf*` em qualquer profundidade
+  (MF-14) e pareamento luz↔mosaico por chave (CONV-6).
+- `tests/test_average_float_path.py` — caminho float in-memory das médias por-zf (MF-12/IO-05).
+- `tests/test_confidence_r2.py`, `tests/test_fourier_locality.py`, `tests/test_integration_units.py`
+  — confiança R² (MF-07), localidade do Fourier (MF-09) e comensurabilidade slopes/hints/reference
+  (INT-04/CONV-4, INT-06).
 
-**Estado final da suíte** (`pytest tests/ -q`, 2026-06-05): **18 passed, 4 xfailed**. Os 4 xfailed
-eram evidência confirmatória de achados: `test_wps_albedo_recovers_true_albedo` (PS-01),
-`test_wps_robust_to_saturation` (PS-03), `test_hybrid_pipeline_end_to_end` (MF-14) e
-`test_constant_slopes_recover_ramp_and_decide_convention` (INT-08).
-
-**Estado pós-correções (2026-06-06):** `pytest -q` → **102 passed, 2 xfailed**. Os 2 xfailed
-restantes eram PS-01 e PS-03 (pendentes). `test_hybrid_pipeline_end_to_end` (MF-14) e
-`test_constant_slopes_recover_ramp_and_decide_convention` (INT-08) passavam sem xfail.
-
-**Estado final com PS-03 + PS-01/PS-04/PS-05 (2026-06-06):** `pytest -m "not slow" -q` → **95 passed, 0 xfailed**
-(total com slow: **110 passed, 0 xfailed**). PS-01/PS-03/PS-04/PS-05 xfails eliminados. Novo teste
-`test_confidence_invariant_to_radiometric_gain` (PS-05). E2E baseline: RMSE=0.0703, Pearson r=0.9974.
+**Estado final da suíte (pós-correções, 2026-06-06):** `PYTHONPATH=src pytest -q` ->
+**112 passed, 0 xfailed** (slow tests incluídos). Os 4 xfails de evidência da fase de diagnóstico
+(`test_wps_albedo_recovers_true_albedo` PS-01, `test_wps_robust_to_saturation` PS-03,
+`test_hybrid_pipeline_end_to_end` MF-14, `test_constant_slopes_recover_ramp_and_decide_convention`
+INT-08) **agora passam** — as correções eliminaram a condição que cada um documentava. E2E baseline:
+RMSE=0.0703, Pearson r=0.9974. (Registro histórico: a suíte de diagnóstico fechou em 2026-06-05 com
+**18 passed, 4 xfailed**; a campanha cresceu a suíte e zerou os xfails.)

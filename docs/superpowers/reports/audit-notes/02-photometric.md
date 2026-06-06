@@ -2,6 +2,10 @@
 
 Data: 2026-06-04
 
+> Nota: "NÃO aplicar" nas sugestões de correção deste arquivo é regra da FASE DE DIAGNÓSTICO
+> (2026-06-04/05); as correções foram aplicadas na campanha de 2026-06-06 — ver os blocos
+> "Correção aplicada" no relatório `2026-06-04-method-audit.md`.
+
 Auditoria de corretude (matemática/teórica) e de implementação (bugs/precisão/robustez)
 do estágio de *photometric stereo*. Teoria de referência: modelo Lambertiano de Woodham
 (1980) — `I = ρ · (L · n̂)`, com `n̂` unitário, `ρ` o albedo escalar e `L` direções de luz

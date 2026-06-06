@@ -2,6 +2,44 @@
 
 Data: 2026-06-04
 
+> Nota: "NÃO aplicar" nas sugestões de correção deste arquivo é regra da FASE DE DIAGNÓSTICO
+> (2026-06-04/05); as correções foram aplicadas na campanha de 2026-06-06 — ver os blocos
+> "Correção aplicada" no relatório `2026-06-04-method-audit.md`.
+
+---
+
+## Baseline pós-correções (2026-06-06)
+
+Linha de base E2E **limpa** (sem workaround MF-14 — o defeito de detecção de luzes foi corrigido
+em `e827a17`, o teste limpo `test_hybrid_pipeline_end_to_end` agora completa ponta a ponta).
+
+```
+=== BASELINE E2E === affine-fit RMSE = 0.0703 (std gt = 0.9780), a = 0.9956, b = 3.1329, pearson r = 0.9974
+```
+
+**Trajetória do RMSE afim ao longo da campanha:**
+
+| Marco | RMSE | Observação |
+|---|---|---|
+| Auditoria (workaround MF-14) | 0.0742 | baseline da época do diagnóstico |
+| Pós-MF-12 (float in-memory) | 0.0691 | médias por-zf em float; melhora de ~6,9% |
+| REG-01 ativa (regressão nova) | 0.3420 | `normalize=True` reintroduzido no `sMos.png` quebrou a escala inter-luz |
+| Pós-correções (REG-01 corrigida) | **0.0703** | E2E limpo, sem workaround; estado final |
+
+A subida transitória para 0.3420 foi a regressão **REG-01** (introduzida ao reescrever a detecção
+de luzes / caminho float, depois corrigida em `a9f9f04` restaurando `normalize=False` no `sMos.png`).
+O valor final 0.0703 é medido no E2E limpo (a correção de MF-14 dispensou o workaround), próximo do
+0.0691 pós-MF-12 e bem abaixo da regressão.
+
+**Estado da suíte (pós-correções, 2026-06-06):** `PYTHONPATH=src pytest -q` -> **112 passed, 0 xfailed**
+(slow tests incluídos). Os 4 xfails de evidência da fase de diagnóstico
+(`test_wps_albedo_recovers_true_albedo` PS-01, `test_wps_robust_to_saturation` PS-03,
+`test_hybrid_pipeline_end_to_end` MF-14, `test_constant_slopes_recover_ramp_and_decide_convention`
+INT-08) **agora passam** — as correções eliminaram a condição que cada um documentava.
+
+**Interpretação:** todos os achados ativos foram corrigidos ou mitigados sem degradar a recuperação
+estrutural (RMSE afim ~7,2% do desvio-padrão do gt, `r=0.9974`); a suíte está verde com zero xfail.
+
 ---
 
 ## test_fni_roundtrip (Task 8)

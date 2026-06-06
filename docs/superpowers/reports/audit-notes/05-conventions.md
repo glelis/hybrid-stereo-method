@@ -2,6 +2,10 @@
 
 Data: 2026-06-04
 
+> Nota: "NÃO aplicar" nas sugestões de correção deste arquivo é regra da FASE DE DIAGNÓSTICO
+> (2026-06-04/05); as correções foram aplicadas na campanha de 2026-06-06 — ver os blocos
+> "Correção aplicada" no relatório `2026-06-04-method-audit.md`.
+
 Esta fase audita **exclusivamente as costuras entre estágios** do pipeline híbrido
 (multifocus → fotométrico → integração C). Para cada uma das 6 convenções rastreia-se a
 cadeia completa **produtor → arquivo → consumidor**, citando `arquivo:linha` para cada elo,

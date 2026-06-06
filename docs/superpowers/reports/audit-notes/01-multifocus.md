@@ -2,6 +2,10 @@
 
 Data: 2026-06-04
 
+> Nota: "NÃO aplicar" nas sugestões de correção deste arquivo é regra da FASE DE DIAGNÓSTICO
+> (2026-06-04/05); as correções foram aplicadas na campanha de 2026-06-06 — ver os blocos
+> "Correção aplicada" no relatório `2026-06-04-method-audit.md`.
+
 Auditoria de corretude (matemática/teórica) e de implementação (bugs/precisão/robustez)
 do estágio de *multifocus stereo* (shape-from-focus). Teoria de referência: Nayar &
 Nakagawa — a profundidade por pixel vem do índice do *focal stack* que maximiza uma
