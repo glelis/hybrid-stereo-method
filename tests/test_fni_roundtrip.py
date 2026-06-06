@@ -54,6 +54,34 @@ def test_roundtrip_preserves_float64_precision(tmp_path):
     assert "+1.2345678901234500e-01" in text, "writer ainda trunca a 7 casas (IO-01)"
 
 
+def test_truncated_fni_raises(tmp_path):
+    """IO-02: pixels ausentes ficavam silenciosamente 0."""
+    arr = _asymmetric((4, 4))
+    path = tmp_path / "t.fni"
+    convert_image_array_to_fni(arr, path)
+    lines = path.read_text().splitlines(keepends=True)
+    data_idx = [i for i, ln in enumerate(lines) if ln.strip() and ln.split()[0].isdigit()]
+    del lines[data_idx[5]]
+    del lines[data_idx[4]]
+    path.write_text("".join(lines))
+    with pytest.raises(ValueError, match="incomplete"):
+        read_fni_to_image_array(path)
+
+
+def test_malformed_short_line_raises(tmp_path):
+    """IO-03: linha com menos campos era pulada em silêncio (pixel ficava 0)."""
+    path = tmp_path / "m.fni"
+    path.write_text(
+        "begin float_image_t (format of 2006-03-25)\n"
+        "NC = 1\nNX = 2\nNY = 1\n"
+        "    0     0 +1.0000000e+00\n"
+        "    1\n"  # truncada
+        "\nend float_image_t\n"
+    )
+    with pytest.raises(ValueError, match="[Mm]alformed"):
+        read_fni_to_image_array(path)
+
+
 def test_nan_handling_documented(tmp_path):
     """Sonda de comportamento: normais com NaN (sombra) são escritas em FNI
     pelo pipeline. Este teste DOCUMENTA o que o round-trip Python faz com NaN

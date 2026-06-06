@@ -228,12 +228,25 @@ def read_fni_to_image_array(fni_file: str | Path) -> np.ndarray:
     else:
         image_array = np.zeros((ny, nx), dtype=np.float32)
 
+    # IO-02: track which pixels were written; raise if the file is incomplete.
+    filled = np.zeros((ny, nx), dtype=bool)
+
     for line in lines:
         if line.strip() == "" or line.startswith("begin") or line.startswith("end") or "=" in line:
             continue
         parts = line.split()
-        if len(parts) < 2 + nc:
+        # Only lines whose first token is a non-negative integer are data lines.
+        # Any other non-blank, non-header line is silently skipped (e.g. comments
+        # written by C tools that differ from the Python header).
+        if not parts[0].isdigit():
             continue
+        if len(parts) < 2 + nc:
+            # IO-03: a data line with too few fields cannot be silently skipped —
+            # the pixel would stay at 0, indistinguishable from a valid 0 (IO-02).
+            raise ValueError(
+                f"Malformed FNI data line (expected {2 + nc} fields, "
+                f"got {len(parts)}): {line!r}"
+            )
         x = int(parts[0])
         y = int(parts[1])
         values = list(map(float, parts[2:]))
@@ -243,5 +256,13 @@ def read_fni_to_image_array(fni_file: str | Path) -> np.ndarray:
             image_array[y, x] = values[0]
         else:
             image_array[y, x, :] = values
+        filled[y, x] = True
+
+    # IO-02: every pixel must be present; a truncated file leaves silent zeros.
+    if not filled.all():
+        missing = int((~filled).sum())
+        raise ValueError(
+            f"FNI file incomplete: {missing} of {ny * nx} pixels missing (IO-02)"
+        )
 
     return image_array
