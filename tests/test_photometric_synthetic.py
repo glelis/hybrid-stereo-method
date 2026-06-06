@@ -6,7 +6,6 @@ a matemática interna do solver (não as convenções entre estágios — Task 9
 Falha = achado PS-xx; não conserte o teste.
 """
 import numpy as np
-import pytest
 from synthetic_utils import gaussian_bump, normals_from_height, render_lambertian, ring_lights
 
 from hybrid_stereo_method.photometric.wps import estimate_normals_argmax_lstsq_robust
@@ -32,7 +31,6 @@ def test_wps_recovers_normals_clean_data():
     assert ang.mean() < 1.0, f"erro angular médio {ang.mean():.2f}° (esperado < 1° sem ruído)"
 
 
-@pytest.mark.xfail(strict=True, reason="PS-01: albedo = ||L_sel @ n̂|| cresce com nº de luzes (wps.py:198) — XPASS = corrigido")
 def test_wps_albedo_recovers_true_albedo():
     """Modelo I = rho * (L.n): com rho = 200 constante, o albedo estimado deve
     ser ~200 e NÃO depender do número de luzes. Falha aqui confirma o lead do
@@ -150,6 +148,23 @@ def test_convert_to_grayscale_passthrough_for_mono():
     mono1 = mono[..., None]
     out1 = convert_to_grayscale(mono1)
     assert out1.shape == (8, 8)
+
+
+def test_confidence_invariant_to_radiometric_gain():
+    """PS-05: a confiança não pode depender de a entrada estar em 0-255 ou 0-1."""
+    size = 24
+    n_gt = normals_from_height(gaussian_bump(size, amplitude=3.0))
+    lights = ring_lights(6, tilt_deg=30.0)
+    rng = np.random.default_rng(0)
+    images255 = [
+        render_lambertian(n_gt, light, albedo=200.0) + rng.normal(0, 1.0, (size, size))
+        for light in lights
+    ]
+    images01 = [img / 255.0 for img in images255]
+
+    _, _, conf255, _ = estimate_normals_argmax_lstsq_robust(images255, lights, {})
+    _, _, conf01, _ = estimate_normals_argmax_lstsq_robust(images01, lights, {})
+    np.testing.assert_allclose(conf255, conf01, rtol=1e-3, atol=1e-4)
 
 
 def test_wps_shadowed_pixels_flagged_not_garbage():

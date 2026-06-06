@@ -220,27 +220,30 @@ def estimate_normals_argmax_lstsq_robust(images, light_sources, wps_params=None)
                     break
 
             if len(selected_values) >= 3:
-                # Normalize the normal vector (guard against degenerate solutions)
-                norm = np.linalg.norm(normal)
-                if norm == 0:
+                # PS-01: no modelo I = rho*(L.n̂), o lstsq devolve m = rho*n̂ —
+                # o albedo é ||m|| e a normal é m/||m||. (O antigo ||L@n̂|| era a
+                # norma das intensidades preditas, crescendo com sqrt(n_luzes).)
+                m = normal
+                rho = np.linalg.norm(m)
+                if rho == 0 or not np.isfinite(rho):
                     normals[i, j, :] = np.nan
                     confidence[i, j] = 0
                     continue
-                normal /= norm
+                normal = m / rho
                 normals[i, j, :] = normal
+                albedo[i, j] = rho
 
-                # Compute albedo
-                albedo[i, j] = np.linalg.norm(np.dot(selected_lights, normal))
+                # PS-04: resíduos RECOMPUTADOS do modelo final sobre o conjunto
+                # final (antes, eram os do ajuste anterior à última remoção).
+                residuals = np.abs(np.dot(selected_lights, m) - selected_values)
 
-                # Adjust confidence based on N, M, and residuals
+                # PS-05: resíduo normalizado pela escala do sinal (albedo) torna
+                # a confiança invariante a ganho radiométrico (0-255 vs 0-1).
                 N = len(selected_values)
                 M = num_images
-                residual_std = np.std(residuals)
-                confidence[i, j] = (N / M) * (
-                    1 / (1 + residual_std)
-                )  # Confidence decreases with fewer data and higher residuals
+                residual_std = np.std(residuals) / (rho + epsilon)
+                confidence[i, j] = (N / M) * (1 / (1 + residual_std))
 
-                # Update selected_areas using original indices
                 selected_areas[i, j, original_indices] = 255
 
     return normals, albedo, confidence, selected_areas
