@@ -121,48 +121,68 @@ def plotar_canais_3d(imagem):
     plt.show()
 
 
-def disp_normalmap(normal=None, height=None, width=None, delay=0, name=None, save_path=None):
+def disp_normalmap(
+    normal=None, height=None, width=None, delay=0, name=None, save_path=None, display=False
+):
     """
-    Visualize normal as a normal map
-    :param normal: array of surface normal (p \times 3)
+    Visualize normal as a normal map.
+
+    :param normal: array of surface normal (p x 3)
     :param height: height of the image (scalar)
     :param width: width of the image (scalar)
-    :param delay: duration (ms) for visualizing normal map. 0 for displaying infinitely until a key is pressed.
+    :param delay: duration (ms) for the cv2 window (only used when display=True).
     :param name: display name
+    :param save_path: directory to save normal_map.png (None = no save)
+    :param display: PS-11 — default False (save-only, headless-safe); set True for
+        an interactive cv2 window.
     :return: None
     """
     if normal is None:
         raise ValueError("Surface normal `normal` is None")
-    N = np.reshape(normal, (height, width, 3))  # Reshape to image coordinates
+    # PS-11: work on a copy so the caller's array is never mutated
+    N = np.reshape(normal, (height, width, 3)).copy()
+    # PS-11: replace NaN (shadow pixels) with 0 before rescaling to image
+    N = np.nan_to_num(N, nan=0.0)
     N[:, :, 0], N[:, :, 2] = N[:, :, 2], N[:, :, 0].copy()  # Swap RGB <-> BGR
-    N = (N + 1.0) / 2.0  # Rescale
+    N = (N + 1.0) / 2.0  # Rescale to [0, 1]
     if name is None:
         name = "normal map"
-    cv2.imshow(name, N)
-    cv2.waitKey(delay)
-    cv2.destroyWindow(name)
-    cv2.waitKey(1)  # to deal with frozen window...
+    # PS-11: cv2.imshow/waitKey only when display=True (headless-safe default)
+    if display:
+        cv2.imshow(name, N)
+        cv2.waitKey(delay)
+        cv2.destroyWindow(name)
+        cv2.waitKey(1)  # to deal with frozen window...
     # Salvar a imagem se um caminho for fornecido
     if save_path is not None:
         cv2.imwrite(os.path.join(save_path, "normal_map.png"), N * 255)
 
 
-def disp_channels(normal_in=None, height=None, width=None, delay=0, name=None, save_path=None):
+def disp_channels(
+    normal_in=None, height=None, width=None, delay=0, name=None, save_path=None, display=False
+):
     """
-    Visualize normal as a normal map in a single window with all channels and save the image if a path is provided.
-    :param normal: array of surface normal (p \times 3)
+    Visualize normal as a normal map in a single window with all channels and save the image if
+    a path is provided.
+
+    :param normal_in: array of surface normal (p x 3)
     :param height: height of the image (scalar)
     :param width: width of the image (scalar)
-    :param delay: duration (ms) for visualizing normal map. 0 for displaying infinitely until a key is pressed.
+    :param delay: duration (ms) for the cv2 window (only used when display=True).
     :param name: display name
-    :param save_path: path to save the final image
+    :param save_path: directory to save Channels.png (None = no save)
+    :param display: PS-11 — default False (save-only, headless-safe); set True for
+        an interactive cv2 window.
     :return: None
     """
     if normal_in is None:
         raise ValueError("Surface normal `normal` is None")
 
-    # Reshape para coordenadas de imagem
-    normal = np.reshape(normal_in, (height, width, 3))
+    # PS-11: work on a copy so the caller's array is never mutated
+    normal = np.reshape(normal_in, (height, width, 3)).copy()
+
+    # PS-11: replace NaN (shadow pixels) with 0 before rescaling to image
+    normal = np.nan_to_num(normal, nan=0.0)
 
     # Trocar canais RGB para BGR
     normal[:, :, 0], normal[:, :, 2] = normal[:, :, 2], normal[:, :, 0].copy()  # Swap RGB <-> BGR
@@ -178,42 +198,46 @@ def disp_channels(normal_in=None, height=None, width=None, delay=0, name=None, s
     # Combinar os canais horizontalmente
     combined = cv2.hconcat([channel_0, channel_1, channel_2])
 
-    # Exibir a imagem em uma única janela
+    # PS-11: cv2.imshow/waitKey only when display=True (headless-safe default)
     if name is None:
         name = "Channel Visualization"
-    cv2.imshow(name, combined)
-    cv2.waitKey(delay)
-    cv2.destroyWindow(name)
-    cv2.waitKey(1)  # to deal with frozen window...
+    if display:
+        cv2.imshow(name, combined)
+        cv2.waitKey(delay)
+        cv2.destroyWindow(name)
+        cv2.waitKey(1)  # to deal with frozen window...
 
     # Salvar a imagem se um caminho for fornecido
     if save_path is not None:
         cv2.imwrite(os.path.join(save_path, "Channels.png"), combined)
 
 
-def disp_channels_3d(normal_in=None, height=None, width=None, delay=0, name=None, save_path=None):
+def disp_channels_3d(
+    normal_in=None, height=None, width=None, delay=0, name=None, save_path=None, display=False
+):
     """
-    Visualize normal as a normal map in 3D with all channels and save the image if a path is provided.
-    :param normal: array of surface normal (p \times 3)
+    Visualize normal as a normal map in 3D with all channels and save the image if a path is
+    provided.
+
+    :param normal_in: array of surface normal (p x 3)
     :param height: height of the image (scalar)
     :param width: width of the image (scalar)
-    :param delay: duration (ms) for visualizing normal map. 0 for displaying infinitely until a key is pressed.
+    :param delay: duration (ms) for the cv2 window (only used when display=True).
     :param name: display name
-    :param save_path: path to save the final image
-    :return: None
+    :param save_path: directory to save Channels_3D.png (None = no save)
+    :param display: PS-11 — default False (save-only, headless-safe); set True for
+        an interactive cv2 window. Note: the matplotlib figure is always rendered via
+        the Agg-compatible savefig path; the caller is responsible for setting a
+        non-interactive backend (e.g. matplotlib.use('Agg')) before importing if needed.
+    :return: img_array (H x W x 4 RGBA NumPy array of the rendered figure)
     """
     if normal_in is None:
         raise ValueError("Surface normal `normal` is None")
 
-    # Reshape para coordenadas de imagem
-    normal = np.reshape(normal_in, (height, width, 3))
-    # normal = np.reshape(normal_in, (width, height, 3))
-
-    # Trocar canais RGB para BGR
-    # normal[:, :, 0], normal[:, :, 2] = normal[:, :, 2], normal[:, :, 0].copy()  # Swap RGB <-> BGR
-
-    # Redimensionar valores para o intervalo [0, 255] (formato de imagem)
-    # normal = ((normal + 1.0) / 2.0 * 255).astype(np.uint8)
+    # PS-11: work on a copy so the caller's array is never mutated
+    normal = np.reshape(normal_in, (height, width, 3)).copy()
+    # PS-11: replace NaN (shadow pixels) with 0 so plot_surface doesn't crash
+    normal = np.nan_to_num(normal, nan=0.0)
 
     fig, axs = plt.subplots(1, 3, figsize=(15, 5), subplot_kw={"projection": "3d"})
 
@@ -223,23 +247,17 @@ def disp_channels_3d(normal_in=None, height=None, width=None, delay=0, name=None
 
     axs[0].plot_surface(x, y, normal[:, :, 0], cmap="viridis")
     axs[0].set_title("X Axis")
-    # axs[0].set_xlabel('X')
-    # axs[0].set_ylabel('Y')
     axs[0].set_zlabel("intensity")
 
     axs[1].plot_surface(x, y, normal[:, :, 1], cmap="viridis")
     axs[1].set_title("Y Axis")
-    # axs[1].set_xlabel('X')
-    # axs[1].set_ylabel('Y')
     axs[1].set_zlabel("intensity")
 
     axs[2].plot_surface(x, y, normal[:, :, 2], cmap="viridis")
     axs[2].set_title("Z Axis")
-    # axs[2].set_xlabel('X')
-    # axs[2].set_ylabel('Y')
     axs[2].set_zlabel("intensity")
 
-    # Salvar o gráfico como uma imagem em memória
+    # Salvar o gráfico como uma imagem em memória (Agg-compatible, headless-safe)
     buf = BytesIO()
     plt.savefig(buf, format="png", bbox_inches="tight")
     buf.seek(0)
@@ -248,13 +266,14 @@ def disp_channels_3d(normal_in=None, height=None, width=None, delay=0, name=None
     # Converter a imagem para um array NumPy
     img_array = np.array(Image.open(buf))
 
-    # Exibir a imagem em uma única janela
+    # PS-11: cv2.imshow/waitKey only when display=True (headless-safe default)
     if name is None:
         name = "Channel Visualization 3D"
-    cv2.imshow(name, img_array)
-    cv2.waitKey(delay)
-    cv2.destroyWindow(name)
-    cv2.waitKey(1)  # to deal with frozen window...
+    if display:
+        cv2.imshow(name, img_array)
+        cv2.waitKey(delay)
+        cv2.destroyWindow(name)
+        cv2.waitKey(1)  # to deal with frozen window...
 
     # Salvar a imagem se um caminho for fornecido
     if save_path is not None:

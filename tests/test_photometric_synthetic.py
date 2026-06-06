@@ -183,3 +183,25 @@ def test_wps_shadowed_pixels_flagged_not_garbage():
         ang = _angular_error_deg(normals, n_gt, valid)
         print(f"\nsombras: válidos = {valid.mean():.1%}, erro médio nos válidos = {ang.mean():.2f}°")
         assert ang.mean() < 10.0
+
+
+def test_disp_functions_do_not_mutate_input_and_are_headless_safe(tmp_path):
+    """PS-11: disp_* trocavam canais IN-PLACE numa view do array do chamador e
+    bloqueavam com cv2.imshow+waitKey(0). Default: só salvar, sem display."""
+    from hybrid_stereo_method.photometric.visualization import (
+        disp_channels,
+        disp_normalmap,
+    )
+
+    normals = np.random.default_rng(0).uniform(-1, 1, (8, 8, 3))
+    normals[0, 0] = np.nan  # sombra: não pode quebrar a visualização
+    before = normals.copy()
+
+    disp_normalmap(normal=normals, height=8, width=8, save_path=str(tmp_path))
+    disp_channels(normal_in=normals, height=8, width=8, save_path=str(tmp_path))
+
+    np.testing.assert_array_equal(np.nan_to_num(normals), np.nan_to_num(before)), (
+        "disp_* mutou o array do chamador (PS-11)"
+    )
+    assert (tmp_path / "normal_map.png").exists()
+    assert (tmp_path / "Channels.png").exists()
