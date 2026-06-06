@@ -31,12 +31,13 @@ Identificar as causas raiz dos sintomas acima e **corrigir tudo que for necessá
 
 **Sucesso:** após as correções, re-run completo neste dataset com:
 
-- `integration_height.pearson_r` fortemente **positivo**;
-- RMSE afim bem abaixo de `gt_std` (18.468);
+- `integration_height.pearson_r` ≥ **+0.8** (hoje: −0.20);
+- RMSE afim ≤ **50% de `gt_std`** (hoje: 18.092 ≈ 98% de 18.468);
 - penhasco de fundo eliminado, ou confinado a região justificadamente mascarada.
 
-Causas não corrigíveis (limitações intrínsecas do método) ficam documentadas com
-evidência no relatório de investigação.
+Se algum alvo não for atingido, o gap deve ser explicado por limitação intrínseca do
+método, documentada com a evidência da ablação correspondente no relatório de
+investigação — não por causa corrigível deixada sem correção.
 
 ## Hipóteses iniciais (ordenadas por evidência atual)
 
