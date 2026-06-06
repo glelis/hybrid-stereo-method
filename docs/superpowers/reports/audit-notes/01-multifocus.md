@@ -237,6 +237,8 @@ baseados em incerteza real; comparar via teste sintético com pico parabólico c
 
 **Correção aplicada:** `a9a6549` (2026-06-06) — `calculate_weights` e todo uso de `w_list` removidos; `np.polyfit` chamado sem pesos; fallback simplificado para um único `try/except LinAlgError`. O bloco R² (MF-07) atualizado para estatísticas não-ponderadas (`y_bar = mean(y)`, `ss_res/ss_tot` sem w). CSV de debug: coluna `w_list` removida do header e da linha. Vértice pré-correção k=4.284 (erro 0.016, gaussiana em 4.3), pós k=4.215 (erro 0.085) — ambos < 0.1; erro de recuperação de profundidade: plano 0.181→0.183, bump 0.171→0.173 frames (ambos < 0.5). Teste: `tests/test_argmax_fit.py::test_parabola_vertex_unbiased_by_value_weights`. Status: corrigido.
 
+**Nota:** o caso de teste (gaussiana simétrica) não discrimina pré/pós correção — ambos passam com erro < 0,1 (0,016 pré vs 0,085 pós); a correção é teórica (premissas de mínimos quadrados) e o viés do método antigo manifesta-se em curvas assimétricas, não cobertas por teste sintético.
+
 ---
 
 ## MF-07: Confiança `conf = |A| / fnoc` não é comparável entre pixels
@@ -421,6 +423,8 @@ ser gravado no CSV de debug como se fosse índice legítimo.
 o vértice cai fora do intervalo `[0, n-1]`.
 
 **Correção aplicada:** `22f4470` (2026-06-06) — ramo `else` (côncavo) reestruturado: se `k_raw < 0 or k_raw > n - 1`, clamp a `[0.0, float(n-1)]` e conf=0 (vértice extrapolado = pico não bracketado); o bloco R² fica apenas no ramo de vértice interno. Pré-correção: `fv=[0,0.05,0.1,0.3,0.7,1.0]` → k_raw=7.5, old clamp `min(n=6, 7.5)=6` > n-1=5, conf=1.0; pós k=5.0, conf=0. Teste: `tests/test_argmax_fit.py::test_vertex_outside_stack_clamps_to_n_minus_1_with_zero_conf`.
+
+**Post-Task-11 E2E baseline (após MF-05/MF-06/MF-11):** RMSE 0.0697, a 0.9954, r 0.9975 (deslocamento desprezível vs baseline anterior 0.0690 após MF-12/PS-07).
 
 ---
 

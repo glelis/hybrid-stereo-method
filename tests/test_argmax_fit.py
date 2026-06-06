@@ -33,5 +33,5 @@ def test_vertex_outside_stack_clamps_to_n_minus_1_with_zero_conf():
 
     fv = np.array([0.0, 0.05, 0.1, 0.3, 0.7, 1.0])  # acelerada: k_raw=7.5 > n-1=5
     k, conf = compute_argmax_fuzzy_1d(fv, [0, 0], {"r_max": 2})
-    assert k <= len(fv) - 1, f"k={k} excede o índice máximo válido {len(fv)-1}"
+    assert k == len(fv) - 1, f"k={k}: clamp para n-1 não ocorreu (esperado {len(fv)-1})"
     assert conf == 0, "vértice extrapolado deve ter confiança 0"

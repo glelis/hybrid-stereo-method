@@ -99,6 +99,7 @@ O início do ajuste maximiza a soma de 3 frames consecutivos (passa-baixa), favo
 - Evidência: Tasks 11 — erros 0.181/0.171 frames; **não manifesta erro>0.5 frames em pilha uniforme com pico simétrico**; suspeita mantida para picos assimétricos/baixo SNR.
 - Correção sugerida: regressão não ponderada ou pesos por incerteza real.
 - **Correção aplicada:** `a9a6549` (2026-06-06) — `calculate_weights` e `w_list` removidos; `np.polyfit` chamado sem pesos; R² (MF-07) atualizado para estatísticas não-ponderadas. Vértice pré-correção k=4.284 (erro 0.016), pós k=4.215 (erro 0.085) — ambos dentro de 0.1 do gt 4.3. Profundidade mediana: plano 0.183 frames, bump 0.173 frames (ambos < 0.5). Teste: `tests/test_argmax_fit.py::test_parabola_vertex_unbiased_by_value_weights`.
+- Nota: o caso de teste (gaussiana simétrica) não discrimina pré/pós correção — ambos passam com erro < 0,1 (0,016 pré vs 0,085 pós); a correção é teórica (premissas de mínimos quadrados) e o viés do método antigo manifesta-se em curvas assimétricas, não cobertas por teste sintético.
 
 **MF-07 — Confiança `|A|/fnoc` não é comparável entre pixels** (conceitual, médio, suspeita)
 A confiança mistura curvatura e amplitude sob normalização global afim; após `normalize()` min-max global fica relativa ao maior `|A|/fnoc` da imagem, sensível a outliers de borda.
