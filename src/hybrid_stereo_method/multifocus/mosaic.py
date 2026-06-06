@@ -5,7 +5,14 @@ import numpy as np
 from hybrid_stereo_method.multifocus.math_utils import linear_interpolation, quadratic_interpolation
 
 
-def mosaic(iSel, image_stack: np.array, zFoc: list, interpolation_type: str):
+def mosaic(
+    iSel,
+    image_stack: np.array,
+    zFoc: list,
+    interpolation_type: str,
+    wSel: np.ndarray | None = None,
+    min_confidence: float = 0.0,
+):
     """
     Generates an all-in-focus image and a depth map from a stack of multi-focus images.
 
@@ -17,11 +24,18 @@ def mosaic(iSel, image_stack: np.array, zFoc: list, interpolation_type: str):
             - 'crop': Uses the nearest frame without interpolation.
             - 'quadratic_interpolation': Uses quadratic interpolation for smoother transitions.
             - 'linear_interpolation': Uses linear interpolation for smoother transitions.
+        wSel (np.ndarray | None): Optional confidence map (height x width), same shape as iSel.
+            When provided, pixels with wSel[i,j] <= min_confidence are masked (MF-04):
+            zMos receives NaN (explicit invalid; weight 0 in zMos_with_confidence excludes
+            the hint in the C integrator) while sMos receives the nearest frame value
+            (the photometric step needs a valid intensity at every pixel).
+        min_confidence (float): Pixels with wSel <= min_confidence are masked. Default 0.0.
 
     Returns:
         tuple:
             - sMos (np.array): The all-in-focus image (height x width x channels).
-            - zMos (np.array): The depth map (height x width x channels).
+            - zMos (np.array): The depth map (height x width). NaN where depth is undecidable
+              (iSel is NaN) or confidence is at or below min_confidence.
 
     Notes:
         - The function processes each pixel independently, selecting or interpolating the appropriate focus value
@@ -36,7 +50,7 @@ def mosaic(iSel, image_stack: np.array, zFoc: list, interpolation_type: str):
     )
 
     sMos = np.zeros((height, width, chanels))
-    zMos = np.zeros((height, width))
+    zMos = np.full((height, width), np.nan)
 
     if interpolation_type == "crop":
         interpolate = None
@@ -51,6 +65,23 @@ def mosaic(iSel, image_stack: np.array, zFoc: list, interpolation_type: str):
     for i in range(height):  # linha
         for j in range(width):  # coluna
             k_fuzzy = iSel[i, j]
+
+            # MF-04: mascarar pixels inválidos (NaN do MF-03) ou de baixa confiança.
+            # zMos recebe NaN (inválido explícito; peso 0 em zMos_with_confidence exclui
+            # o hint no integrador C). sMos recebe o frame mais próximo — o PS precisa
+            # de valor em todo pixel.
+            invalid = not np.isfinite(k_fuzzy) or (
+                wSel is not None and wSel[i, j] <= min_confidence
+            )
+            if invalid:
+                K_indice = (
+                    n_frames // 2
+                    if not np.isfinite(k_fuzzy)
+                    else min(max(int(k_fuzzy), 0), n_frames - 1)
+                )
+                zMos[i, j] = np.nan
+                sMos[i, j, :] = image_stack[K_indice, i, j, :]
+                continue
 
             if interpolate is None:  # crop: usa o frame mais próximo, sem interpolação
                 K_indice = min(max(int(k_fuzzy), 0), n_frames - 1)

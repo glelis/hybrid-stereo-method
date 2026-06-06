@@ -299,9 +299,12 @@ def main(parameters):
         image_list = read_images(filtered_files, info=True)
         image_stack = np.asarray(image_list)
 
-        # Generate the mosaic for this light, given the mapping `iSel_avg` and configuration `zFoc`
+        # Generate the mosaic for this light, given the mapping `iSel_avg` and configuration `zFoc`.
+        # MF-04: pass wSel=wSel_avg so confidence-0 pixels are masked (zMos→NaN, sMos→nearest frame).
+        # Only sMos_light is used here (the per-light all-in-focus image for the PS step); the
+        # depth map _ is discarded (the shared average zMos is already exported from the avg run).
         logging.info("...... Generating mosaic from average iSel ...")
-        sMos_light, _ = mosaic(iSel_avg, image_stack, zFoc, interpolation_type)
+        sMos_light, _ = mosaic(iSel_avg, image_stack, zFoc, interpolation_type, wSel=wSel_avg)
 
         # PS-07: keep the float mosaic in memory (H,W,3) — PNG stays visualization only.
         sMos_by_light[light_dir] = sMos_light

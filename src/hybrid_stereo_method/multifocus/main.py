@@ -143,27 +143,37 @@ def main(parameters):
         raise ValueError(error_msg)
     
     interpolation_type = mf_params["parameters"]["interpolation"]
-    sMos, zMos = mosaic(iSel, image_stack, zFoc, interpolation_type)
+    # MF-04: pass wSel so confidence-0 pixels are masked (zMos→NaN, sMos→nearest frame)
+    sMos, zMos = mosaic(iSel, image_stack, zFoc, interpolation_type, wSel=wSel)
 
     # Salvando imagens
     logging.info("... Saving Data ...")
 
     logging.info("saving iSel and wSel")
-    save_image(output_path, "iSel.png", iSel)
+    # MF-04: iSel/zMos may contain NaN (undecidable pixels from MF-03 or low-confidence
+    # pixels masked here).  PNGs and normalized FNIs use nan_to_num(0) so save_image
+    # (which calls cv2.normalize) does not see NaN.  The raw FNIs keep NaN intact so
+    # downstream consumers (C integrator, wSel channel) can treat them as invalid.
+    save_image(output_path, "iSel.png", np.nan_to_num(iSel, nan=0.0))
     save_image(output_path, "wSel.png", wSel)
-    convert_image_array_to_fni(normalize(iSel), os.path.join(output_path, "iSel.fni"))
-    convert_image_array_to_fni(normalize(wSel), os.path.join(output_path, "wSel.fni"))
+    convert_image_array_to_fni(
+        normalize(np.nan_to_num(iSel, nan=0.0)), os.path.join(output_path, "iSel.fni")
+    )
+    # MF-04/MF-07: export wSel raw (already in [0,1] as R²; no normalize stretch needed)
+    convert_image_array_to_fni(wSel, os.path.join(output_path, "wSel.fni"))
 
     logging.info("saving sMos and zMos")
     save_image(output_path, "sMos.png", sMos)
-    save_image(output_path, "zMos.png", zMos)
+    save_image(output_path, "zMos.png", np.nan_to_num(zMos, nan=0.0))
     convert_image_array_to_fni(normalize(sMos), os.path.join(output_path, "sMos.fni"))
-    
-    # Do NOT normalize zMos, we need it to keep physical Z distance values
+
+    # Do NOT normalize zMos — keep physical Z distance values; NaN marks invalid pixels
     convert_image_array_to_fni(zMos, os.path.join(output_path, "zMos.fni"))
 
-    # Add confidence as a new channel to zMos
-    zMos_with_confidence = np.stack((zMos, normalize(wSel)), axis=-1)
+    # MF-04: weight channel is 0 where zMos is NaN so the C integrator ignores those
+    # pixels as hints (weight=0 means "no hint").  wSel is exported raw (R² in [0,1]).
+    wSel_export = np.where(np.isfinite(zMos), wSel, 0.0)
+    zMos_with_confidence = np.stack((zMos, wSel_export), axis=-1)
     convert_image_array_to_fni(
         zMos_with_confidence, os.path.join(output_path, "zMos_with_confidence.fni")
     )
