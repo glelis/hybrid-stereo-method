@@ -255,5 +255,41 @@ def test_missing_end_z_raises_instead_of_returning_initial_guess(tmp_path):
         integrate_slopes_to_height(slopes, out, "x", executable_path=fake)
 
 
+# ---------------------------------------------------------------------------
+# INT-05: cell-to-vertex grid conversion
+# ---------------------------------------------------------------------------
+
+
+def test_cell_to_vertex_grid_no_half_cell_shift():
+    """INT-05: o C exigia hints (H+1,W+1) e expandia a grade de células com
+    deslocamento de meia célula. A conversão correta média as até 4 células
+    adjacentes: numa rampa linear o vértice v vale exatamente a média dos
+    centros vizinhos (sem shift)."""
+    from hybrid_stereo_method.hybrid.hints import cell_to_vertex_grid
+
+    H = W = 6
+    j = np.mgrid[0:H, 0:W][1].astype(np.float64)
+    z = 2.0 * j  # rampa em x, valores nos CENTROS das células
+    w = np.ones_like(z)
+    out = cell_to_vertex_grid(z, w)
+    assert out.shape == (H + 1, W + 1, 2)
+    # vértices interiores: média das células j-1 e j -> 2*(j-0.5)
+    np.testing.assert_allclose(out[1:-1, 3, 0], 2.0 * (3 - 0.5))
+    # borda: só a célula disponível
+    np.testing.assert_allclose(out[1:-1, 0, 0], 0.0)
+    # pesos válidos em toda parte
+    assert (out[..., 1] > 0).all()
+
+
+def test_cell_to_vertex_grid_nan_cells_get_zero_weight():
+    from hybrid_stereo_method.hybrid.hints import cell_to_vertex_grid
+
+    z = np.ones((4, 4))
+    z[1, 1] = np.nan
+    w = np.ones((4, 4))
+    out = cell_to_vertex_grid(z, w)
+    assert np.isfinite(out[..., 0][out[..., 1] > 0]).all()
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

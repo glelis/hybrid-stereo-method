@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 from natsort import natsorted
 
+from hybrid_stereo_method.hybrid.hints import cell_to_vertex_grid
 from hybrid_stereo_method.hybrid.integrate import (
     IntegrateRecursiveConfig,
     integrate_normals_to_height,
@@ -405,15 +406,15 @@ def main(parameters):
         hints_weight = integration_params.get("hints_weight", 0.0)
 
         if integration_params.get("use_hints", False):
-            # Locate zMos_with_confidence.fni inside multifocus_stereo/average
-            hints_file = os.path.join(
-                output_path, "multifocus_stereo", "average", "zMos_with_confidence.fni"
-            )
-            if os.path.exists(hints_file):
-                hints_fni_path = hints_file
-                logging.info(f"Found hints map: {hints_fni_path}")
-            else:
-                logging.warning(f"Hints map requested but not found at: {hints_file}")
+            # INT-05: build VERTEX-grid hints (H+1, W+1, 2) from the cell-grid
+            # multifocus outputs, instead of letting the C side expand the cell
+            # grid with a half-cell shift.
+            wSel_eff = np.where(np.isfinite(zMos_avg), wSel_avg, 0.0)
+            hints_vertex = cell_to_vertex_grid(zMos_avg, wSel_eff)
+            os.makedirs(integration_output, exist_ok=True)
+            hints_fni_path = os.path.join(integration_output, "hints_vertex.fni")
+            convert_image_array_to_fni(hints_vertex, hints_fni_path)
+            logging.info(f"Wrote vertex-grid hints map: {hints_fni_path}")
 
         reference_fni_path = None
         if integration_params.get("use_reference", False):
