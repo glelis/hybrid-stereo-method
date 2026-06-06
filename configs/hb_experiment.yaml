@@ -135,3 +135,15 @@ hybrid:
     # sy must be -1.0 for datasets whose lights/normals follow the Y-up
     # convention (Stolfi generators, e.g. melon24).
     slopes_scale: [1.0, -1.0]
+
+evaluation:
+  # Avaliação automática contra o ground truth ao final do pipeline
+  # (também disponível standalone:
+  #  python -m hybrid_stereo_method.evaluation.main --results_dir <pasta>)
+  enabled: true
+
+  # Também reportar métricas de altura excluindo pixels onde o próprio GT é
+  # incerto (hDev.png alto). Threshold = fração do range do hDev acima da
+  # qual o pixel é excluído.
+  hdev_mask: false
+  hdev_threshold: 0.1

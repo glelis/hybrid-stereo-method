@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 
 import numpy as np
+import yaml
 from natsort import natsorted
 
 from hybrid_stereo_method.hybrid.integrate import (
@@ -61,6 +62,12 @@ def main(parameters):
 
     # Log the provided parameters
     log_parameters(parameters)
+
+    # Salva o config resolvido para reuso (ex.: avaliação standalone descobre o
+    # data_dir sozinha). Salvo ANTES de o dict ser mutado com arrays numpy.
+    with open(os.path.join(output_path, "parameters.yaml"), "w") as f:
+        yaml.safe_dump(parameters, f, sort_keys=False, allow_unicode=True)
+    logging.info("Resolved parameters saved to: %s", os.path.join(output_path, "parameters.yaml"))
 
     # =========================================================================
     # Step 1: Multifocus Stereo
@@ -259,6 +266,27 @@ def main(parameters):
     else:
         logging.warning(f"Normal map not found at: {normal_map_path}")
         logging.warning("Skipping surface integration step")
+
+    # =========================================================================
+    # Step 4 (opcional): Avaliação automática contra ground truth
+    # =========================================================================
+    eval_config = parameters.get("evaluation") or {}
+    if eval_config.get("enabled", False):
+        logging.info("=" * 60)
+        logging.info("STEP 4: Automated Evaluation")
+        logging.info("=" * 60)
+        try:
+            from hybrid_stereo_method.evaluation.main import run_evaluation
+
+            run_evaluation(
+                output_path,
+                data_dir=os.path.join(input_path, data_foldername),
+                config=eval_config,
+            )
+        except Exception:
+            # Falha na avaliação NUNCA derruba um experimento que já produziu
+            # resultados (spec 2026-06-06): registre e siga.
+            logging.exception("Avaliação automática falhou — resultados preservados")
 
     logging.info("=" * 60)
     logging.info("Hybrid stereo pipeline complete!")

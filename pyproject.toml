@@ -53,6 +53,7 @@ docs = [
 multifocus-stereo = "hybrid_stereo_method.multifocus.main:cli"
 photometric-stereo = "hybrid_stereo_method.photometric.main:cli"
 hybrid-stereo = "hybrid_stereo_method.hybrid.main:cli"
+evaluate-results = "hybrid_stereo_method.evaluation.main:cli"
 
 [tool.setuptools.packages.find]
 where = ["src"]
