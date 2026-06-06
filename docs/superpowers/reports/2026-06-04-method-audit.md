@@ -188,6 +188,7 @@ Pixels com <3 luzes válidas ou solução degenerada recebem `np.nan`, salvos se
 - Localização: `wps.py:155,183,191`; gravados em `main_wps.py:144`; consumidos via `hybrid/integrate.py:94` → `image_io.py:173-177`
 - Evidência: `np.nan` atribuído; `f"{...:+.7e}"` sem checagem de finitude. (Contenção no C confirmada em INT-03 — NaN vira peso 0, não contamina a malha.)
 - Correção sugerida: emitir canal de peso explícito (normal_map (H,W,4)) com 0 nos sombreados; propagar máscara de foreground.
+- **Correção aplicada:** `bdcb126` (2026-06-06) — `main_wps.py` salva `confidence.npy`; `hybrid/main.py` concatena-o como canal 3 do `normal_map (H,W,4)` antes da integração. **Status: corrigido.**
 
 **PS-07 — Entrada do PS quantizada a 8 bits (sMos.png) — sMos.fni float é ignorado** (implementação, médio, suspeita)
 O mosaico é gravado como `sMos.png` (uint8) e `sMos.fni` (float), mas o PS lê o PNG, descartando o float; ruído de quantização (±0.5/255) entra direto nas normais e o `clip(0,255)` satura silenciosamente valores >255.
@@ -241,6 +242,7 @@ Fechamento do lead PS-06. O parser C aceita `+nan` (`strtod`); o NaN não propag
 - Localização: `pst_normal_map.c:236-243` (guarda parcial) + `pst_basic.c:59` (backstop); origem `wps.py:155,183,191`
 - Evidência: guarda da linha 241 inspeciona só `grd.c[0]` e `r3_L_inf_norm` silencia NaN parcial; backstop `pst_map_ensure_pixel_consistency` cobre todos os padrões. Pipeline real NaN-iza os 3 componentes ⇒ ambos capturam o pixel.
 - Correção sugerida: PS emitir canal de peso explícito (normal_map (H,W,4)) com 0 nos sombreados; documentar que sombras viram peso-0.
+- **Correção aplicada:** `bdcb126` (2026-06-06) — `main_wps.py` salva `confidence.npy`; `hybrid/main.py` carrega e concatena como canal 3 do `normal_map (H,W,4)`, tornando o peso-0 explícito; `test_integrator_accepts_confidence_weight_channel` valida o canal peso+NaN. **Status: corrigido.**
 
 **INT-04 — Hints em unidades físicas de `z_foc` somados a alturas em unidades de pixel** (conceitual, alto, suspeita)
 O termo de hints `woo·(H[0]-Z)²` compete no mesmo sistema de mínimos quadrados com os termos de aresta; `H[0]` vem em unidades de `z_foc` (multifocus) e `Z` em altura-por-pixel — escalas incomensuráveis. O `-hints` é montado sem `scale` (`hints_scale=1.0`), de modo que `hints_weight=0.1` pondera grandezas incomensuráveis e enviesa a superfície na direção do `z_foc`.

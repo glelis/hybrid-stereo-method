@@ -182,6 +182,9 @@ violado se um vértice ficasse sem nenhum termo, o que o fudge impede.
 0 nos sombreados em vez de NaN, e/ou propagar uma máscara; documentar que sombras viram
 peso-0. NÃO aplicar (corrigir na origem, PS).
 
+- **Correção aplicada:** `bdcb126` (2026-06-06) — `main_wps.py` salva `confidence.npy`; `hybrid/main.py` concatena-o como canal 3 do `normal_map (H,W,4)` antes da integração; `test_integrator_accepts_confidence_weight_channel` (slow, needs_binary) valida o caminho completo incluindo zona sombreada (NaN normals + confidence 0).
+- **Status:** corrigido
+
 ---
 
 ## INT-04: hints em unidades físicas de `z_foc` somados a alturas em unidades de pixel; `hints_weight` mistura grandezas de escalas diferentes

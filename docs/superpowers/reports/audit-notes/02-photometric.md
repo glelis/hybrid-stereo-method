@@ -244,6 +244,9 @@ normals)` em `main_wps.py:144`; `convert_image_array_to_fni(normal_map, input_fn
 confiança 0) e propagar uma máscara de validade ao integrador; ou garantir que o solver C
 ignore nós marcados. NÃO aplicar — registrar para a fase de integração.
 
+- **Correção aplicada:** `bdcb126` (2026-06-06) — `main_wps.py` agora salva `confidence.npy` junto com `normal_map.npy`; `hybrid/main.py` carrega a confiança e a concatena como canal 3 do `normal_map (H,W,4)` antes de chamar o integrador, tornando o peso de pixels sombreados explicitamente 0.
+- **Status:** corrigido
+
 ---
 
 ## PS-07: Entrada do PS quantizada a 8 bits (sMos.png) — sMos.fni float existe mas é ignorado
