@@ -38,7 +38,7 @@ Detalhamento exato (cada ID contado uma vez pela sua severidade/status final pó
 
 - **Crítico (3, todos confirmados):** MF-01, MF-02 (por inspeção), MF-14 (por execução).
 - **Alto (10):** confirmado — INT-01 (por inspeção, ramo de aborto). Suspeita — MF-03, MF-04, MF-09, PS-02, PS-06, IO-05, INT-04, CONV-4, CONV-6.
-- **Médio (17):** confirmado — PS-03 (teste), INT-02 (corrigido `6728745`), INT-03 (corrigido `bdcb126`), INT-05 (corrigido `1bcefd4`), INT-08 (teste), IO-02 (inspeção), IO-04 (inspeção). Suspeita — MF-05, MF-06, MF-07, MF-08, MF-12, PS-05, PS-07, PS-08, INT-06, CONV-5.
+- **Médio (17):** confirmado — PS-03 (teste), INT-02 (corrigido `6728745`), INT-03 (corrigido `bdcb126`), INT-05 (corrigido `1bcefd4`), INT-06 (mitigado `c577632`), INT-08 (teste), IO-02 (inspeção), IO-04 (inspeção). Suspeita — MF-05, MF-06, MF-07, MF-08, MF-12, PS-05, PS-07, PS-08, CONV-5.
 - **Baixo (12):** confirmado — PS-01 (teste), PS-04 (inspeção de fluxo/risco), PS-09, PS-10, PS-11, MF-10, MF-11, INT-07, IO-01, IO-03, IO-06 (por inspeção). Suspeita — MF-13.
 - **Refutado (2):** CONV-1 e CONV-2 — a inconsistência de **sinal/orientação do integrador** foi refutada por teste (`-normals`, rampa assimétrica); a **metade física** de ambos (sinal-z real / frame y-up POV-Ray das luzes) **permanece em aberto** — não decidível por dados sintéticos.
 
@@ -270,11 +270,12 @@ O termo de hints `woo·(H[0]-Z)²` compete no mesmo sistema de mínimos quadrado
 - Correção sugerida: gerar `zMos` já como grade de vértices `(H+1,W+1)`, ou aceitar/documentar o erro de meia-célula; alinhar a docstring.
 - **Correção aplicada:** `1bcefd4` (2026-06-06) — novo `hybrid/hints.py`: `cell_to_vertex_grid(z, w)` constrói `(H+1, W+1, 2)` a partir das saídas em memória `(zMos_avg, wSel_eff)` via média ponderada pela confiança das até-4 células adjacentes a cada vértice; para campo linear, interpola exatamente na posição do vértice (sem shift). Bloco `use_hints` em `main.py` substituído para usar esse helper em memória e gravar `hints_vertex.fni`; lookup de `zMos_with_confidence.fni` removido. Docstring `integrate.py:217` já estava correta para o caminho in-memory. 2 novos testes unitários: rampa linear e exclusão de células NaN.
 
-**INT-06 — reference `hAvg.png` em uint8 (0-255) comparado a `Z` em unidades de pixel** (conceitual, médio, suspeita)
+**INT-06 — reference `hAvg.png` em uint8 (0-255) comparado a `Z` em unidades de pixel** (conceitual, médio, mitigado)
 Com `use_reference`, `hAvg.png` (uint8) é comparado a `Z` (altura-por-pixel) sem `scale` (`reference_scale=1.0`); `E=Z-R` mistura grandezas incomensuráveis. A comparação remove a média (cancela a constante de integração) mas não a escala nem o tilt, tornando o `devE` reportado não interpretável. Apenas diagnóstico (não realimenta o solve).
 - Localização: `hybrid/main.py:243,247`; `pst_map_compare.c:96-101,151-165`
 - Evidência: `read_image(hAvg.png)`→uint8, `-reference` sem scale; `E=Z-R` cru; `Z` com constante de integração arbitrária.
 - Correção sugerida: passar `-reference path scale Rsz` (cinza→altura) ou `hAvg` já em unidades de altura; opcionalmente remover plano/tilt antes de reportar.
+- **Correção aplicada:** `c577632` (2026-06-06) — `reference_scale: float = 1.0` em `IntegrateRecursiveConfig`; quando `!= 1.0` os ramos `-reference` emitem `scale <value>` após o path. `build_integration_config` lê o campo do YAML e avisa quando `use_reference=True` sem `reference_scale` (valor depende de calibração por dataset). Entrada comentada em `configs/hb_experiment.yaml`. 8 novos testes. Status: mitigado (infra disponível; valor a calibrar pelo usuário).
 
 **INT-07 — default de `-maxLevel` no C é `DEFAULT_MAX_ITER` (100000), não `DEFAULT_MAX_LEVEL` (30)** (implementação, baixo, confirmado por inspeção — inativo no fluxo Python)
 Copy-paste bug: o `else` de `-maxLevel` atribui `DEFAULT_MAX_ITER`; `DEFAULT_MAX_LEVEL=30` é definido mas nunca usado. Efeito prático nulo (recursão para por tamanho `≤3×3`) e inalcançável pelo Python (`-maxLevel` sempre fornecido).

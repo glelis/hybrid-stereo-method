@@ -298,7 +298,7 @@ unitários verificam a interpolação linear exata e a exclusão de células NaN
 - **Localização:** `src/hybrid_stereo_method/hybrid/main.py:243,247`; comparação em `pst_map_compare.c:96-101,151-165`
 - **Tipo:** conceitual
 - **Severidade:** médio
-- **Status:** suspeita (decide: teste de rampa com reference conhecido, Task 9)
+- **Status:** mitigado (`c577632`, 2026-06-06)
 
 **Descrição:** Quando `use_reference` é verdadeiro, `hAvg.png` é lido com `read_image`
 (`IMREAD_UNCHANGED` ⇒ uint8 para PNG de 8 bits; `IMREAD_UNCHANGED` preserva a profundidade do
@@ -329,6 +329,18 @@ integração arbitrária (`gus_integrate_recursive.c:138-143`).
 **Sugestão de correção:** passar `-reference path scale Rsz` com `Rsz` levando cinza→altura,
 ou fornecer `hAvg` já em unidades de altura; opcionalmente remover plano/tilt antes de
 reportar erro. NÃO aplicar.
+
+**Correção aplicada:** `c577632` (2026-06-06) — novo campo `reference_scale: float = 1.0` em
+`IntegrateRecursiveConfig`; quando `!= 1.0` ambos os ramos `-reference` em `_run_integration`
+emitem `scale <value>` após o path, fazendo o C escalar R antes de calcular `devE` (comensurável
+com Z integrado). `build_integration_config` em `hybrid/main.py` lê `reference_scale` do YAML e
+loga warning quando `use_reference=True` sem `reference_scale` (o valor precisa ser calibrado pelo
+usuário por dataset). Entrada comentada em `configs/hb_experiment.yaml` com exemplo (110/255 ≈
+0.431). 8 novos testes em `tests/test_integration_units.py`: captura de cmd via monkeypatch,
+default-não-emitido, threading pelo config, valor default 1.0, warning com/sem scale, sem warning
+sem use_reference. O parâmetro `scale` é estrutural; o valor numérico depende da calibração do
+dataset (escala de cinza→altura física) e permanece responsabilidade do usuário — por isso o
+status é "mitigado" e não "corrigido".
 
 ---
 
