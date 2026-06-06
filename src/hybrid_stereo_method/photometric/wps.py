@@ -138,10 +138,13 @@ def estimate_normals_argmax_lstsq_robust(images, light_sources, wps_params=None)
     shadow_threshold = wps_params.get("shadow_threshold", 1e-3)
     outlier_threshold_multiplier = wps_params.get("outlier_threshold_multiplier", 3)
     # PS-03: multiplicador independente para a detecção unilateral de saturação
-    # (critério b do laço robusto). Default 1.0 é mais apertado que o simétrico
-    # (default 3) porque saturação é sempre unilateral (I_obs < I_pred) e um
-    # threshold mais justo detecta clips moderados (60% do máximo).
-    saturation_multiplier = wps_params.get("saturation_outlier_multiplier", 1.0)
+    # (critério b do laço robusto). Default 1.0: mais apertado que o critério
+    # simétrico (k=3) pois saturação é sempre unilateral. Revisão de code-review
+    # propôs elevar para 2.0 (argumento: 1-sided 1.0×1.4826×MAD exclui ~16%
+    # da cauda nominal), mas 1.5 e 2.0 falham no teste sintético de saturação
+    # (8 luzes, 2 saturadas a 60%: 5.79° e 7.56° > limiar 5°). Default mantido
+    # em 1.0; exposto via config para ajuste por dataset.
+    saturation_outlier_multiplier = wps_params.get("saturation_outlier_multiplier", 1.0)
     # PS-02: o limiar relativo é inócuo abaixo do piso de 8 bits (1/255 ≈ 3.9e-3
     # > 1e-3 sempre que houver sinal). Limiar ABSOLUTO em radiância linear
     # rejeita sombras reais; limiar superior rejeita medições saturadas.
@@ -201,11 +204,11 @@ def estimate_normals_argmax_lstsq_robust(images, light_sources, wps_params=None)
                 # One-sided saturation check: I_pred - I_obs > 0 (overprediction)
                 overpred = np.dot(selected_lights, normal) - selected_values
                 sat_vals = overpred[overpred > 0]
-                if len(sat_vals) >= 2:
+                if len(sat_vals) >= 3:
                     sat_med = np.median(sat_vals)
                     sat_mad = np.median(np.abs(sat_vals - sat_med))
                     if sat_mad > 0:
-                        sat_threshold = sat_med + saturation_multiplier * 1.4826 * sat_mad
+                        sat_threshold = sat_med + saturation_outlier_multiplier * 1.4826 * sat_mad
                         mask &= ~(overpred > sat_threshold)
                 if np.sum(mask) == len(selected_values):  # Step (6): Stabilization
                     break

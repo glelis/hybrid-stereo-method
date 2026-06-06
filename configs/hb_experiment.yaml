@@ -121,6 +121,15 @@ photometric:
     # excluded (PS-02). 250 leaves margin below the 255 clip.
     saturation_threshold: 250.0
 
+    # One-sided saturation outlier cut (PS-03): overpredictions (I_pred - I_obs)
+    # beyond median + k*1.4826*MAD of the overprediction subset are discarded.
+    # Tighter than the symmetric outlier_threshold_multiplier because clipping
+    # only ever lowers the observation. Lower values reject more aggressively.
+    # Code-review proposed 2.0, but 1.5 and 2.0 break the saturation test
+    # (8 lights, 2 saturated at 60%: 5.79° and 7.56° > 5° threshold).
+    # Default 1.0 kept; trade-off requires a human decision before raising.
+    saturation_outlier_multiplier: 1.0
+
 hybrid:
   integration:
     # Integration method (starting point)

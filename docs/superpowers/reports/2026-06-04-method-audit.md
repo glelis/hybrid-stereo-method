@@ -180,7 +180,7 @@ O critério `residuals <= 3·mean(|residuals|)` usa a média (não robusta); um 
 - Localização: `wps.py:163-185`
 - Evidência: `test_wps_robust_to_saturation` (Task 10, xfail) — 2 de 8 luzes saturadas a 60% do máximo produziram erro angular médio 15.13° (limiar do teste 5°).
 - Correção sugerida: mediana + MAD (ou IQR); opcionalmente limitar iterações.
-- **Correção aplicada:** `c1d715d` (2026-06-06) — critério simétrico `r_med+k*1.4826*MAD` + critério unilateral para saturação (`sat_med+k_sat*1.4826*sat_mad`, k_sat default 1.0); `mad==0` early-break. Antes: 15.13° com 2/8 luzes saturadas. Após: **2.86°** (XFAIL→PASS). **Status: corrigido.**
+- **Correção aplicada:** `c1d715d` (2026-06-06) — critério simétrico `r_med+k*1.4826*MAD` + critério unilateral para saturação (`sat_med+k_sat*1.4826*sat_mad`, k_sat default 1.0); `mad==0` early-break. Guard do subconjunto elevado para `>= 3`; variável renomeada para `saturation_outlier_multiplier`; config key exposta em ambos os YAMLs. Antes: 15.13° com 2/8 luzes saturadas. Após: **2.86°** (XFAIL→PASS). Dados limpos: **0.004°**. Revisão de code-review propôs default 2.0 (argumento: 1-sided 1.0×MAD exclui ~16% da cauda); investigação mostrou rejeição real < 1% em dados limpos (23.79/24 luzes); k=1.5 e k=2.0 falham no teste de saturação (5.79° e 7.56° > 5°). Default mantido em 1.0; trade-off necessita decisão humana. **Status: corrigido.**
 
 **PS-04 — `residual_std` da confiança é o do ajuste antes da última remoção de outliers** (implementação, baixo, verificado por inspeção de fluxo — risco de manutenção)
 Hoje correto por construção: o único `break` ocorre quando `mask` mantém todos, alinhando `residuals`/`normal`/`selected_*`. O achado é a fragilidade a refatoração (acoplamento implícito sem asserção).

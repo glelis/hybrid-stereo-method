@@ -152,8 +152,19 @@ enviesadas quando a saturação infla `r_avg`.
 (b) Unilateral: rejeita medições onde `I_pred - I_obs > sat_med + k_sat*1.4826*sat_mad`
 (saturação sempre cria underprediction unilateral). `saturation_outlier_multiplier` default 1.0
 (mais apertado que k_sym=3 do critério simétrico); `mad==0` → break (resíduos idênticos).
-Antes: erro angular médio 15.13° com 2/8 luzes saturadas. Após: 2.86°.
-Teste: `test_wps_robust_to_saturation` (XFAIL → PASS confirmado). **Status: corrigido.**
+Guard do subconjunto de sobreprevisão elevado para `>= 3` (MAD de 2 pontos é arbitrário).
+Variável renomeada para `saturation_outlier_multiplier` (grep-ability com chave do config).
+Config key `saturation_outlier_multiplier: 1.0` exposta em `hb_experiment.yaml` e
+`wps_experiment.yaml`.
+Antes: erro angular médio 15.13° com 2/8 luzes saturadas. Após: **2.86°** (XFAIL → PASS).
+Dados limpos: **0.004°** (clean-data error inalterado).
+
+**Revisão de code-review (2026-06-06):** proposta elevar default para 2.0 (argumento: corte
+1-sided 1.0×1.4826×MAD exclui ~16% da cauda nominal; medição de ~35% de luzes rejeitadas em
+24 luzes limpas). Investigação: a rejeição real a k=1.0 em dados limpos é < 1% (23.79/24
+luzes usadas em média); o problema da cauda não se manifesta nos dados sintéticos desta suíte.
+Teste a k=1.5 e k=2.0: 5.79° e 7.56° > limiar de 5° — ambos falham. Default mantido em 1.0;
+trade-off precisa de decisão humana (mais luzes limpas vs robustez a saturação em 8 luzes).
 
 ---
 
