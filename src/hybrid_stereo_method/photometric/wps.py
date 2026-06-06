@@ -137,6 +137,11 @@ def estimate_normals_argmax_lstsq_robust(images, light_sources, wps_params=None)
     epsilon = wps_params.get("epsilon", 1e-6)
     shadow_threshold = wps_params.get("shadow_threshold", 1e-3)
     outlier_threshold_multiplier = wps_params.get("outlier_threshold_multiplier", 3)
+    # PS-03: multiplicador independente para a detecção unilateral de saturação
+    # (critério b do laço robusto). Default 1.0 é mais apertado que o simétrico
+    # (default 3) porque saturação é sempre unilateral (I_obs < I_pred) e um
+    # threshold mais justo detecta clips moderados (60% do máximo).
+    saturation_multiplier = wps_params.get("saturation_outlier_multiplier", 1.0)
     # PS-02: o limiar relativo é inócuo abaixo do piso de 8 bits (1/255 ≈ 3.9e-3
     # > 1e-3 sempre que houver sinal). Limiar ABSOLUTO em radiância linear
     # rejeita sombras reais; limiar superior rejeita medições saturadas.
@@ -180,10 +185,28 @@ def estimate_normals_argmax_lstsq_robust(images, light_sources, wps_params=None)
                 residuals = np.abs(
                     np.dot(selected_lights, normal) - selected_values
                 )  # Compute residuals for each equation
-                r_avg = np.mean(residuals)  # Step (4): Compute average residual
-
-                # Step (5): Discard outliers
-                mask = residuals <= outlier_threshold_multiplier * r_avg
+                # PS-03: limiar robusto — dois critérios combinados:
+                # (a) Simétrico: mediana + k*1.4826*MAD sobre |resíduos|.
+                #     Robusto à inflação da média por outliers grandes (mascaramento),
+                #     capturando highlights e erros normais de ambos os lados.
+                # (b) Unilateral (saturação): quando I_pred >> I_obs, o sinal foi
+                #     clipado. Detectado pelo MAD das sobreprevisões (I_pred - I_obs > 0):
+                #     se algum valor estiver acima de med_overpred + k*1.4826*mad_overpred,
+                #     é candidato a saturação e é descartado.
+                r_med = np.median(residuals)
+                mad = np.median(np.abs(residuals - r_med))
+                if mad == 0.0:
+                    break  # resíduos (quase) idênticos: nada a rejeitar
+                mask = residuals <= r_med + outlier_threshold_multiplier * 1.4826 * mad
+                # One-sided saturation check: I_pred - I_obs > 0 (overprediction)
+                overpred = np.dot(selected_lights, normal) - selected_values
+                sat_vals = overpred[overpred > 0]
+                if len(sat_vals) >= 2:
+                    sat_med = np.median(sat_vals)
+                    sat_mad = np.median(np.abs(sat_vals - sat_med))
+                    if sat_mad > 0:
+                        sat_threshold = sat_med + saturation_multiplier * 1.4826 * sat_mad
+                        mask &= ~(overpred > sat_threshold)
                 if np.sum(mask) == len(selected_values):  # Step (6): Stabilization
                     break
 

@@ -52,7 +52,6 @@ def test_wps_albedo_recovers_true_albedo():
         )
 
 
-@pytest.mark.xfail(strict=True, reason="PS-03: loop de outliers usa 3×média (não robusta); saturação em 2/8 luzes infla r_avg e NÃO é descartada — XPASS = corrigido")
 def test_wps_robust_to_saturation():
     """Satura (clip) as intensidades em 60% do máximo em DUAS imagens — o laço
     robusto deve descartar os outliers e manter o erro angular baixo."""
