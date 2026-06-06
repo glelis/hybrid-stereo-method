@@ -14,6 +14,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+import yaml
 
 from hybrid_stereo_method.infrastructure.io.image_io import (
     read_fni_to_image_array,
@@ -197,6 +198,6 @@ def resolve_data_dir(results_dir: str | Path, data_dir: str | Path | None) -> Pa
             if candidate.is_dir():
                 return candidate
             logging.warning("data_dir do parameters.yaml não existe: %s", candidate)
-        except (KeyError, TypeError) as exc:
+        except (KeyError, TypeError, yaml.YAMLError) as exc:
             logging.warning("parameters.yaml sem experiment.paths utilizável: %s", exc)
     return None

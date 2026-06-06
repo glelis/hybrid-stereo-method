@@ -188,3 +188,10 @@ def test_resolve_data_dir_precedence(tmp_path):
     assert resolve_data_dir(results, None) == data
     # 3) sem nada: None
     assert resolve_data_dir(tmp_path, None) is None
+
+
+def test_resolve_data_dir_corrupt_yaml_returns_none(tmp_path):
+    results = tmp_path / "results"
+    results.mkdir()
+    (results / "parameters.yaml").write_text("experiment: [unclosed\n  paths: {")
+    assert resolve_data_dir(results, None) is None
