@@ -434,7 +434,7 @@ condicionamento das 3 luzes (ou selecionar luzes que maximizem o volume/triângu
 - **Localização:** `src/hybrid_stereo_method/photometric/visualization.py:136-137`, `165-168`, `141-142`, `184-185`, `254-255`
 - **Tipo:** implementação
 - **Severidade:** baixo
-- **Status:** confirmado (por inspeção)
+- **Status:** corrigido (`2265288`, 2026-06-06)
 
 **Descrição:** (1) **Mutação in-place:** `disp_normalmap` faz
 `N = np.reshape(normal, (h,w,3))` — `np.reshape` devolve uma **view** quando possível — e em
@@ -457,6 +457,15 @@ chama as três funções de display incondicionalmente.
 **Sugestão de correção:** operar sobre cópia (`N = normal.reshape(...).copy()`) e tornar a
 visualização opcional/condicional a flag de debug (ou usar `cv2.imwrite` sem `imshow`). NÃO
 aplicar.
+
+**Correção aplicada:** `2265288` (2026-06-06) — nas três funções `disp_*`:
+(1) `np.reshape(...).copy()` garante que o swap de canais opera sobre uma cópia, nunca sobre
+a view do caller; (2) `np.nan_to_num(nan=0.0)` antes do rescale para imagem trata pixels NaN
+(sombra); (3) novo parâmetro `display=False` guarda todo o bloco `cv2.imshow`/`waitKey`/
+`destroyWindow`/`waitKey(1)` atrás de `if display:` — default save-only, headless-safe.
+Pré-correção: `cv2.waitKey(0)` bloqueava indefinidamente em headless (timeout 15s, exit 143).
+Pós-correção: `test_disp_functions_do_not_mutate_input_and_are_headless_safe` PASS (111 total
+PASS). **Status: corrigido.**
 
 ---
 

@@ -236,6 +236,7 @@ Resolve com `np.linalg.inv(selected_lights)` sobre as 3 luzes mais brilhantes; s
 - Localização: `visualization.py:136-137,165-168,141-142,184-185,254-255`
 - Evidência: swap sobre `np.reshape(normal,...)` (view); `waitKey(0)`; `main_wps.py:181-197` chama os displays incondicionalmente.
 - Correção sugerida: operar sobre cópia; tornar visualização opcional (flag de debug ou `cv2.imwrite`).
+- **Correção aplicada:** `2265288` (2026-06-06) — `.copy()` após reshape; `nan_to_num` antes do rescale; `display=False` guarda todo bloco cv2. Pré-fix: timeout 143 (waitKey bloqueou). Teste: `test_disp_functions_do_not_mutate_input_and_are_headless_safe` PASS. **Status: corrigido.**
 
 ### 2.3 Integração (INT-xx)
 
