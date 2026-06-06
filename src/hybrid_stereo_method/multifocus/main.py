@@ -187,7 +187,9 @@ def main(parameters):
     if parameters["experiment"]["settings"]["gabaritos"]:
         reference_image = read_image(find_all_files(reference_images_path)[0], info=True)
         logging.info("Saving error image")
-        error_image = calculate_error_image(reference_image, zMos)
+        # MF-04: zMos may contain NaN (undecidable pixels). normalize() uses np.max/np.min
+        # which propagate NaN → silently corrupt error image. Zero NaN for error visualization.
+        error_image = calculate_error_image(reference_image, np.nan_to_num(zMos, nan=0.0))
         save_image(error_image_path, "error_image.png", error_image)
         logging.info("Done!")
 
