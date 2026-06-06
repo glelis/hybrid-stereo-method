@@ -81,6 +81,13 @@ multifocus:
     n_iter: 5
 
 photometric:
+  # Set true when lights.npy was generated in a y-up frame (e.g. POV-Ray):
+  # the image frame is y-down (numpy rows), so the lights' y must be negated
+  # to keep lights and normals in the same frame (CONV-2). Decide with a real
+  # ground-truth comparison (integrate with both settings, keep the one whose
+  # height map matches the physical surface orientation).
+  flip_lights_y: false
+
   parameters:
     # Solver method to use
     method: 'wodham_implementation_argmax'

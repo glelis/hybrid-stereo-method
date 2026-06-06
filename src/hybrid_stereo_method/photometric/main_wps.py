@@ -31,6 +31,23 @@ from hybrid_stereo_method.photometric.wps import (
 )
 
 
+def reconcile_lights(light_sources: np.ndarray, flip_y: bool) -> np.ndarray:
+    """Reconcile the light-direction frame with the numpy image frame (CONV-2).
+
+    The pipeline convention (tests/synthetic_utils.py, decided by the ramp
+    convention tests) is: image rows = y growing DOWNWARD, normals
+    n = (-dz/dx, -dz/dy, 1)/|.|, z growing toward the camera (CONV-1). Real
+    ``lights.npy`` generated in y-up frames (e.g. POV-Ray) must have their y
+    component negated — set ``photometric.flip_lights_y: true``.
+    """
+    if not flip_y:
+        return light_sources
+    out = np.array(light_sources, copy=True)
+    out[:, 1] = -out[:, 1]
+    logging.info("flip_lights_y: negated lights y-axis (y-up -> y-down, CONV-2)")
+    return out
+
+
 def linearize_intensities(img: np.ndarray, gamma: float) -> np.ndarray:
     """Decode gamma-encoded intensities to linear radiance (PS-08).
 
@@ -144,6 +161,10 @@ def main(parameters):
     # Load light sources
     logging.info("... Loading light sources ...")
     light_sources = np.load(light_path)
+    light_sources = reconcile_lights(
+        light_sources,
+        flip_y=bool(parameters.get("photometric", {}).get("flip_lights_y", False)),
+    )
 
     # Images and lights are paired positionally — the counts must match.
     if len(images) != light_sources.shape[0]:

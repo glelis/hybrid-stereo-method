@@ -205,3 +205,18 @@ def test_disp_functions_do_not_mutate_input_and_are_headless_safe(tmp_path):
     )
     assert (tmp_path / "normal_map.png").exists()
     assert (tmp_path / "Channels.png").exists()
+
+
+def test_reconcile_lights_flip_y():
+    """CONV-2: lights.npy reais são POV-Ray (y-up); a imagem numpy é y-down.
+    A reconciliação deve ser uma chave explícita, não implícita."""
+    from hybrid_stereo_method.photometric.main_wps import reconcile_lights
+
+    lights = np.array([[0.1, 0.2, 0.97], [-0.3, -0.4, 0.86]])
+    out = reconcile_lights(lights, flip_y=True)
+    np.testing.assert_allclose(out[:, 0], lights[:, 0])
+    np.testing.assert_allclose(out[:, 1], -lights[:, 1])
+    np.testing.assert_allclose(out[:, 2], lights[:, 2])
+    # default: identidade, e NÃO muta a entrada
+    out2 = reconcile_lights(lights, flip_y=False)
+    np.testing.assert_allclose(out2, lights)
