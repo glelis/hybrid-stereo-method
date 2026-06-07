@@ -130,6 +130,11 @@ def mosaic_export_scale(source_dtype) -> float:
     para sVal.png de 16 bits). PNG (uint8) e FNI (0-1) precisam ser
     reescalados por ESTE máximo — usar 255 fixo satura dados 16-bit
     (investigação 2026-06-06, F3/H3).
+
+    Fontes inteiras (uint8/uint16, todos os datasets atuais) usam
+    ``np.iinfo(dtype).max``. Fontes float caem no padrão 0-255 (legado);
+    se algum dataset futuro trouxer stacks float em outra escala (ex.: TIFF
+    32-bit normalizado em [0, 1]), este padrão precisará ser revisto.
     """
     dt = np.dtype(source_dtype)
     if np.issubdtype(dt, np.integer):
