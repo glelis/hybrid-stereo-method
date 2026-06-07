@@ -50,16 +50,16 @@ plana) domina — o desequilíbrio cria o penhasco regional e anti-correlaciona 
 Removidos os hints, o penhasco desaparece; sobra uma superfície quase plana com tilt
 (falta de âncora), que nenhuma métrica afim 1D pontua bem.
 
-## Correções propostas (aguardando sua aprovação)
+## Correções aprovadas (decisão do usuário, 2026-06-06)
 
-| # | Correção | Gate | Natureza | Status |
-|---|----------|------|----------|--------|
-| C1 (Task 10) | Export dtype-aware de `sMos.png`/`sMos.fni` | F3 ✅ aberto | Bug de código + teste | Pronta p/ executar |
-| C2 (Task 11) | Teste do domo sintético; fix de orientação (negar ny na fronteira PS→integração) **somente se o teste falhar** | F1 ✅ aberto (evidência pró-`y_flipped`) | Bug de código + regressão | Pronta p/ executar |
-| C3 (Task 12) | `pixel_size` empírico no YAML p/ comensurabilidade dos hints (sinal OK por F4) | A1+F4 ✅ aberto | Configuração | Pronta p/ executar |
-| C4 (Task 13) | Máscara de fundo na integração (mask.png > derivação por intensidade) | A2 ✅ (ganho modesto 0.09→0.21) | Lacuna funcional | **Decisão de produto: vale o ganho modesto? Estratégia default ok?** |
-| C5 *(nova, H7)* | Thresholds do solver relativos à escala da fonte (ou valores 16-bit no YAML) — **pré-requisito do re-run de validação** | A4 ✅ | Configuração (mínимо) ou código (robusto) | **Precisa decisão: config-only vs fix no código** |
-| C6 *(nova)* | Métrica adicional no avaliador: fit plano 2D (remove tilt) p/ altura integrada; e excluir fill-values no `load_normals_gt` | F1/F1b ✅ | Código no módulo `evaluation` | **Precisa aprovação (módulo recém-entregue)** |
+| # | Correção | Gate | Natureza | Decisão |
+|---|----------|------|----------|---------|
+| C1 (Task 10) | Export dtype-aware de `sMos.png`/`sMos.fni` | F3 ✅ | Bug de código + teste | **APROVADA** |
+| C2 (Task 11) | Teste do domo sintético; fix de orientação (negar ny na fronteira PS→integração) **somente se o teste falhar** | F1 ✅ (evidência pró-`y_flipped`) | Bug de código + regressão | **APROVADA** |
+| C3 (Task 12) | `pixel_size` empírico no YAML p/ comensurabilidade dos hints (sinal OK por F4) | A1+F4 ✅ | Configuração | **APROVADA** |
+| C4 (Task 13) | Máscara de fundo na integração | A2 ✅ (ganho modesto 0.09→0.21) | Lacuna funcional | **NÃO aprovada** — ganho pequeno; fica como trabalho futuro |
+| C5 *(nova, H7)* | Thresholds do solver WPS **relativos ao max do dtype da fonte** — pré-requisito do re-run | A4 ✅ | Bug de código + teste | **APROVADA (opção código)** |
+| C6 *(nova)* | Avaliador: métrica adicional com **remoção de tilt (fit plano 2D)** p/ altura; e **excluir fill-values** no `load_normals_gt` | F1/F1b ✅ | Código no módulo `evaluation` | **APROVADA (ambos)** |
 
 ### Honestidade sobre os critérios de aceite
 
