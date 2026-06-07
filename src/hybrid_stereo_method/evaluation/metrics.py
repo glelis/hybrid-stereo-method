@@ -34,6 +34,49 @@ def pearson_r(est: np.ndarray, gt: np.ndarray) -> float:
     return float(np.corrcoef(est_flat, gt_flat)[0, 1])
 
 
+def detrended_pearson_rmse(
+    est: np.ndarray, gt: np.ndarray, x: np.ndarray, y: np.ndarray
+) -> tuple[float, float]:
+    """Pearson e RMSE após remover um tilt 2D (plano em x, y) — investigação
+    2026-06-06 (C6).
+
+    Integração não-ancorada injeta uma rampa 2D espúria que o fit afim 1D
+    (``affine_fit_rmse``) não remove. Aqui:
+    - ``pearson``: correlação PARCIAL de est e gt dado (x, y) — correlação dos
+      resíduos de cada um após regredir contra o plano [x, y, 1]. NaN se algum
+      resíduo for constante.
+    - ``rmse``: resíduo do ajuste conjunto ``gt ≈ a*est + bx*x + by*y + c``,
+      nas unidades do GT.
+
+    Todas as entradas são 1-D (pixels válidos já selecionados) e do mesmo tamanho.
+    """
+    est = np.asarray(est, dtype=np.float64).ravel()
+    gt = np.asarray(gt, dtype=np.float64).ravel()
+    x = np.asarray(x, dtype=np.float64).ravel()
+    y = np.asarray(y, dtype=np.float64).ravel()
+    plane = np.stack([x, y, np.ones_like(x)], axis=1)
+
+    def _residual(v: np.ndarray) -> np.ndarray:
+        coef, *_ = np.linalg.lstsq(plane, v, rcond=None)
+        return v - plane @ coef
+
+    est_r = _residual(est)
+    gt_r = _residual(gt)
+    # Detecta resíduo numericamente constante (pode ter ruído FP mesmo quando
+    # est é exatamente um plano): compara std com a escala de est (relativo).
+    est_scale = float(np.abs(est).mean()) or 1.0
+    gt_scale = float(np.abs(gt).mean()) or 1.0
+    if est_r.std() < est_scale * 1e-10 or gt_r.std() < gt_scale * 1e-10:
+        pearson = float("nan")
+    else:
+        pearson = pearson_r(est_r, gt_r)
+
+    design = np.stack([est, x, y, np.ones_like(est)], axis=1)
+    coef, *_ = np.linalg.lstsq(design, gt, rcond=None)
+    rmse = float(np.sqrt(np.mean((design @ coef - gt) ** 2)))
+    return pearson, rmse
+
+
 def angular_error_deg(n_est: np.ndarray, n_gt: np.ndarray) -> np.ndarray:
     """Erro angular por pixel, em graus, entre campos de normais (H, W, 3).
 

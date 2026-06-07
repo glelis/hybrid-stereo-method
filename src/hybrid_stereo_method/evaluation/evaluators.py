@@ -17,6 +17,7 @@ import numpy as np
 from hybrid_stereo_method.evaluation.metrics import (
     affine_fit_rmse,
     angular_error_deg,
+    detrended_pearson_rmse,
     pearson_r,
     psnr,
     ssim,
@@ -52,6 +53,10 @@ def evaluate_height(
     rmse, (a, b) = affine_fit_rmse(est[valid], gt[valid])
     error_map = np.where(valid, np.abs(a * est + b - gt), np.nan)
     valid_fraction = n_valid / est.size
+    yy, xx = np.mgrid[0 : est.shape[0], 0 : est.shape[1]].astype(np.float64)
+    pearson_detrended, rmse_detrended = detrended_pearson_rmse(
+        est[valid], gt[valid], xx[valid], yy[valid]
+    )
     return {
         "status": "ok",
         "rmse_affine": rmse,
@@ -59,6 +64,8 @@ def evaluate_height(
         "a": a,
         "b": b,
         "pearson_r": pearson_r(est[valid], gt[valid]),
+        "pearson_detrended": pearson_detrended,
+        "rmse_detrended": rmse_detrended,
         "gt_std": float(gt[valid].std()),
         "valid_fraction": valid_fraction,
         "low_validity": bool(valid_fraction < LOW_VALIDITY_THRESHOLD),
