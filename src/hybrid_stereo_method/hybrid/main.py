@@ -123,6 +123,20 @@ def pair_mosaics_to_lights(mosaic_paths: list[str], n_lights: int) -> list[str]:
     return [indexed[i] for i in range(n_lights)]
 
 
+def mosaic_export_scale(source_dtype) -> float:
+    """Valor máximo da escala radiométrica da fonte, para exportar mosaicos.
+
+    Os mosaicos float herdam as unidades do stack de entrada (ex.: 0-65535
+    para sVal.png de 16 bits). PNG (uint8) e FNI (0-1) precisam ser
+    reescalados por ESTE máximo — usar 255 fixo satura dados 16-bit
+    (investigação 2026-06-06, F3/H3).
+    """
+    dt = np.dtype(source_dtype)
+    if np.issubdtype(dt, np.integer):
+        return float(np.iinfo(dt).max)
+    return 255.0
+
+
 def build_integration_config(integration_params: dict, debug: bool) -> IntegrateRecursiveConfig:
     """Build the solver config from the ``hybrid.integration`` YAML section.
 
@@ -155,7 +169,10 @@ def build_integration_config(integration_params: dict, debug: bool) -> Integrate
             "without a hints map the C solver aborts (INT-01)."
         )
 
-    if integration_params.get("use_reference", False) and "reference_scale" not in integration_params:
+    if (
+        integration_params.get("use_reference", False)
+        and "reference_scale" not in integration_params
+    ):
         logging.warning(
             "use_reference=True but hybrid.integration.reference_scale is not set: "
             "hAvg.png is uint8 (0-255) while the integrated heights are in physical "
@@ -330,9 +347,19 @@ def main(parameters):
         # normalize=False is essential: these mosaics are the photometric stereo
         # input, and a per-image min-max stretch would destroy the cross-light
         # intensity relationships that the I = albedo * (L . N) model requires.
-        save_image(output_path_multifocus, "sMos.png", sMos_light, normalize=False)
+        # F3/H3 (investigação 2026-06-06): escalar pelo max do dtype da FONTE —
+        # sMos_light está nas unidades do stack (0-65535 p/ 16-bit); 255 fixo
+        # saturava o PNG (avaliação de mosaico virava artefato) e deixava o
+        # FNI em 0-257 em vez de 0-1.
+        export_scale = mosaic_export_scale(image_stack.dtype)
+        save_image(
+            output_path_multifocus,
+            "sMos.png",
+            sMos_light * (255.0 / export_scale),
+            normalize=False,
+        )
         convert_image_array_to_fni(
-            sMos_light / 255.0, os.path.join(output_path_multifocus, "sMos.fni")
+            sMos_light / export_scale, str(Path(output_path_multifocus) / "sMos.fni")
         )
 
     # =========================================================================
@@ -388,9 +415,7 @@ def main(parameters):
         # PS-06/INT-03: attach the photometric confidence as the weight channel
         # (H,W,4) so shadowed/degenerate pixels (NaN normals, confidence 0) are
         # excluded by weight instead of relying only on the C NaN backstop.
-        confidence_path = os.path.join(
-            parameters["output_path_photometric"], "confidence.npy"
-        )
+        confidence_path = os.path.join(parameters["output_path_photometric"], "confidence.npy")
         if os.path.exists(confidence_path):
             confidence = np.load(confidence_path)
             normal_map = np.concatenate(
@@ -401,9 +426,7 @@ def main(parameters):
                 normal_map.shape,
             )
         else:
-            logging.warning(
-                "confidence.npy not found — integrating normals without weight channel"
-            )
+            logging.warning("confidence.npy not found — integrating normals without weight channel")
 
         # Configure integration parameters.
         # build_integration_config derives slopes_scale from pixel_size so the
