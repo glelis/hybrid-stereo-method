@@ -89,7 +89,10 @@ def load_normals_gt(
     scale = float(np.iinfo(img.dtype).max) if np.issubdtype(img.dtype, np.integer) else 1.0
     n = rgb / scale * 2.0 - 1.0
     norm = np.linalg.norm(n, axis=-1)
-    foreground = np.abs(norm - 1.0) <= norm_tolerance
+    # C6 (investigação 2026-06-06): exige nz>0 (normal voltada à câmera). O
+    # fill-value (-1/√3,-1/√3,-1/√3) tem norma 1 (passava o teste) mas nz<0 —
+    # excluí-lo evita poluir o erro angular com normais traseiras espúrias.
+    foreground = (np.abs(norm - 1.0) <= norm_tolerance) & (n[..., 2] > 0.0)
     safe_norm = np.where(norm == 0.0, 1.0, norm)
     n_unit = np.where(foreground[..., None], n / safe_norm[..., None], np.nan)
     return n_unit, foreground
