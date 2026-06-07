@@ -98,6 +98,20 @@ def collect_light_dirs(files: list[str], data_path: str | Path) -> list[str]:
     return natsorted(lights)
 
 
+def light_index(light_dir_name: str) -> int:
+    """Índice inteiro de uma pasta de luz ``L<n>`` (``L0`` e ``L000`` -> 0).
+
+    Mesma convenção de ``pair_mosaics_to_lights``: o pareamento luz↔linha de
+    lights.npy é por ÍNDICE, não por nome literal — então a indexação dos
+    mosaicos in-memory precisa ser tolerante a zero-padding (fix da
+    investigação 2026-06-06: ``sMos_by_light[f"L{i}"]`` quebrava em ``L000``).
+    """
+    m = re.fullmatch(r"L(\d+)", light_dir_name)
+    if m is None:
+        raise ValueError(f"nome de pasta de luz inválido (esperado L<n>): {light_dir_name!r}")
+    return int(m.group(1))
+
+
 def pair_mosaics_to_lights(mosaic_paths: list[str], n_lights: int) -> list[str]:
     """Order per-light mosaics by their ``L<n>`` index and verify the indices
     are exactly ``0..n_lights-1`` (one mosaic per lights.npy row).
@@ -318,9 +332,11 @@ def main(parameters):
     zFoc = parameters["multifocus"]["parameters"]["z_foc"]
     interpolation_type = parameters["multifocus"]["parameters"]["interpolation"]
 
-    # PS-07: collect float mosaics in memory, keyed by light dir name, to bypass
+    # PS-07: collect float mosaics in memory, keyed by light index (int), to bypass
     # the uint8 PNG round-trip when feeding the photometric step.
-    sMos_by_light: dict[str, np.ndarray] = {}
+    # Indexed by integer to be tolerant of zero-padding (L000 -> 0), aligning with
+    # pair_mosaics_to_lights / lights.npy rows (fix investigação 2026-06-06).
+    sMos_by_light: dict[int, np.ndarray] = {}
 
     for light_dir in light_directories:
         logging.info(f"... Processing light directory: {light_dir} ...")
@@ -346,7 +362,7 @@ def main(parameters):
         sMos_light, _ = mosaic(iSel_avg, image_stack, zFoc, interpolation_type, wSel=wSel_avg)
 
         # PS-07: keep the float mosaic in memory (H,W,3) — PNG stays visualization only.
-        sMos_by_light[light_dir] = sMos_light
+        sMos_by_light[light_index(light_dir)] = sMos_light
 
         # Save the mosaic images to the output directory.
         # normalize=False is essential: these mosaics are the photometric stereo
@@ -396,7 +412,9 @@ def main(parameters):
 
     # PS-07: hand the float mosaics to the PS in lights.npy row order, bypassing
     # the uint8 PNG round-trip (sMos.png stays as visualization only).
-    parameters["sMos_images"] = [sMos_by_light[f"L{i}"] for i in range(n_lights)]
+    # indexado por ÍNDICE de luz (tolerante a zero-padding: L000 -> 0), alinhado
+    # a pair_mosaics_to_lights / linhas de lights.npy (investigação 2026-06-06).
+    parameters["sMos_images"] = [sMos_by_light[i] for i in range(n_lights)]
 
     # H7 (investigação 2026-06-06): informa ao solver fotométrico a escala
     # radiométrica da fonte para que os limiares absolutos (calibrados em 8-bit)
