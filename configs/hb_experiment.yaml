@@ -41,7 +41,9 @@ multifocus:
   focus_measure:
     # Algorithm to measure focus
     # Options: 'fourier', 'laplacian', 'wavelet'
-    method: 'laplacian'
+    # Restaurado p/ 'fourier' (paridade com o run 20260606_1126 — antes×depois
+    # justo da investigação 2026-06-06; o YAML fora trocado p/ laplacian depois).
+    method: 'fourier'
     
     parameters:
       # Size of the Laplacian kernel (if method is 'laplacian')
