@@ -398,6 +398,15 @@ def main(parameters):
     # the uint8 PNG round-trip (sMos.png stays as visualization only).
     parameters["sMos_images"] = [sMos_by_light[f"L{i}"] for i in range(n_lights)]
 
+    # H7 (investigação 2026-06-06): informa ao solver fotométrico a escala
+    # radiométrica da fonte para que os limiares absolutos (calibrados em 8-bit)
+    # sejam reescalados à profundidade de bits real (ex.: 65535 p/ stacks 16-bit).
+    # image_stack é o último stack do laço per-light acima; todos os lights
+    # compartilham o mesmo dtype da fonte.
+    parameters.setdefault("photometric", {}).setdefault("solver", {})["intensity_max"] = (
+        mosaic_export_scale(image_stack.dtype)
+    )
+
     parameters["output_path_photometric"] = os.path.join(output_path, "photometric_stereo")
 
     # Execute the photometric stereo method

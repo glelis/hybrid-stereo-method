@@ -148,8 +148,18 @@ def estimate_normals_argmax_lstsq_robust(images, light_sources, wps_params=None)
     # PS-02: o limiar relativo é inócuo abaixo do piso de 8 bits (1/255 ≈ 3.9e-3
     # > 1e-3 sempre que houver sinal). Limiar ABSOLUTO em radiância linear
     # rejeita sombras reais; limiar superior rejeita medições saturadas.
-    shadow_absolute = wps_params.get("shadow_absolute_threshold")
-    saturation_threshold = wps_params.get("saturation_threshold")
+    # H7 (investigação 2026-06-06): os limiares ABSOLUTOS são calibrados em
+    # unidades 8-bit (0-255); intensity_max os reescala para a profundidade de
+    # bits da fonte (default 255 => fator 1, retrocompatível). Sem isso,
+    # saturation_threshold=250 descarta ~90% de dados 16-bit como saturação.
+    intensity_max = float(wps_params.get("intensity_max", 255.0))
+    intensity_scale = intensity_max / 255.0
+    _shadow_abs_raw = wps_params.get("shadow_absolute_threshold")
+    _saturation_raw = wps_params.get("saturation_threshold")
+    shadow_absolute = None if _shadow_abs_raw is None else _shadow_abs_raw * intensity_scale
+    saturation_threshold = (
+        None if _saturation_raw is None else _saturation_raw * intensity_scale
+    )
 
     images = np.stack(images, axis=-1)  # Convert list of images to a 3D array
     images = images + epsilon  # Add a small value to avoid division by zero
