@@ -201,10 +201,13 @@ def create_stl_from_heightmap(height_map, scale=(1, 1, 1), output_file="output.s
     for i in range(rows - 1):
         for j in range(cols - 1):
             # Vértices do quadrado atual (em 3D)
-            v1 = [i * scale_x, j * scale_y, height_map[i, j] * scale_z]
-            v2 = [(i + 1) * scale_x, j * scale_y, height_map[i + 1, j] * scale_z]
-            v3 = [i * scale_x, (j + 1) * scale_y, height_map[i, j + 1] * scale_z]
-            v4 = [(i + 1) * scale_x, (j + 1) * scale_y, height_map[i + 1, j + 1] * scale_z]
+            # i indexes rows (image Y) and j indexes columns (image X);
+            # mapping column->X and row->Y keeps the mesh congruent with the
+            # height map instead of producing its mirrored transpose.
+            v1 = [j * scale_x, i * scale_y, height_map[i, j] * scale_z]
+            v2 = [j * scale_x, (i + 1) * scale_y, height_map[i + 1, j] * scale_z]
+            v3 = [(j + 1) * scale_x, i * scale_y, height_map[i, j + 1] * scale_z]
+            v4 = [(j + 1) * scale_x, (i + 1) * scale_y, height_map[i + 1, j + 1] * scale_z]
 
             # Criar dois triângulos para cada quadrado
             vertices.append([v1, v2, v3])  # Triângulo 1
