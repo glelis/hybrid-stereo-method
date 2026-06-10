@@ -1,1 +1,1 @@
-/home/lelis/Documents/Projetos/hybrid-stereo-method/src/hybrid_method/integrate_recursive/lib-src/jsrandom.h
+../lib-src/jsrandom.h

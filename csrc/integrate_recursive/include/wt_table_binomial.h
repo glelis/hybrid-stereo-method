@@ -1,1 +1,1 @@
-/home/lelis/Documents/Projetos/hybrid-stereo-method/src/hybrid_method/integrate_recursive/lib-src/wt_table_binomial.h
+../lib-src/wt_table_binomial.h

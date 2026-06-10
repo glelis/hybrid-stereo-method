@@ -5,8 +5,8 @@
 #define gus_integrate_recursive_C_COPYRIGHT "Copyright © 2005 by the State University of Campinas (UNICAMP)"
 
 /* Last edited on 2025-04-03 16:59:20 by stolfi */
-/*# Option 1: Use "zero" as initialization method
-/*./gus_integrate_recursive -initial zero 0 -outPrefix teste_blabla -normals /home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/hybrid_stereo/20250422_1543_2025-03-08-stQ-melon24-amb0.00-glo0.50/photometric_stereo/normal_map_with_residuals.fni */
+/* Option 1: Use "zero" as initialization method */
+/* ./gus_integrate_recursive -initial zero 0 -outPrefix teste_blabla -normals /home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/hybrid_stereo/20250422_1543_2025-03-08-stQ-melon24-amb0.00-glo0.50/photometric_stereo/normal_map_with_residuals.fni */
 
 #define PROG_HELP \
   "  " PROG_NAME " \\\n" \

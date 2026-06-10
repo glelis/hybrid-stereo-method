@@ -1,1 +1,1 @@
-/home/lelis/Documents/Projetos/hybrid-stereo-method/src/hybrid_method/integrate_recursive/lib-src/gauss_distr.h
+../lib-src/gauss_distr.h
