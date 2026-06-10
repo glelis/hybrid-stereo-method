@@ -70,9 +70,10 @@ def load_images(foldername=None, ext=None, scale=1.0):
         im = cv2.imread(fname).astype(np.float64)
         if im.ndim == 3:
             # Assuming that RGBA will not be an input
-            # im = np.mean(im, axis=2)   # RGB -> Gray
-            im = converter_npy_para_cinza(im)  # importar essa funcao
-            im = im * scale
+            im = converter_npy_para_cinza(im)
+        # Apply the scale to every image (2D inputs included), keeping all
+        # columns of M consistently scaled across light directions.
+        im = im * scale
         if M is None:
             height, width = im.shape
             M = im.reshape((-1, 1))
@@ -97,11 +98,11 @@ def load_npyimages(foldername=None, scale=1.0):
     width = 0
     for fname in sorted(glob.glob(foldername + "*.npy")):
         im = np.load(fname)
-        # print(im.shape,im.min(),im.max())
         if im.ndim == 3:
-            # im = np.mean(im, axis=2)
-            im = converter_npy_para_cinza(im)  # importar essa funcao
-            im = im * scale
+            im = converter_npy_para_cinza(im)
+        # Apply the scale to every image (2D inputs included), keeping all
+        # columns of M consistently scaled across light directions.
+        im = im * scale
         if M is None:
             height, width = im.shape
             M = im.reshape((-1, 1))
@@ -139,7 +140,9 @@ def evaluate_angular_error(gtnormal=None, normal=None, background=None):
     if gtnormal is None or normal is None:
         raise ValueError("surface normal is not given")
     ae = np.multiply(gtnormal, normal)
-    aesum = np.sum(ae, axis=1)
+    # axis=-1 sums over the XYZ channels for both flattened (p, 3) arrays
+    # (RPS path) and full (H, W, 3) maps (WPS path).
+    aesum = np.sum(ae, axis=-1)
     coord = np.where(aesum > 1.0)
     aesum[coord] = 1.0
     coord = np.where(aesum < -1.0)
@@ -170,15 +173,15 @@ def evaluate_angular_error(gtnormal=None, normal=None, background=None):
 
 def converter_npy_para_cinza(matriz):
     """
-    Converte uma matriz de imagem RGB ou BGR para escala de cinza, detectando automaticamente o formato.
-    """
-    if np.mean(matriz[:, :, 0]) > np.mean(matriz[:, :, 2]):  # Formato RGB
-        r, g, b = matriz[:, :, 0], matriz[:, :, 1], matriz[:, :, 2]
-    else:  # Formato BGR
-        b, g, r = matriz[:, :, 0], matriz[:, :, 1], matriz[:, :, 2]
+    Converte uma imagem BGR (convenção do cv2.imread) para escala de cinza.
 
-    resultado = 0.3 * r + 0.59 * g + 0.11 * b
-    return resultado
+    A ordem dos canais é uma convenção de armazenamento e não pode ser
+    inferida das médias dos canais: a heurística anterior podia aplicar
+    fórmulas diferentes a imagens do mesmo stack fotométrico, quebrando a
+    consistência radiométrica entre as direções de luz.
+    """
+    b, g, r = matriz[:, :, 0], matriz[:, :, 1], matriz[:, :, 2]
+    return 0.299 * r + 0.587 * g + 0.114 * b
 
 
 def light_direction(A, B, C, A1, B1, D):
@@ -295,14 +298,18 @@ def calculate_gradient_consistency(gradient_map: np.ndarray) -> np.ndarray:
     Returns:
     numpy.ndarray: An image R where R[x, y] is the rotational consistency of the estimated gradient around (x, y).
     """
-    nx, ny = gradient_map.shape[:2]
-    consistency_map = np.zeros((nx, ny))
+    n_rows, n_cols = gradient_map.shape[:2]
+    consistency_map = np.zeros((n_rows, n_cols))
 
-    for x in range(1, nx - 1):
-        for y in range(1, ny - 1):
-            DGxDy = (gradient_map[x, y + 1, 0] - gradient_map[x, y - 1, 0]) / 2
-            DGyDx = (gradient_map[x + 1, y, 1] - gradient_map[x - 1, y, 1]) / 2
-            consistency_map[x, y] = DGxDy - DGyDx
+    # Channel 0 is Gx = dZ/dX (X = width/column direction, axis 1) and
+    # channel 1 is Gy = dZ/dY (Y = height/row direction, axis 0). The curl
+    # of an integrable field, dGx/dY - dGy/dX, must be ~0, so Gx is
+    # differentiated along rows and Gy along columns.
+    for row in range(1, n_rows - 1):
+        for col in range(1, n_cols - 1):
+            DGxDy = (gradient_map[row + 1, col, 0] - gradient_map[row - 1, col, 0]) / 2
+            DGyDx = (gradient_map[row, col + 1, 1] - gradient_map[row, col - 1, 1]) / 2
+            consistency_map[row, col] = DGxDy - DGyDx
 
     return consistency_map
 
@@ -317,12 +324,18 @@ def convert_normal_map_to_gradient_map(normal_map):
     Returns:
     numpy.ndarray: An image with two channels representing the x and y components of the estimated gradient.
     """
-    nx, ny = normal_map.shape[:2]
-    gradient_map = np.zeros((nx, ny, 2))
+    n_rows, n_cols = normal_map.shape[:2]
+    gradient_map = np.zeros((n_rows, n_cols, 2))
 
-    for x in range(nx):
-        for y in range(ny):
-            gradient_map[x, y, 0] = normal_map[x, y, 0] / normal_map[x, y, 2]
-            gradient_map[x, y, 1] = normal_map[x, y, 1] / normal_map[x, y, 2]
+    # For Z(X,Y) the outwards normal is parallel to (-dZ/dX, -dZ/dY, 1), so
+    # dZ/dX = -nx/nz and dZ/dY = -ny/nz (same convention and nz clamp as the
+    # C solver, pst_slope_from_normal).
+    max_slope = 1000.0
+    nx_c = normal_map[:, :, 0]
+    ny_c = normal_map[:, :, 1]
+    nz_c = normal_map[:, :, 2]
+    nz_safe = np.maximum(nz_c, np.hypot(nx_c, ny_c) / max_slope)
+    gradient_map[:, :, 0] = -nx_c / nz_safe
+    gradient_map[:, :, 1] = -ny_c / nz_safe
 
     return gradient_map
