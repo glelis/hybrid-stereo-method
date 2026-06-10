@@ -85,7 +85,7 @@ Agente de síntese produz o relatório final em português.
 
 ## Formato do relatório
 
-Salvo em `docs/superpowers/reports/2026-06-09-relatorio-analise-bugs.md`,
+Salvo em `docs/superpowers/reports/yyyy-mm-dd-hh-mm-relatorio-analise-bugs.md`,
 estruturado para leitura humana e reuso por agente em sessões futuras:
 
 ```markdown
