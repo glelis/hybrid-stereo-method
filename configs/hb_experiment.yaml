@@ -127,3 +127,10 @@ hybrid:
     
     # Convergence tolerance
     conv_tol: 0.0000005
+
+    # Scale factors [sx, sy] applied to dZ/dX and dZ/dY before integration.
+    # The FNI files are written top-down (OpenCV row order) while the C
+    # integrator assumes origin at the bottom-left with Y pointing up, so
+    # sy must be -1.0 for datasets whose lights/normals follow the Y-up
+    # convention (Stolfi generators, e.g. melon24).
+    slopes_scale: [1.0, -1.0]

@@ -184,6 +184,9 @@ def main(parameters):
             max_level=integration_params.get("max_level", 30),
             max_iter=integration_params.get("max_iter", 100000),
             conv_tol=integration_params.get("conv_tol", 0.0000005),
+            # The FNI is written top-down while the C library assumes Y up;
+            # sy=-1 corrects the dZ/dY sign for Y-up lights/normals datasets.
+            slopes_scale=tuple(integration_params.get("slopes_scale", [1.0, -1.0])),
             verbose=parameters["experiment"]["settings"]["debug"],
             #report_step=integration_params.get("report_step", 1),
         )
