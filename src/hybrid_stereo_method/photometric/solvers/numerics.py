@@ -24,7 +24,7 @@ def L1_residual_min(A, b, max_ite=1000, tol=1.0e-8):
 
     xold = np.ones((n, 1))
     W = np.identity(m)
-    if np.ndim(b) != 2 and b.shape[1] != 1:
+    if np.ndim(b) != 2 or b.shape[1] != 1:
         raise ValueError("b needs to be a column vector m x 1")
 
     iter = 0
