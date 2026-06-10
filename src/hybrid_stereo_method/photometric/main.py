@@ -24,7 +24,19 @@ from hybrid_stereo_method.photometric.visualization import (
 def main(parameters):
     # Define paths
     current_time = datetime.now().strftime("%Y%m%d_%H%M")
-    data_path = os.path.join(parameters.get("input_path"), parameters.get("data_foldername"))
+
+    # Extract parameters from the nested YAML structure (see ps_experiment.yaml)
+    paths = parameters["experiment"]["paths"]
+    ps_params = parameters["photometric"]["parameters"]
+    input_path = paths["input"]
+    data_foldername = paths["data_folder"]
+    base_output_path = paths["output"]
+    data_scale = ps_params.get("data_scale", 1.0)
+    image_extension = ps_params.get("image_extension", "png")
+    method_name = ps_params["method"]
+    debug = parameters["experiment"]["settings"].get("debug", False)
+
+    data_path = os.path.join(input_path, data_foldername)
 
     # Input files
     images_path = os.path.join(data_path, "images/")
@@ -33,9 +45,7 @@ def main(parameters):
     gt_normal_path = os.path.join(data_path, "gt_normal.npy")
 
     # Output files
-    output_path = os.path.join(
-        parameters.get("output_path"), f"{current_time}_{parameters.get('data_foldername')}/"
-    )
+    output_path = os.path.join(base_output_path, f"{current_time}_{data_foldername}/")
     normal_map_path = os.path.join(output_path, "normal_map.npy")
 
     # Ensure Output Directory Exists
@@ -56,13 +66,13 @@ def main(parameters):
 
     logging.info(
         f"Starting photometric stereo experiment with parameters:\n"
-        f"INPUT_PATH: '{parameters.get('input_path')}'\n"
-        f"DATA_FOLDERNAME: '{parameters.get('data_foldername')}'\n"
+        f"INPUT_PATH: '{input_path}'\n"
+        f"DATA_FOLDERNAME: '{data_foldername}'\n"
         f"OUTPUT_PATH: '{output_path}'\n"
-        f"DATA_SCALE: {parameters.get('data_scale')}\n"
-        f"IMAGE_TYPE: {parameters.get('image_type')}\n"
-        f"METHOD: wodham_implementation_argmax\n"
-        f"DEBUG: {parameters.get('debug')}\n"
+        f"DATA_SCALE: {data_scale}\n"
+        f"IMAGE_EXTENSION: {image_extension}\n"
+        f"METHOD: {method_name}\n"
+        f"DEBUG: {debug}\n"
     )
 
     # **Initialize the RPS Model**
@@ -73,26 +83,26 @@ def main(parameters):
     rps.load_lightnpy(filename=light_path)  # Load the light source coordinates
 
     # Load images based on the specified type
-    if parameters.get("image_type") == "npy":
-        rps.load_npyimages(foldername=images_path, scale=parameters.get("data_scale"))
+    if image_extension == "npy":
+        rps.load_npyimages(foldername=images_path, scale=data_scale)
     else:
         rps.load_images(
             foldername=images_path,
-            ext=parameters.get("image_type"),
-            scale=parameters.get("data_scale"),
+            ext=image_extension,
+            scale=data_scale,
         )
 
     # **Select Solver Method**
-    if parameters.get("method_name") == "L2":
+    if method_name == "L2":
         method = RPS.L2_SOLVER
-    elif parameters.get("method_name") == "L1":
+    elif method_name == "L1":
         method = RPS.L1_SOLVER_MULTICORE
-    elif parameters.get("method_name") == "SBL":
+    elif method_name == "SBL":
         method = RPS.SBL_SOLVER_MULTICORE
-    elif parameters.get("method_name") == "RPCA":
+    elif method_name == "RPCA":
         method = RPS.RPCA_SOLVER
     else:
-        raise ValueError(f"Unsupported method: {parameters.get('method_name')}")
+        raise ValueError(f"Unsupported method: {method_name}")
 
     # **Run the Solver**
     start_time = time.time()
