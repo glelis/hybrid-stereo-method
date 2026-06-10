@@ -29,6 +29,13 @@ def mosaic(iSel, image_stack: np.array, zFoc: list, interpolation_type: str):
         - The interpolation type determines the method used to compute intermediate values when the focus index is not an integer.
     """
 
+    valid_types = ("crop", "quadratic_interpolation", "linear_interpolation")
+    if interpolation_type not in valid_types:
+        raise ValueError(
+            f"Unknown interpolation_type: {interpolation_type!r}. "
+            f"Valid options are: {', '.join(valid_types)}"
+        )
+
     n_frames, height, width, chanels = image_stack.shape
 
     logging.debug(
