@@ -178,7 +178,25 @@ def main(parameters):
     if os.path.exists(normal_map_path):
         logging.info(f"Loading normal map from: {normal_map_path}")
         normal_map = np.load(normal_map_path)
-        
+
+        # Attach the photometric confidence as the 4th channel: the C solver
+        # uses it as the per-pixel reliability weight of each equation.
+        # Without it every non-NaN normal enters the system with weight 1.
+        confidence_map_path = os.path.join(
+            parameters["output_path_photometric"], "confidence_map.npy"
+        )
+        if os.path.exists(confidence_map_path):
+            confidence_map = np.load(confidence_map_path)
+            normal_map = np.concatenate(
+                (normal_map, confidence_map[..., np.newaxis]), axis=-1
+            )
+            logging.info("Using photometric confidence as integration weights")
+        else:
+            logging.warning(
+                f"Confidence map not found at: {confidence_map_path}; "
+                "all normals will be weighted equally"
+            )
+
         # Configure integration parameters
         integration_params = parameters.get("hybrid", {}).get("integration", {})
         

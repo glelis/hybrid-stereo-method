@@ -143,6 +143,11 @@ def main(parameters):
     logging.info("... Saving normal map ...")
     np.save(normal_map_path, normals)
 
+    # Save the per-pixel confidence so downstream consumers (surface
+    # integration) can weight each normal instead of treating all as equal.
+    confidence_map_path = os.path.join(output_path, "confidence_map.npy")
+    np.save(confidence_map_path, confidence)
+
     # convert_image_array_to_fni(normals, os.path.join(output_path, "normal_map.fni"))
 
     # Add residuals as a new channel to normals
