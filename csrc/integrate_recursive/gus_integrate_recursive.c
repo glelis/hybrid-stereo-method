@@ -458,7 +458,7 @@ int32_t main(int32_t argc, char** argv)
     int32_t NY_Z = NY_G + 1;
     float_image_t *Z = float_image_new(NC_Z, NX_Z, NY_Z);
 
-    float_image_t *H; /* Input hints map. */
+    float_image_t *H = NULL; /* Input hints map. */
     if (o->hints_file != NULL)
       { fprintf(stderr, "reading the hints height map {H} ...\n");
         H = tire_read_fni_file(o->hints_file, NX_Z, NY_Z, 1, TRUE);
