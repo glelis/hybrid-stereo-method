@@ -1,9 +1,13 @@
 
 import cv2
-import cv2.xfeatures2d
 import numpy as np
 from natsort import natsorted
-from utils import *
+
+from hybrid_stereo_method.infrastructure.io.image_io import (
+    find_all_files,
+    read_image,
+    save_image,
+)
 
 
 def compute_descriptors(imGray):
@@ -156,8 +160,8 @@ def align_im1_to_im2(img1, img2):
     # Draw matches found in an image
     imMatches = cv2.drawMatches(img1, keypoints1, img2, keypoints2, good_matches, None, flags=2)
 
-    # Apply homography to align 'img2' with 'img1'
-    aligned_img = apply_homography(img2, img1, points2, points1)
+    # Apply homography to align 'img1' with 'img2', as the contract promises
+    aligned_img = apply_homography(img1, img2, points1, points2)
 
     return imMatches, aligned_img
 
@@ -186,33 +190,34 @@ def main_align(base_path):
 
     # Use the middle image as the global reference
     ref_idx = len(all_files) // 2
-    reference_img_path = img_path + all_files[ref_idx]
+    reference_img_path = all_files[ref_idx]
     print(f"Reading global reference image: {reference_img_path}")
     reference_img = read_image(reference_img_path)
-    
-    # Save the reference image directly to the aligned folder
-    ref_save_as = "align_" + str(ref_idx) + ".jpg"
-    save_image(save_path, ref_save_as, reference_img, 0, 255)
+
+    # Save the reference image directly to the aligned folder. PNG (lossless)
+    # and normalize=False keep the stack radiometrically untouched.
+    ref_save_as = "align_" + str(ref_idx) + ".png"
+    save_image(save_path, ref_save_as, reference_img, normalize=False)
 
     # Iterate over the files, aligning each image with the reference image
     for i in range(len(all_files)):
         if i == ref_idx:
             continue
-            
-        target_img_path = img_path + all_files[i]
-        match_save_as = "matches_" + str(i) + ".jpg"
-        align_save_as = "align_" + str(i) + ".jpg"
+
+        target_img_path = all_files[i]
+        match_save_as = "matches_" + str(i) + ".png"
+        align_save_as = "align_" + str(i) + ".png"
 
         print("Reading a target image : ", target_img_path)
         target_img = read_image(target_img_path)
 
         print("Aligning image to global reference ...")
-        imMatches, aligned_img = align_im1_to_im2(reference_img, target_img)
+        imMatches, aligned_img = align_im1_to_im2(target_img, reference_img)
 
         print("Saving a feature matching image : ", match_path)
-        save_image(match_path, match_save_as, imMatches, 0, 255)
+        save_image(match_path, match_save_as, imMatches, normalize=False)
 
         print("Saving an aligned image : ", save_path)
-        save_image(save_path, align_save_as, aligned_img, 0, 255)
+        save_image(save_path, align_save_as, aligned_img, normalize=False)
 
         print("\n")
