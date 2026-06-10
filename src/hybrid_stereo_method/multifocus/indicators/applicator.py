@@ -29,10 +29,6 @@ def focus_indicator(
 
     # Process each image individually
     for i, img in enumerate(image_stack):
-        if zero_border:
-            # Zero out borders (remove edge artifacts)
-            img = zero_borders(img, 40)
-
         if focus_indicator_type == "fourier":
             focus_indicator = calculate_fourier_focus_indicator(img, radius)
 
@@ -49,10 +45,15 @@ def focus_indicator(
             # Apply smoothing kernel
             kernel = np.array([[1, 2, 1], [2, 4, 2], [1, 2, 1]]) / 16
             focus_indicator = cv2.filter2D(focus_indicator, -1, kernel)
-        # if zero_border:
-        #    # Zero out borders (remove edge artifacts)
-        #    focus_indicator = zero_borders(focus_indicator, 40)
-        
+        if zero_border:
+            # Zero out borders of the computed INDICATOR (removes edge
+            # artifacts). Zeroing the input image instead would create a sharp
+            # intensity step at the ring boundary - the strongest possible
+            # high-frequency structure - giving those pixels spurious maximal
+            # focus in every frame.
+            focus_indicator = zero_borders(focus_indicator, 40)
+
+
         if spatial_median_filter:
             # apply spatial median filter using cv2
             focus_indicator = np.float32(focus_indicator)
