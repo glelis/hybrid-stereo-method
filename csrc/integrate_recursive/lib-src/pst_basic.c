@@ -35,8 +35,10 @@ r3_t pst_normal_from_slope(r2_t *grd)
   { double dZdX = grd->c[0]; 
     double dZdY = grd->c[1]; 
     double m = sqrt(1.0 + dZdX*dZdX + dZdY*dZdY);
-    double nx = dZdX/m; 
-    double ny = dZdY/m; 
+    /* Outwards-pointing normal of {Z(X,Y)} is parallel to {(-dZ/dX, -dZ/dY, 1)},
+       making this the exact inverse of {pst_slope_from_normal}. */
+    double nx = -dZdX/m; 
+    double ny = -dZdY/m; 
     double nz = 1.0/m; 
     return (r3_t){{ nx, ny, nz }};
   }
