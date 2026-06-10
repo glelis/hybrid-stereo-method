@@ -28,8 +28,9 @@ def quadratic_interpolation(val, k_fuzzy):
     x = [k0 + j for j in range(m)]
     y = [val[k0 + j] for j in range(m)]
 
-    # Passo 5: Calcular os pesos w
-    a = pi * 0.5 * (m + 1)
+    # Passo 5: Calcular os pesos w (janela de Hann centrada em k_fuzzy com
+    # meia-largura 0.5*(m+1): peso 1 no centro, decaindo a 0 na borda da janela)
+    a = pi / (0.5 * (m + 1))
     w = [0.5 * (1 + cos(a * (k0 + j - k_fuzzy))) for j in range(m)]
 
     # Passo 6: Regressão quadrática ponderada
