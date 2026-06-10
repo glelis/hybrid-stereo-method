@@ -179,7 +179,7 @@ def main(parameters):
         integration_params = parameters.get("hybrid", {}).get("integration", {})
         
         integration_config = IntegrateRecursiveConfig(
-            initial_method=integration_params.get("initial_method", "hints"),
+            initial_method=integration_params.get("initial_method", "zero"),
             initial_noise=integration_params.get("initial_noise", 0.0),
             max_level=integration_params.get("max_level", 30),
             max_iter=integration_params.get("max_iter", 100000),
@@ -195,7 +195,7 @@ def main(parameters):
         integration_output = os.path.join(output_path, "integration")
         
         hints_fni_path = None
-        hints_weight = integration_params.get("hints_weight", 0.0)
+        hints_weight = integration_params.get("hints_weight", 0.1)
         
         if integration_params.get("use_hints", False):
             # Locate zMos_with_confidence.fni inside multifocus_stereo/average
