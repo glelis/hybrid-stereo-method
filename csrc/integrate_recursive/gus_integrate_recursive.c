@@ -12,7 +12,7 @@
   "  " PROG_NAME " \\\n" \
   "    { -slopes {G_FNI_NAME} | -normals {N_FNI_NAME} } [ scale {G_SX} {G_SY} ] \\\n" \
   "    [ -reference {R_FNI_NAME} [ scale {R_SZ} ] \\\n" \
-  "    [ -hints {H_FNI_NAME} [ scale {H_SZ} ] weight {H_WT} ] \\\n" \
+  "    [ -hints {H_FNI_NAME} [ scale {H_SZ} ] {H_WT} ] \\\n" \
   "    [ -initial {INIT_OPT} {INIT_NOISE} ] \\\n" \
   "    [ -clear {CLX_MIN} {CLX_MAX} {CLY_MIN} {CLY_MAX} ... ] \\\n" \
   "    [ -maxLevel {MAX_LEVEL} ] \\\n" \
