@@ -3,7 +3,9 @@ import argparse
 import cv2
 import numpy as np
 from pygco import cut_simple
-from utils import *
+
+from hybrid_stereo_method.infrastructure.utils import convert_to_grayscale
+from hybrid_stereo_method.multifocus.utils import normalize
 
 
 def graph_cut(img_list, gaussian_size, unary_scale, pair_scale, n_iter):
@@ -18,7 +20,12 @@ def graph_cut(img_list, gaussian_size, unary_scale, pair_scale, n_iter):
 
     for imGray in imGray_list:
         gray_img = imGray.astype(np.float32) / 255.0
-        grad = np.exp(-(cv2.Sobel(gray_img, cv2.CV_32F, 1, 1) ** 2))
+        # Sobel(dx=1, dy=1) is the mixed second derivative d2I/dxdy, which is
+        # zero on purely horizontal/vertical edges; use the squared gradient
+        # magnitude (Tenengrad) instead.
+        gx = cv2.Sobel(gray_img, cv2.CV_32F, 1, 0)
+        gy = cv2.Sobel(gray_img, cv2.CV_32F, 0, 1)
+        grad = np.exp(-(gx**2 + gy**2))
         unary_cost.append(cv2.GaussianBlur(grad, (gaussian_size, gaussian_size), 0) * unary_scale)
 
     unary_cost = normalize(np.stack(unary_cost, axis=-1)) * unary_scale
