@@ -12,6 +12,7 @@ from hybrid_stereo_method.infrastructure.io.image_io import (
     convert_image_array_to_fni,
     find_all_files,
     log_parameters,
+    read_image,
     read_images,
     read_yaml_parameters,
     save_image,
@@ -128,10 +129,20 @@ def main(parameters):
     start_time = time.time()
     
     wps_params = parameters["photometric"]["solver"]
-    
+
+    # This entry point only implements the robust argmax solver; make it loud
+    # when the YAML asks for a different method instead of silently ignoring it.
+    method_name = parameters.get("photometric", {}).get("parameters", {}).get("method")
+    if method_name not in (None, "wodham_implementation_argmax"):
+        logging.warning(
+            f"photometric.parameters.method = '{method_name}' is not supported by "
+            "main_wps; using the robust argmax solver instead. For L2/L1/SBL/RPCA "
+            "run hybrid_stereo_method.photometric.main (RPS)."
+        )
+
     # normals, selected_areas = estimate_normals_argmax(images, light_sources)
     # normals, residuals, confidence, selected_areas = estimate_normals_argmax_lstsq(images, light_sources)
-    
+
     normals, albedo, confidence, selected_areas = estimate_normals_argmax_lstsq_robust(
         images, light_sources, wps_params
     )
@@ -167,8 +178,14 @@ def main(parameters):
 
     # Evaluate the Result
     if os.path.exists(gt_normal_path):  # Check if ground truth normal map exists
-        N_gt = np.load(filename=gt_normal_path)  # Load ground truth normal map
-        angular_error = evaluate_angular_error(N_gt, normals, mask)  # Calculate angular error
+        N_gt = np.load(gt_normal_path)  # Load ground truth normal map
+        background = None
+        if os.path.exists(mask_path):
+            mask = read_image(mask_path)
+            if mask.ndim == 3:
+                mask = mask[:, :, 0]
+            background = mask == 0
+        angular_error = evaluate_angular_error(N_gt, normals, background)
         mean_error = np.mean(angular_error[:])
         logging.info(f"Mean angular error [degrees]: {mean_error:.2f}")
 
