@@ -97,9 +97,11 @@ def main(parameters):
         # Calculate the average of the images
         average_image = calculate_avarage_of_images(image_list)
 
-        # Save the average image in the output directory
+        # Save the average image in the output directory. The mean of uint8
+        # images is already in 0-255; normalize=False avoids the per-frame
+        # min-max stretch that would bias the focus indicator across frames.
         average_image_path = os.path.join(output_path, "multifocus_stereo", "average", "images")
-        save_image(average_image_path, f"average_{zf_dir}.png", average_image)
+        save_image(average_image_path, f"average_{zf_dir}.png", average_image, normalize=False)
         average_images_paths.append(os.path.join(average_image_path, f"average_{zf_dir}.png"))
 
     # Update parameters with the paths of the average images and the output directory
