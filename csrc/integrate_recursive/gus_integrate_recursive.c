@@ -702,7 +702,7 @@ float_image_t *tire_read_fni_file(char *fileName, int32_t NX, int32_t NY, int32_
           { /* Seems that a cell map was giveninstead of a vertex map. */
             /* Resize to {NX, NY}: */
             if (verbose) { fprintf(stderr, "Expanding the map to the correct size ...\n"); }
-            float_image_t *II = float_image_expand_by_one(I, 1);
+            float_image_t *II = float_image_expand_by_one(I, wch);
             float_image_free(I);
             I = II;
           }
