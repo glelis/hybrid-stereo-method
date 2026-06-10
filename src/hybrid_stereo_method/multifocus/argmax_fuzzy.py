@@ -181,15 +181,17 @@ def compute_argmax_fuzzy_1d(focus_values, pixel_location, debug, debug_data_path
 
     polyfit_epsilon = fuzzy_params.get("polyfit_epsilon", 1.0e-9)
     if A > 0 or abs(A) < polyfit_epsilon:  # se a funcao for convexa ou muito proxima de zero
-        # k_fuzzy = k_max
-        k_fuzzy = 0
+        # Marcador degenerado unificado: mesmo valor usado quando o foco
+        # máximo é zero (frame central, confiança 0), evitando dois valores
+        # físicos distintos de zMos para o mesmo conceito de "sem dado".
+        k_fuzzy = n / 2
         conf = 0
         fnoc = 0
 
     else:  # calcula o ponto de maximo da funcao
         k_fuzzy = -B / (2 * A)  # ponto de maximo da funcao x
-        # k_fuzzy = min(n-0.5, max(-0.5, k_fuzzy)) #garante que o ponto esta dentro do intervalo
-        k_fuzzy = max(0, min(n, k_fuzzy))
+        # garante que o ponto esta no dominio valido de indices de frame [0, n-1]
+        k_fuzzy = max(0.0, min(n - 1, k_fuzzy))
 
         fnoc = -(B**2) / (4 * A) + C  # valor do foco funcao no ponto maximo y(x)
         # conf = conf/(3*(rlap**2)) #normaliza a confianca
