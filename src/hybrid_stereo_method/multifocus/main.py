@@ -150,6 +150,10 @@ def main(parameters):
     logging.info("saving sMos and zMos")
     save_image(output_path, "sMos.png", sMos)
     save_image(output_path, "zMos.png", zMos)
+    # Lossless copy of sMos with the original radiometry: this is the file that
+    # downstream consumers (photometric stereo) must read. The PNG above is
+    # min-max normalized per image and is for visualization only.
+    np.save(os.path.join(output_path, "sMos.npy"), sMos.astype(np.float32))
     convert_image_array_to_fni(normalize(sMos), os.path.join(output_path, "sMos.fni"))
     
     # Do NOT normalize zMos, we need it to keep physical Z distance values

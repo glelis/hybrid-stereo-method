@@ -144,8 +144,11 @@ def main(parameters):
     
     # Configure parameters for the photometric stereo method
     output_files = find_all_files(output_path)
+    # Use the lossless sMos.npy files: the PNGs are min-max normalized per
+    # image, which destroys the inter-light intensity ratios that the
+    # photometric solver depends on.
     parameters["sMos_path_list"] = natsorted(
-        [file for file in output_files if "sMos.png" in file and "av" not in file]
+        [file for file in output_files if "sMos.npy" in file and "av" not in file]
     )
     parameters["output_path_photometric"] = os.path.join(output_path, "photometric_stereo")
     parameters["lights_path"] = [file for file in input_files_path if "lights.npy" in file][0]

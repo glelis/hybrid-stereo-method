@@ -105,8 +105,10 @@ def main(parameters):
     logging.info("... Loading images ...")
 
     if experiment_type == "hybrid":
-        images = read_images(parameters.get("sMos_path_list"))
-        # images = parameters.get('sMos_list')
+        # sMos_path_list points to lossless .npy mosaics (original radiometry);
+        # reading the normalized PNGs here would corrupt the inter-light
+        # intensity ratios that the I = L·n model requires.
+        images = [np.load(path) for path in parameters.get("sMos_path_list")]
     else:
         images_paths = find_all_files(images_path)
         images = read_images(images_paths, info=True)
