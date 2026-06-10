@@ -17,11 +17,14 @@ def print_img_statistics(name: str, img: np.ndarray) -> None:
         img: The image array for which statistics will be calculated.
     """
     shape = img.shape
+    # Compute in float64: squaring uint8/uint16 wraps around modulo 2**bits
+    # and silently corrupts the rms/deviation statistics.
+    imgf = img.astype(np.float64)
     v_max = np.max(img)
     v_min = np.min(img)
-    v_mean = np.average(img)
-    rms = np.sqrt(np.average(img**2))
-    v_dev = np.sqrt(np.average((img - v_mean) ** 2))
+    v_mean = np.average(imgf)
+    rms = np.sqrt(np.average(imgf**2))
+    v_dev = np.sqrt(np.average((imgf - v_mean) ** 2))
     print(
         f"nome:{name}, shape:{shape}, min:{v_min:.6f}, max:{v_max:.6f}, "
         f"mean:{v_mean:.6f}, rms:{rms:.6f}, v_dev:{v_dev:.6f}"
@@ -80,9 +83,11 @@ def calculate_avarage_of_images(images: list[np.ndarray]) -> np.ndarray:
     images_float = [image.astype(np.float32) for image in images]
     mean_image = np.mean(images_float, axis=0)
 
+    # Round before casting: a bare astype truncates and introduces a
+    # systematic -0.5 LSB bias in the averaged images.
     if images[0].dtype == np.uint8:
-        return mean_image.astype(np.uint8)
+        return np.round(mean_image).astype(np.uint8)
     elif images[0].dtype == np.uint16:
-        return mean_image.astype(np.uint16)
+        return np.round(mean_image).astype(np.uint16)
     else:
         raise ValueError("Unsupported data type.")
