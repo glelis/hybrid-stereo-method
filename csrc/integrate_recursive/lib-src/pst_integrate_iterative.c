@@ -72,7 +72,10 @@ void pst_integrate_iterative
     get_initial_guess();
     if (verbose) { fprintf(stderr, "%*ssolving the system ...\n", indent, ""); }
     bool_t para = FALSE; /* Should be parameter. 1 means parallel execution, 0 sequential. */
-    bool_t szero = TRUE; /* Should be parameter. 1 means adjust sum to zero, 0 let it float. */
+    /* The zero-mean projection is only valid when the gauge is free
+       (pure gradient problem).  Hints carry absolute heights that anchor
+       the solution level, so the projection must be disabled then. */
+    bool_t szero = ((H == NULL) || (hintsWeight <= 0.0)); /* 1 means adjust sum to zero, 0 let it float. */
     uint32_t *ord = NULL;
     if (sortSys) { ord = pst_imgsys_sort_equations(S); }
     pst_imgsys_solve_iterative
