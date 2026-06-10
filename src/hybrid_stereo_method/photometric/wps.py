@@ -88,7 +88,11 @@ def estimate_normals_argmax_lstsq(images, light_sources, wps_params=None):
             selected_lights = light_sources[top_indices, :]
 
             # Solve the linear system I = L * N using least squares
-            normal, residual, _, _ = np.linalg.lstsq(selected_lights, selected_values.T, rcond=None)
+            normal, _, _, _ = np.linalg.lstsq(selected_lights, selected_values.T, rcond=None)
+
+            # lstsq returns an EMPTY residual array when the system has only
+            # 3 equations or is rank deficient; compute it explicitly.
+            residual = np.linalg.norm(np.dot(selected_lights, normal) - selected_values)
 
             # Normalize the normal
             normal /= np.linalg.norm(normal)
@@ -97,11 +101,15 @@ def estimate_normals_argmax_lstsq(images, light_sources, wps_params=None):
 
             selected_areas[i, j, top_indices] = 255
 
-    # Convert residuals to confidence values
-    confidence = 1 / residuals
-    confidence = (confidence - np.min(confidence)) / (
-        np.max(confidence) - np.min(confidence)
-    )  # Normalize confidence to the range [0, 1]
+    # Convert residuals to confidence values; 1/(1+r) avoids the division by
+    # zero (and the resulting inf that collapsed the min-max normalization)
+    # for pixels with an exact fit.
+    confidence = 1 / (1 + residuals)
+    conf_range = np.max(confidence) - np.min(confidence)
+    if conf_range > 0:
+        confidence = (confidence - np.min(confidence)) / conf_range
+    else:
+        confidence = np.ones_like(confidence)
 
     return normals, residuals, confidence, selected_areas
 
@@ -182,12 +190,15 @@ def estimate_normals_argmax_lstsq_robust(images, light_sources, wps_params=None)
                     break
 
             if len(selected_values) >= 3:
+                # In the model I = albedo*(L.n) the lstsq solution is
+                # g = albedo*n_hat, so the albedo is its magnitude BEFORE
+                # normalization (the previous formula used the normalized
+                # vector and was a purely geometric quantity).
+                albedo[i, j] = np.linalg.norm(normal)
+
                 # Normalize the normal vector
                 normal /= np.linalg.norm(normal)
                 normals[i, j, :] = normal
-
-                # Compute albedo
-                albedo[i, j] = np.linalg.norm(np.dot(selected_lights, normal))
 
                 # Adjust confidence based on N, M, and residuals
                 N = len(selected_values)
