@@ -18,7 +18,8 @@ experiment:
     #data_folder: 'obj_3'
 
   settings:
-    # Whether to specific mask
+    # Whether to use a specific mask
+    # NOTE: not consumed by the pipeline yet (no entry point reads it)
     mask: False
     
     # Whether ground truth (gabaritos) are available for error calculation
@@ -33,8 +34,6 @@ multifocus:
     # Options: 'linear_interpolation', 'quadratic_interpolation', 'crop'
     interpolation: 'linear_interpolation'
     
-    # Step size between focal planes (if integer steps are used)
-    focal_step: 1
     
     # List of focal distances (Z coordinates) corresponding to each image in the stack
     z_foc: [15.000, 25.000, 35.000, 45.000, 55.000, 65.000, 75.000, 85.000, 95.000, 105.000, 115.000, 125.000]
@@ -73,6 +72,8 @@ multifocus:
     # Epsilon value to determine if a curve is flat/convex for polyfit
     polyfit_epsilon: 1.0e-9
 
+  # NOTE: this block is NOT consumed by the pipeline yet
+  # (depth_refinement.py is not invoked by any entry point).
   depth_refinement:
     # Use spatial uncertainty from fuzzy argmax to guide a graph cut regularizer
     enabled: False
