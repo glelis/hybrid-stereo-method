@@ -224,6 +224,9 @@ def read_fni_to_image_array(fni_file: str | Path) -> np.ndarray:
     for line in lines:
         if line.strip() == "" or line.startswith("begin") or line.startswith("end"):
             continue
+        if "=" in line:
+            # Header/metadata line (NC = ..., NX = ..., NY = ...), not data.
+            continue
         parts = line.split()
         if len(parts) < 2 + nc:
             continue
