@@ -83,9 +83,10 @@ def focus_indicator(
 
     # Remove outliers by clipping values. Note: Do NOT clip focus peaks since that destroys the focal curve
     # Removed p90 clipping to keep strict physical values on focus peak intact
-    # Only clip strictly below zero if needed or ignore it
-    p1 = np.percentile(focus_indicator_stack, 1)
-    focus_indicator_stack = np.clip(focus_indicator_stack, p1, np.inf)
+    # Only clip strictly below zero: a positive floor (e.g. the 1st percentile)
+    # flattens weak-but-real focal curves into constants and biases the
+    # subpixel vertex of curves whose regression window touches the floor.
+    focus_indicator_stack = np.clip(focus_indicator_stack, 0, np.inf)
 
     min_val = np.min(focus_indicator_stack)
     max_val = np.max(focus_indicator_stack)
