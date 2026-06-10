@@ -74,7 +74,9 @@ def main(parameters):
     input_files_path = find_all_files(os.path.join(input_path, data_foldername))
 
     # Process images to calculate the average for each 'zf' directory
-    zf_directories = sorted(
+    # natsorted keeps numeric order even for non-zero-padded names (zf15 < zf105),
+    # preserving the positional frame<->z_foc correspondence required by mosaic.
+    zf_directories = natsorted(
         set(
             [
                 os.path.basename(os.path.dirname(path))
@@ -87,7 +89,7 @@ def main(parameters):
     average_images_paths = []
     for zf_dir in zf_directories:
         # Filter relevant files in the directory
-        filtered_files = sorted(
+        filtered_files = natsorted(
             [file for file in input_files_path if f"{zf_dir}" in file and "sVal.png" in file]
         )
         image_list = read_images(filtered_files, info=False)
@@ -108,7 +110,7 @@ def main(parameters):
     multifocus_stereo_main(parameters)
 
     # Process images for each light directory 'L'
-    light_directories = sorted(
+    light_directories = natsorted(
         set(
             [
                 os.path.basename(os.path.dirname(path))
@@ -122,7 +124,7 @@ def main(parameters):
         logging.info(f"... Processing light directory: {light_dir} ...")
 
         # Filter relevant files in the directory
-        filtered_files = sorted(
+        filtered_files = natsorted(
             [file for file in input_files_path if f"{light_dir}/zf" in file and "sVal.png" in file]
         )
 
