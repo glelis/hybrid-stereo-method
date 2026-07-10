@@ -121,8 +121,9 @@ def save_image(
         save_as: Name of the saved image file.
         img: Input image as a NumPy array.
         normalize: If True, min-max normalize pixel values to 0-255 (for
-            visualization only). If False, values are clipped to [0, 255]
-            without rescaling, preserving the radiometry of the input.
+            visualization only). If False, the radiometry of the input is
+            preserved: uint8/uint16 images are written as-is (8/16-bit PNG);
+            other dtypes are clipped to [0, 255] and written as uint8.
 
     Raises:
         ValueError: If the input image is empty or invalid.
@@ -133,6 +134,8 @@ def save_image(
     os.makedirs(save_path, exist_ok=True)
     if normalize:
         img_out = cv2.normalize(img, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+    elif img.dtype in (np.uint8, np.uint16):
+        img_out = img
     else:
         img_out = np.clip(np.round(img), 0, 255).astype(np.uint8)
     save_full_path = os.path.join(str(save_path), save_as)
