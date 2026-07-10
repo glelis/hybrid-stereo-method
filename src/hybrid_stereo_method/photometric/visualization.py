@@ -121,12 +121,13 @@ def plotar_canais_3d(imagem):
 
 def disp_normalmap(normal=None, height=None, width=None, delay=0, name=None, save_path=None):
     """
-    Visualize normal as a normal map
+    Render normal as a normal map and save it (headless; no window is opened).
     :param normal: array of surface normal (p \times 3)
     :param height: height of the image (scalar)
     :param width: width of the image (scalar)
-    :param delay: duration (ms) for visualizing normal map. 0 for displaying infinitely until a key is pressed.
-    :param name: display name
+    :param delay: unused, kept for backward compatibility
+    :param name: unused, kept for backward compatibility
+    :param save_path: path to save the final image
     :return: None
     """
     if normal is None:
@@ -134,25 +135,18 @@ def disp_normalmap(normal=None, height=None, width=None, delay=0, name=None, sav
     N = np.reshape(normal, (height, width, 3))  # Reshape to image coordinates
     N[:, :, 0], N[:, :, 2] = N[:, :, 2], N[:, :, 0].copy()  # Swap RGB <-> BGR
     N = (N + 1.0) / 2.0  # Rescale
-    if name is None:
-        name = "normal map"
-    cv2.imshow(name, N)
-    cv2.waitKey(delay)
-    cv2.destroyWindow(name)
-    cv2.waitKey(1)  # to deal with frozen window...
-    # Salvar a imagem se um caminho for fornecido
     if save_path is not None:
         cv2.imwrite(os.path.join(save_path, "normal_map.png"), N * 255)
 
 
 def disp_channels(normal_in=None, height=None, width=None, delay=0, name=None, save_path=None):
     """
-    Visualize normal as a normal map in a single window with all channels and save the image if a path is provided.
+    Render the normal-map channels side by side and save the image (headless; no window).
     :param normal: array of surface normal (p \times 3)
     :param height: height of the image (scalar)
     :param width: width of the image (scalar)
-    :param delay: duration (ms) for visualizing normal map. 0 for displaying infinitely until a key is pressed.
-    :param name: display name
+    :param delay: unused, kept for backward compatibility
+    :param name: unused, kept for backward compatibility
     :param save_path: path to save the final image
     :return: None
     """
@@ -176,14 +170,6 @@ def disp_channels(normal_in=None, height=None, width=None, delay=0, name=None, s
     # Combinar os canais horizontalmente
     combined = cv2.hconcat([channel_0, channel_1, channel_2])
 
-    # Exibir a imagem em uma única janela
-    if name is None:
-        name = "Channel Visualization"
-    cv2.imshow(name, combined)
-    cv2.waitKey(delay)
-    cv2.destroyWindow(name)
-    cv2.waitKey(1)  # to deal with frozen window...
-
     # Salvar a imagem se um caminho for fornecido
     if save_path is not None:
         cv2.imwrite(os.path.join(save_path, "Channels.png"), combined)
@@ -191,12 +177,12 @@ def disp_channels(normal_in=None, height=None, width=None, delay=0, name=None, s
 
 def disp_channels_3d(normal_in=None, height=None, width=None, delay=0, name=None, save_path=None):
     """
-    Visualize normal as a normal map in 3D with all channels and save the image if a path is provided.
+    Render the normal-map channels as 3D surfaces and save the image (headless; no window).
     :param normal: array of surface normal (p \times 3)
     :param height: height of the image (scalar)
     :param width: width of the image (scalar)
-    :param delay: duration (ms) for visualizing normal map. 0 for displaying infinitely until a key is pressed.
-    :param name: display name
+    :param delay: unused, kept for backward compatibility
+    :param name: unused, kept for backward compatibility
     :param save_path: path to save the final image
     :return: None
     """
@@ -245,14 +231,6 @@ def disp_channels_3d(normal_in=None, height=None, width=None, delay=0, name=None
 
     # Converter a imagem para um array NumPy
     img_array = np.array(Image.open(buf))
-
-    # Exibir a imagem em uma única janela
-    if name is None:
-        name = "Channel Visualization 3D"
-    cv2.imshow(name, img_array)
-    cv2.waitKey(delay)
-    cv2.destroyWindow(name)
-    cv2.waitKey(1)  # to deal with frozen window...
 
     # Salvar a imagem se um caminho for fornecido
     if save_path is not None:
