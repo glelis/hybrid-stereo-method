@@ -23,6 +23,21 @@ from hybrid_stereo_method.multifocus.main import main as multifocus_stereo_main
 from hybrid_stereo_method.photometric.main_wps import main as photometric_stereo_main
 
 
+def select_per_light_smos(files):
+    """Per-light sMos.npy paths for the photometric solver, in natural order.
+
+    Excludes only the mosaic of the averaged stack (parent directory named
+    "average") — matching on the directory component, not on a substring of
+    the whole path, so output folders like "03_wavelet" are not filtered out.
+    """
+    return natsorted(
+        file
+        for file in files
+        if os.path.basename(file) == "sMos.npy"
+        and os.path.basename(os.path.dirname(file)) != "average"
+    )
+
+
 def main(parameters):
     """
     Main function to execute the hybrid stereo method.
@@ -159,9 +174,7 @@ def main(parameters):
     # Use the lossless sMos.npy files: the PNGs are min-max normalized per
     # image, which destroys the inter-light intensity ratios that the
     # photometric solver depends on.
-    parameters["sMos_path_list"] = natsorted(
-        [file for file in output_files if "sMos.npy" in file and "av" not in file]
-    )
+    parameters["sMos_path_list"] = select_per_light_smos(output_files)
     parameters["output_path_photometric"] = os.path.join(output_path, "photometric_stereo")
     parameters["lights_path"] = [file for file in input_files_path if "lights.npy" in file][0]
 
