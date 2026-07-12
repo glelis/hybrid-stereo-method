@@ -37,10 +37,27 @@ def _read_png(path: Path, what: str) -> np.ndarray:
 
 
 def find_sharp_dir(results_dir: str | Path, data_dir: str | Path | None) -> Path:
-    """GT canônico: <results_dir>/sharp (copiado pelo pipeline) ou <data_dir>/sharp."""
+    """GT canônico de altura/normais (hAvg/sNrm/hDev).
+
+    1. <results_dir>/sharp ou <data_dir>/sharp — pasta global no topo (estrutura antiga);
+    2. fallback (estrutura hybrid_stereo_new): sharp/ aninhado por-luz em L###/sharp/.
+       hAvg/sNrm/hDev são globais da cena (idênticos entre luzes), então usa a PRIMEIRA
+       luz (menor L###). sVal.png, que varia por luz, é lido à parte por find_smos_pairs.
+    """
     for base in (results_dir, data_dir):
         if base is not None and (Path(base) / "sharp").is_dir():
             return Path(base) / "sharp"
+    if data_dir is not None:
+        nested = sorted(
+            Path(root)
+            for root, _dirs, files in os.walk(data_dir)
+            if Path(root).name == "sharp"
+            and _LIGHT_RE.fullmatch(Path(root).parent.name)
+            and "hAvg.png" in files
+        )
+        if nested:
+            logging.info("sharp/ (GT global) via fallback per-luz — primeira luz: %s", nested[0])
+            return nested[0]
     raise MissingArtifactError(
         f"pasta sharp/ (ground truth) não encontrada em {results_dir} nem em {data_dir}"
     )
