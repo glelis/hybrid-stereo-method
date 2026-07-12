@@ -43,6 +43,32 @@ def test_find_sharp_dir_prefers_results_then_data(tmp_path):
         find_sharp_dir(tmp_path / "nada", None)
 
 
+def test_find_sharp_dir_falls_back_to_first_light_when_nested(tmp_path):
+    """Estrutura hybrid_stereo_new: sem sharp/ no topo, sharp/ aninhado por-luz.
+
+    O GT global (hAvg/sNrm/hDev) é idêntico entre luzes; devolve a primeira (menor L###).
+    """
+    results = tmp_path / "results"
+    data = tmp_path / "data"
+    results.mkdir()
+    base = data / "stQ-melon14" / "0512x0384-hs01-kr10"
+    for light in ("L002", "L000", "L001"):  # ordem de criação embaralhada de propósito
+        d = base / light / "sharp"
+        d.mkdir(parents=True)
+        cv2.imwrite(str(d / "hAvg.png"), np.zeros((4, 4), np.uint16))
+    assert find_sharp_dir(results, data) == base / "L000" / "sharp"
+
+
+def test_find_sharp_dir_top_level_wins_over_nested(tmp_path):
+    """sharp/ no topo (estrutura antiga) tem prioridade sobre o fallback aninhado."""
+    data = tmp_path / "data"
+    (data / "sharp").mkdir(parents=True)
+    nested = data / "scene" / "L000" / "sharp"
+    nested.mkdir(parents=True)
+    cv2.imwrite(str(nested / "hAvg.png"), np.zeros((4, 4), np.uint16))
+    assert find_sharp_dir(tmp_path / "nada", data) == data / "sharp"
+
+
 def test_load_height_gt_reads_uint16_as_float(sharp_dir):
     d, z, _ = sharp_dir
     gt = load_height_gt(d)

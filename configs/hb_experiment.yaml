@@ -7,13 +7,14 @@ experiment:
   
   paths:
     # Path to the directory containing the input dataset
-    input: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/raw/hybrid_stereo/'
+    input: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/raw/hybrid_stereo_new/'
     
     # Path to the directory where results will be saved
     output: '/home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/hybrid_stereo/'
     
     # Name of the specific data folder to process
-    data_folder: '2025-03-08-stQ-melon24-amb0.00-glo0.50'
+    #data_folder: '2025-03-08-stQ-melon24-amb0.00-glo0.50'
+    data_folder: 'lamb-gls'
 
   settings:
     # Whether to use a specific mask
@@ -124,7 +125,7 @@ hybrid:
     max_level: 30
     
     # Maximum iterations for the solver
-    max_iter: 100000
+    max_iter: 10000
     
     # Convergence tolerance
     conv_tol: 0.0000005
