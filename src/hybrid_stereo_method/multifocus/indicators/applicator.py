@@ -38,6 +38,12 @@ def focus_indicator(
         elif focus_indicator_type == "wavelet":
             focus_indicator = calculate_wavelet_focus_indicator(img)
 
+        else:
+            raise ValueError(
+                f"Unknown focus indicator {focus_indicator_type!r}; "
+                "expected 'fourier', 'laplacian' or 'wavelet'."
+            )
+
         if square:
             # Square the reconstructed image (enhances differences)
             focus_indicator = focus_indicator**2

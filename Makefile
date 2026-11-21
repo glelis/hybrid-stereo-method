@@ -59,12 +59,12 @@ build-c:
 
 # Run multifocus stereo experiment
 run-multifocus:
-	python -m hybrid_stereo_method.multifocus.main --param_file configs/multifocus_experiment.yaml
+	python -m hybrid_stereo_method.multifocus.main --param_file configs/ms_experiment.yaml
 
 # Run photometric stereo experiment
 run-photometric:
-	python -m hybrid_stereo_method.photometric.main --param_file configs/photometric_experiment.yaml
+	python -m hybrid_stereo_method.photometric.main --param_file configs/ps_experiment.yaml
 
 # Run hybrid method experiment
 run-hybrid:
-	python -m hybrid_stereo_method.hybrid.main --param_file configs/hybrid_experiment.yaml
+	python -m hybrid_stereo_method.hybrid.main --param_file configs/hb_experiment.yaml

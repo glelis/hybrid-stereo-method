@@ -1,10 +1,11 @@
-# Sweep 09_photometric_top5: Solver fotométrico com top_k=5 imagens por pixel
-# Gerado por generate_configs.py a partir de hb_experiment.yaml
+# Base congelada do sweep de 2026-07-10 (melon24, fourier radius 0.1, zero_border on).
+# Os configs NN_*.yaml são gerados a partir DESTE arquivo, não do hb_experiment.yaml,
+# para que regerar o sweep reproduza exatamente os configs commitados.
 experiment:
   type: hybrid
   paths:
     input: /home/lelis/Documents/Projetos/hybrid-stereo-method/data/raw/hybrid_stereo/
-    output: /home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/hybrid_sweep/09_photometric_top5/
+    output: /home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/hybrid_sweep/
     data_folder: 2025-03-08-stQ-melon24-amb0.00-glo0.50
   settings:
     mask: false
@@ -53,7 +54,7 @@ photometric:
   solver:
     epsilon: 1.0e-06
     shadow_threshold: 0.001
-    top_k: 5
+    top_k: 3
     outlier_threshold_multiplier: 3
 hybrid:
   integration:

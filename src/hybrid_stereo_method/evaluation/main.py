@@ -21,7 +21,6 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
-import cv2
 import numpy as np
 
 from hybrid_stereo_method.evaluation.evaluators import (
@@ -35,12 +34,14 @@ from hybrid_stereo_method.evaluation.loaders import (
     MissingArtifactError,
     find_sharp_dir,
     find_smos_pairs,
+    load_configured_z_foc,
     load_hdev_mask,
     load_height_gt,
     load_height_map,
     load_normal_map,
     load_normals_gt,
     load_shrp_z_gt,
+    load_smos_pair,
     load_zmos,
     resolve_data_dir,
     vertex_to_cell,
@@ -64,13 +65,6 @@ def _package_version() -> str:
         return version("hybrid-stereo-method")
     except PackageNotFoundError:
         return "unknown"
-
-
-def _to_255_scale(img: np.ndarray) -> np.ndarray:
-    """Imagem inteira (8 ou 16 bits) → float64 na escala 0-255 (PSNR/SSIM comuns)."""
-    if np.issubdtype(img.dtype, np.integer):
-        return img.astype(np.float64) * (255.0 / float(np.iinfo(img.dtype).max))
-    return img.astype(np.float64)
 
 
 # Exceções de artefato ilegível/corrompido que viram "skipped" por etapa
@@ -145,7 +139,17 @@ def run_evaluation(
     else:
         try:
             z_gt, z_vals = load_shrp_z_gt(data_dir)
-            metrics["focus_selection"] = evaluate_focus_selection(zmos, z_gt, z_vals)
+            z_cfg = load_configured_z_foc(results_dir)
+            if z_cfg is not None and (
+                len(z_cfg) != len(z_vals) or not np.allclose(z_cfg, z_vals, rtol=1e-3)
+            ):
+                # zMos está nas unidades do z_foc do config; comparar com z_gt
+                # parseado das pastas zf* daria um número sem significado.
+                metrics["focus_selection"] = {
+                    "status": f"skipped: z_foc do run {z_cfg} difere das pastas zf* {z_vals}"
+                }
+            else:
+                metrics["focus_selection"] = evaluate_focus_selection(zmos, z_gt, z_vals)
         except _LOAD_ERRORS as exc:
             metrics["focus_selection"] = {"status": f"skipped: {exc}"}
 
@@ -158,12 +162,12 @@ def run_evaluation(
         pairs = find_smos_pairs(results_dir, data_dir)
         loaded_pairs = []
         for light, est_path, gt_path in pairs:
-            est = cv2.imread(str(est_path), cv2.IMREAD_UNCHANGED)
-            gt_img = cv2.imread(str(gt_path), cv2.IMREAD_UNCHANGED)
-            if est is None or gt_img is None:
-                logging.warning("mosaico ilegível para %s — pulado", light)
+            try:
+                est, gt_img = load_smos_pair(est_path, gt_path)
+            except _LOAD_ERRORS as exc:
+                logging.warning("mosaico ilegível para %s — pulado (%s)", light, exc)
                 continue
-            loaded_pairs.append((light, _to_255_scale(est), _to_255_scale(gt_img)))
+            loaded_pairs.append((light, est, gt_img))
         metrics["mosaics"] = evaluate_mosaics(loaded_pairs)
 
     # --- 4. fotométrico: normais --------------------------------------------

@@ -45,8 +45,14 @@ def evaluate_height(
     if est.shape != gt.shape:
         return _skipped(f"shapes incompatíveis: estimado {est.shape} vs GT {gt.shape}")
     valid = np.isfinite(est) & np.isfinite(gt)
+    gt_mask_excluded_fraction = None
     if gt_valid is not None:
+        # fração dos pixels que seriam válidos e que a máscara do GT (hDev) exclui
+        n_before = int(valid.sum())
         valid &= gt_valid
+        gt_mask_excluded_fraction = (
+            (n_before - int(valid.sum())) / n_before if n_before else 0.0
+        )
     n_valid = int(valid.sum())
     if n_valid == 0:
         return _skipped("nenhum pixel válido em comum")
@@ -57,7 +63,7 @@ def evaluate_height(
     pearson_detrended, rmse_detrended = detrended_pearson_rmse(
         est[valid], gt[valid], xx[valid], yy[valid]
     )
-    return {
+    result = {
         "status": "ok",
         "rmse_affine": rmse,
         "mae_affine": float(np.nanmean(error_map)),
@@ -71,6 +77,9 @@ def evaluate_height(
         "low_validity": bool(valid_fraction < LOW_VALIDITY_THRESHOLD),
         "_error_map": error_map,
     }
+    if gt_mask_excluded_fraction is not None:
+        result["gt_mask_excluded_fraction"] = gt_mask_excluded_fraction
+    return result
 
 
 def evaluate_focus_selection(
@@ -112,8 +121,8 @@ def evaluate_focus_selection(
 def evaluate_mosaics(mosaics: list[tuple[str, np.ndarray, np.ndarray]]) -> dict[str, Any]:
     """PSNR/SSIM por luz entre sMos estimado e sVal GT, + agregados.
 
-    `mosaics` é uma lista (luz, imagem_estimada, imagem_gt), ambas uint8 e na
-    MESMA ordem de canais (BGR do cv2 nos dois lados — comparação consistente).
+    `mosaics` é uma lista (luz, imagem_estimada, imagem_gt), ambas em cinza e
+    na MESMA escala 0-255 (ver loaders.load_smos_pair).
     """
     if not mosaics:
         return _skipped("nenhum par sMos/sVal encontrado")

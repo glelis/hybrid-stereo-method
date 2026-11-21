@@ -214,15 +214,15 @@ def main(parameters):
     logging.info("Process completed successfully.")
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run photometric stereo method.")
+def cli() -> None:
+    """Console entry point: ``--param_file <yaml>``."""
+    parser = argparse.ArgumentParser(description="Run weighted photometric stereo (WPS).")
     parser.add_argument(
         "--param_file", type=str, required=True, help="Path to the YAML parameter file."
     )
-
     args = parser.parse_args()
+    main(read_yaml_parameters(args.param_file))
 
-    # Read parameters from the YAML file
-    parameters = read_yaml_parameters(args.param_file)
 
-    main(parameters)
+if __name__ == "__main__":
+    cli()

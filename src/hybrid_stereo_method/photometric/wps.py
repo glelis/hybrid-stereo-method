@@ -200,13 +200,15 @@ def estimate_normals_argmax_lstsq_robust(images, light_sources, wps_params=None)
                 normal /= np.linalg.norm(normal)
                 normals[i, j, :] = normal
 
-                # Adjust confidence based on N, M, and residuals
+                # Confidence decreases with fewer data and higher residuals.
+                # The residual spread is taken RELATIVE to the pixel's peak
+                # intensity: in absolute units it depends on the bit depth
+                # (16-bit sMos.npy gave residuals ~257x larger than 8-bit),
+                # which shifted the normals-vs-hints balance in the integration.
                 N = len(selected_values)
                 M = num_images
-                residual_std = np.std(residuals)
-                confidence[i, j] = (N / M) * (
-                    1 / (1 + residual_std)
-                )  # Confidence decreases with fewer data and higher residuals
+                relative_residual_std = np.std(residuals) / v_max
+                confidence[i, j] = (N / M) * (1 / (1 + relative_residual_std))
 
                 # Update selected_areas using original indices
                 selected_areas[i, j, original_indices] = 255

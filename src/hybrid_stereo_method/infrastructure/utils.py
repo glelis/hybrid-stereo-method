@@ -5,8 +5,17 @@ This module provides common utility functions used across the project.
 
 from __future__ import annotations
 
+import os
+import re
+from collections.abc import Iterable, Sequence
+
 import cv2
 import numpy as np
+
+# Focal-plane folder names carry the focal distance: "zf045.0000-df020.0000" → 45.0.
+# Also matches the averaged frames written by the hybrid pipeline
+# ("average_zf045.0000-df020.0000.png").
+ZF_DIR_RE = re.compile(r"(?:^|_)zf(\d+(?:\.\d+)?)")
 
 
 def print_img_statistics(name: str, img: np.ndarray) -> None:
@@ -91,3 +100,60 @@ def calculate_avarage_of_images(images: list[np.ndarray]) -> np.ndarray:
         return np.round(mean_image).astype(np.uint16)
     else:
         raise ValueError("Unsupported data type.")
+
+
+def parse_zf_value(path_or_name: str) -> float | None:
+    """Focal distance encoded in a ``zf*`` directory name, or None.
+
+    Accepts a bare directory name (``"zf045.0000-df020.0000"``) or any file
+    path; for a path, the nearest component (file or ancestor directory)
+    carrying a ``zf<value>`` token is used.
+    """
+    parts = os.path.normpath(path_or_name).split(os.sep)
+    for part in reversed(parts):
+        m = ZF_DIR_RE.search(part)
+        if m:
+            return float(m.group(1))
+    return None
+
+
+def resolve_z_foc(
+    configured: Sequence[float] | str | None,
+    paths: Iterable[str],
+    rtol: float = 1e-3,
+) -> list[float]:
+    """Resolve the ``multifocus.parameters.z_foc`` list against the dataset.
+
+    ``paths`` are the stack frames (or their ``zf*`` folders) in stack order.
+    - ``configured`` is None or ``"auto"`` → the values parsed from the folder
+      names are returned.
+    - ``configured`` is a list and the folder names carry z values → both must
+      agree (same length, values within ``rtol``); otherwise ``ValueError``,
+      because a z_foc list from another dataset silently puts zMos — and the
+      absolute integration hints — in the wrong units.
+    - folder names carry no z (e.g. flat ``images/`` dir) → the configured list
+      is returned unchanged; ``"auto"`` then raises ``ValueError``.
+    """
+    paths = list(paths)
+    parsed = [parse_zf_value(p) for p in paths]
+    have_parsed = bool(parsed) and all(z is not None for z in parsed)
+
+    if configured is None or (isinstance(configured, str) and configured.lower() == "auto"):
+        if not have_parsed:
+            raise ValueError(
+                "z_foc: 'auto' requires the frames to live in zf<value>* folders; "
+                "set an explicit z_foc list for this dataset."
+            )
+        return [float(z) for z in parsed]
+
+    if isinstance(configured, str):
+        raise ValueError(f"z_foc must be a list of numbers or 'auto', got {configured!r}")
+
+    configured = [float(z) for z in configured]
+    if have_parsed:
+        if len(configured) != len(parsed) or not np.allclose(configured, parsed, rtol=rtol):
+            raise ValueError(
+                f"z_foc from the config {configured} does not match the zf* folders of "
+                f"the dataset {parsed}. Fix the list or use z_foc: auto."
+            )
+    return configured

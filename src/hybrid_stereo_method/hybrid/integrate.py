@@ -23,11 +23,8 @@ from hybrid_stereo_method.infrastructure.io.image_io import (
 
 logger = logging.getLogger(__name__)
 
-# Default path to the C executable (relative to project root)
-# Path: src/hybrid_stereo_method/hybrid/integrate.py 
-#   -> hybrid (1) -> hybrid_stereo_method (2) -> src (3) -> project_root (4)
-# Actually: integrate.py.parent = hybrid, hybrid.parent = hybrid_stereo_method, 
-#           hybrid_stereo_method.parent = src, src.parent = project_root
+# Default path to the C executable: integrate.py -> hybrid/ -> hybrid_stereo_method/
+# -> src/ -> project root.
 _MODULE_DIR = Path(__file__).parent  # hybrid/
 _PROJECT_ROOT = _MODULE_DIR.parent.parent.parent  # src -> project_root
 DEFAULT_EXECUTABLE = _PROJECT_ROOT / "csrc" / "integrate_recursive" / "gus_integrate_recursive"
@@ -46,7 +43,12 @@ class IntegrateRecursiveConfig:
         sort_sys: Whether to sort equations by weight
         verbose: Enable verbose output
         report_step: Frequency for debug output (0 = disabled)
-        slopes_scale: Scale factors for X/Y slopes (default (1.0, 1.0))
+        slopes_scale: Scale factors for X/Y slopes. The default (1.0, 1.0) is
+            right for normals in the numpy image frame (y = row index, growing
+            down). Normals in a Y-up frame (lights.npy of the Stolfi generators,
+            e.g. melon24) need sy = -1; the hybrid pipeline takes the signs from
+            ``hybrid.integration.slopes_scale`` and multiplies them by
+            ``pixel_size`` (see hybrid.main.build_integration_config).
     """
     initial_method: str = "zero"
     initial_noise: float = 0.0
@@ -108,7 +110,10 @@ def integrate_normals_to_height(
             "Please build it with: cd csrc/integrate_recursive && make"
         )
     
-    output_dir = Path(output_dir)
+    # Absolute paths: the binary runs with cwd=output_dir, so a relative path
+    # (e.g. output 'data/results/...' from the YAML) would be resolved from
+    # inside output_dir and the binary would fail to read its inputs.
+    output_dir = Path(output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     
     # Write normal map to FNI format
@@ -128,6 +133,7 @@ def integrate_normals_to_height(
     
     # Add hints map if provided
     if hints_fni_path is not None:
+        hints_fni_path = Path(hints_fni_path).resolve()
         cmd.extend(["-hints", str(hints_fni_path), str(hints_weight)])
         logger.info(f"Using existing hints map at: {hints_fni_path}")
     elif hints_map is not None:
@@ -247,9 +253,22 @@ def integrate_slopes_to_height(
     if not executable_path.exists():
         raise FileNotFoundError(f"Integration executable not found at: {executable_path}")
     
-    output_dir = Path(output_dir)
+    # Absolute paths: the binary runs with cwd=output_dir, so a relative path
+    # (e.g. output 'data/results/...' from the YAML) would be resolved from
+    # inside output_dir and the binary would fail to read its inputs.
+    output_dir = Path(output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     
+    # The C solver requires a 3-channel slope map (dZ/dX, dZ/dY, weight):
+    # a 2-channel map aborts it ("slope map {G} must have 3 channels").
+    slope_map = np.asarray(slope_map)
+    if slope_map.ndim == 3 and slope_map.shape[2] == 2:
+        slope_map = np.concatenate(
+            (slope_map, np.ones(slope_map.shape[:2] + (1,), dtype=slope_map.dtype)), axis=-1
+        )
+    elif slope_map.ndim != 3 or slope_map.shape[2] != 3:
+        raise ValueError(f"slope_map must have shape (H, W, 2) or (H, W, 3), got {slope_map.shape}")
+
     # Write slope map to FNI format
     slope_fni_path = output_dir / f"{output_prefix}_slopes.fni"
     convert_image_array_to_fni(slope_map, slope_fni_path)

@@ -80,6 +80,8 @@ erro mediano de seleção de foco 4,0 → **0,56 frames**.
 7. **`photometric.solver.top_k` é um no-op**: o solver robusto usado pelo pipeline
    (`estimate_normals_argmax_lstsq_robust`) só consome `shadow_threshold` e
    `outlier_threshold_multiplier`. Um próximo sweep do fotométrico deve variar esses dois.
+   (2026-11-21: `09_photometric_top5.yaml` foi removido do sweep por isso; a linha
+   da tabela acima fica como registro histórico.)
 8. **O "ganho do híbrido" cai nas configs boas** (1,40 → 1,22) — não é regressão:
    o multifocus melhora tanto que sobra menos para o fotométrico corrigir.
 9. **Metodologia:** mudar um fator por vez foi o que permitiu detectar o no-op do
