@@ -28,3 +28,6 @@ src/hybrid_stereo_method.egg-info/
 # Build intermediates / coverage
 *.o
 .coverage
+
+# Saídas de depuração do integrador C
+debug_output/

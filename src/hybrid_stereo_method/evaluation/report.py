@@ -84,6 +84,10 @@ def _height_section(title: str, block: dict[str, Any]) -> list[str]:
         f"| std do GT (contexto p/ RMSE) | {_fmt(block['gt_std'])} |",
         f"| fração de pixels válidos | {_fmt(block['valid_fraction'])} |",
     ]
+    if "gt_mask_excluded_fraction" in block:
+        lines.append(
+            f"| fração excluída pela máscara hDev | {_fmt(block['gt_mask_excluded_fraction'])} |"
+        )
     if block.get("low_validity"):
         lines.append("| **ALERTA** | menos de 1% de pixels válidos |")
     lines.append("")

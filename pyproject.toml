@@ -81,3 +81,6 @@ indent-style = "space"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "-v --cov=hybrid_stereo_method"
+markers = [
+    "slow: testes que rodam o binário C ou o pipeline completo",
+]

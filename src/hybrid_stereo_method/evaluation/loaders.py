@@ -1,7 +1,10 @@
 """Descoberta e carregamento de artefatos do pipeline e ground truth.
 
 Convenções de caminho (ver spec 2026-06-06-automated-evaluation-design.md):
-- GT canônico em <results_dir>/sharp (copiado pelo pipeline) ou <data_dir>/sharp;
+- GT canônico em <results_dir>/sharp (se alguém o copiar para lá), <data_dir>/sharp
+  ou, no layout hybrid_stereo_new, <data_dir>/.../L###/sharp. O pipeline NÃO copia
+  sharp/: a avaliação standalone precisa de --data_dir ou de um parameters.yaml
+  cujo experiment.paths aponte para o dataset;
 - artefatos por etapa em multifocus_stereo/, photometric_stereo/, integration/.
 """
 
@@ -192,7 +195,12 @@ def load_shrp_z_gt(data_dir: str | Path) -> tuple[np.ndarray, list[float]]:
 def find_smos_pairs(
     results_dir: str | Path, data_dir: str | Path | None
 ) -> list[tuple[str, Path, Path]]:
-    """Pares (luz, sMos.png estimado, sVal.png GT) para as luzes presentes nos dois lados."""
+    """Pares (luz, sMos estimado, sVal.png GT) para as luzes presentes nos dois lados.
+
+    Prefere o ``sMos.npy`` lossless (radiometria original da pilha); cai no
+    ``sMos.png`` só para runs antigos — esse PNG é esticado por min-max por
+    imagem e não é comparável radiometricamente ao GT (ver load_smos_pair).
+    """
     mf = Path(results_dir) / "multifocus_stereo"
     if data_dir is None or not mf.is_dir():
         return []
@@ -203,10 +211,47 @@ def find_smos_pairs(
             gt_by_light[r.parent.name] = r / "sVal.png"
     pairs = []
     for d in sorted(p for p in mf.iterdir() if p.is_dir() and _LIGHT_RE.fullmatch(p.name)):
-        smos = d / "sMos.png"
-        if smos.exists() and d.name in gt_by_light:
-            pairs.append((d.name, smos, gt_by_light[d.name]))
+        if d.name not in gt_by_light:
+            continue
+        for candidate in ("sMos.npy", "sMos.png"):
+            smos = d / candidate
+            if smos.exists():
+                pairs.append((d.name, smos, gt_by_light[d.name]))
+                break
     return pairs
+
+
+def _gray(img: np.ndarray) -> np.ndarray:
+    return img.mean(axis=-1) if img.ndim == 3 else img
+
+
+def load_smos_pair(est_path: Path, gt_path: Path) -> tuple[np.ndarray, np.ndarray]:
+    """Carrega (sMos estimado, sVal GT) na MESMA escala 0-255 (float64, cinza).
+
+    O GT é inteiro (8 ou 16 bits) e vai para 0-255 dividindo pelo máximo do
+    dtype. O ``sMos.npy`` está na radiometria da pilha de entrada — a mesma do
+    GT —, então recebe exatamente o mesmo fator. Um ``sMos.png`` legado (min-max
+    por imagem) é usado como está, com warning: PSNR/SSIM nesse caso medem
+    também o esticamento.
+    """
+    gt = _read_png(gt_path, "sVal.png")
+    if not np.issubdtype(gt.dtype, np.integer):
+        raise ValueError(f"sVal.png com dtype inesperado {gt.dtype}: {gt_path}")
+    factor = 255.0 / float(np.iinfo(gt.dtype).max)
+    gt_255 = _gray(gt.astype(np.float64)) * factor
+
+    if est_path.suffix == ".npy":
+        est = np.load(est_path).astype(np.float64)
+        est_255 = _gray(est) * factor
+    else:
+        logging.warning(
+            "%s: só há sMos.png (min-max por imagem) — métricas de mosaico não são "
+            "radiometricamente comparáveis ao GT",
+            est_path,
+        )
+        est = _read_png(est_path, "sMos.png")
+        est_255 = _gray(est.astype(np.float64)) * (255.0 / float(np.iinfo(est.dtype).max))
+    return est_255, gt_255
 
 
 def resolve_data_dir(results_dir: str | Path, data_dir: str | Path | None) -> Path | None:
@@ -221,7 +266,26 @@ def resolve_data_dir(results_dir: str | Path, data_dir: str | Path | None) -> Pa
             candidate = Path(paths["input"]) / paths["data_folder"]
             if candidate.is_dir():
                 return candidate
+            # Caminhos relativos no YAML (ex.: 'data/raw/...') são relativos à
+            # raiz do repo de onde o pipeline rodou, não ao CWD da avaliação:
+            # tenta cada ancestral da pasta de resultados.
+            if not candidate.is_absolute():
+                for ancestor in Path(results_dir).resolve().parents:
+                    if (ancestor / candidate).is_dir():
+                        return ancestor / candidate
             logging.warning("data_dir do parameters.yaml não existe: %s", candidate)
         except (KeyError, TypeError, yaml.YAMLError) as exc:
             logging.warning("parameters.yaml sem experiment.paths utilizável: %s", exc)
     return None
+
+
+def load_configured_z_foc(results_dir: str | Path) -> list[float] | None:
+    """z_foc usado no run (do parameters.yaml salvo), ou None se indisponível."""
+    params_path = Path(results_dir) / "parameters.yaml"
+    if not params_path.exists():
+        return None
+    try:
+        z_foc = read_yaml_parameters(params_path)["multifocus"]["parameters"]["z_foc"]
+        return [float(z) for z in z_foc]
+    except (KeyError, TypeError, ValueError, yaml.YAMLError):
+        return None

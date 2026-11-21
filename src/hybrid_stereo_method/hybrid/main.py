@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+import re
 from datetime import datetime
 
 import numpy as np
@@ -18,7 +19,10 @@ from hybrid_stereo_method.infrastructure.io.image_io import (
     read_yaml_parameters,
     save_image,
 )
-from hybrid_stereo_method.infrastructure.utils import calculate_avarage_of_images
+from hybrid_stereo_method.infrastructure.utils import (
+    calculate_avarage_of_images,
+    resolve_z_foc,
+)
 from hybrid_stereo_method.multifocus.main import main as multifocus_stereo_main
 from hybrid_stereo_method.photometric.main_wps import main as photometric_stereo_main
 
@@ -35,6 +39,72 @@ def select_per_light_smos(files):
         for file in files
         if os.path.basename(file) == "sMos.npy"
         and os.path.basename(os.path.dirname(file)) != "average"
+    )
+
+
+def collect_light_dirs(files: list[str], data_path: str) -> list[str]:
+    """Unique ``L<n>`` directory components at ANY depth under ``data_path``.
+
+    Fixes MF-14 (ported from worktree-vectorized-snuggling-harp): looking only
+    at the immediate parent of each file finds nothing in the documented layout
+    ``L<n>/zf<m>/sVal.png`` (the parent is always ``zf*``). Real datasets only
+    worked by accident, because of stray files such as ``L000/selected-pixels.png``.
+    """
+    lights: set[str] = set()
+    for f in files:
+        rel = os.path.relpath(f, data_path)
+        if rel.startswith(os.pardir):
+            continue
+        for part in rel.split(os.sep)[:-1]:  # exclude the filename itself
+            if re.fullmatch(r"L\d+", part):
+                lights.add(part)
+    return natsorted(lights)
+
+
+def build_integration_config(integration_params: dict, debug: bool) -> IntegrateRecursiveConfig:
+    """Build the solver config from the ``hybrid.integration`` YAML section.
+
+    Units (INT-04/CONV-4): the slopes the C solver integrates (dZ/dX = -nx/nz)
+    are dimensionless and summed over 1-px cells, so the raw heights come out
+    in "height per pixel", while the multifocus hints (zMos, absolute) are in
+    ``z_foc`` units. ``pixel_size`` — the lateral size of one pixel in the same
+    units as ``z_foc`` — reconciles them: the slopes are multiplied by it, so the
+    integrated heights come out in ``z_foc`` units, commensurable with the hints.
+
+    ``slopes_scale`` keeps carrying the axis signs (sy = -1 for Y-up datasets:
+    the FNI is written top-down while the C library assumes Y up); the final
+    factors are ``(sx * pixel_size, sy * pixel_size)``.
+    """
+    pixel_size = integration_params.get("pixel_size")
+    if pixel_size is None:
+        if integration_params.get("use_hints", False):
+            logging.warning(
+                "use_hints=True but hybrid.integration.pixel_size is not set: the "
+                "integrated heights stay in pixel units while the hints are in z_foc "
+                "units — incommensurable scales (INT-04/CONV-4). Set pixel_size to "
+                "the lateral size of one pixel in the same units as z_foc."
+            )
+        pixel_size = 1.0
+    pixel_size = float(pixel_size)
+    if pixel_size <= 0:
+        raise ValueError(f"hybrid.integration.pixel_size must be > 0, got {pixel_size}")
+
+    initial_method = integration_params.get("initial_method", "zero")
+    if initial_method == "hints" and not integration_params.get("use_hints", False):
+        raise ValueError(
+            "hybrid.integration.initial_method='hints' requires use_hints: true — "
+            "without a hints map the C solver aborts (INT-01)."
+        )
+
+    sx, sy = (float(v) for v in integration_params.get("slopes_scale", [1.0, -1.0]))
+    return IntegrateRecursiveConfig(
+        initial_method=initial_method,
+        initial_noise=integration_params.get("initial_noise", 0.0),
+        max_level=integration_params.get("max_level", 30),
+        max_iter=integration_params.get("max_iter", 100000),
+        conv_tol=integration_params.get("conv_tol", 0.0000005),
+        slopes_scale=(sx * pixel_size, sy * pixel_size),
+        verbose=debug,
     )
 
 
@@ -78,6 +148,30 @@ def main(parameters):
     # Log the provided parameters
     log_parameters(parameters)
 
+    # Find all files in the input directory and the focal planes (zf*) of the
+    # stack. natsorted keeps numeric order even for non-zero-padded names
+    # (zf15 < zf105), preserving the positional frame<->z_foc correspondence
+    # required by mosaic.
+    input_path = parameters["experiment"]["paths"]["input"]
+    input_files_path = find_all_files(os.path.join(input_path, data_foldername))
+    zf_directories = natsorted(
+        set(
+            [
+                os.path.basename(os.path.dirname(path))
+                for path in input_files_path
+                if os.path.basename(os.path.dirname(path)).startswith("zf")
+            ]
+        )
+    )
+
+    # Resolve z_foc against the zf* folder names BEFORE saving parameters.yaml,
+    # so the saved config (read by the evaluation) holds the values actually
+    # used. A list from another dataset is rejected instead of silently putting
+    # zMos and the absolute hints in the wrong units.
+    mf_parameters = parameters["multifocus"]["parameters"]
+    mf_parameters["z_foc"] = resolve_z_foc(mf_parameters.get("z_foc"), zf_directories)
+    logging.info("z_foc resolved: %s", mf_parameters["z_foc"])
+
     # Salva o config resolvido para reuso (ex.: avaliação standalone descobre o
     # data_dir sozinha). Salvo ANTES de o dict ser mutado com arrays numpy.
     with open(os.path.join(output_path, "parameters.yaml"), "w") as f:
@@ -91,23 +185,7 @@ def main(parameters):
     logging.info("STEP 1: Multifocus Stereo")
     logging.info("=" * 60)
     
-    # Find all files in the input directory
-    input_path = parameters["experiment"]["paths"]["input"]
-    input_files_path = find_all_files(os.path.join(input_path, data_foldername))
-
     # Process images to calculate the average for each 'zf' directory
-    # natsorted keeps numeric order even for non-zero-padded names (zf15 < zf105),
-    # preserving the positional frame<->z_foc correspondence required by mosaic.
-    zf_directories = natsorted(
-        set(
-            [
-                os.path.basename(os.path.dirname(path))
-                for path in input_files_path
-                if os.path.basename(os.path.dirname(path)).startswith("zf")
-            ]
-        )
-    )
-
     average_images_paths = []
     for zf_dir in zf_directories:
         # Filter relevant files in the directory
@@ -135,14 +213,8 @@ def main(parameters):
     multifocus_stereo_main(parameters)
 
     # Process images for each light directory 'L'
-    light_directories = natsorted(
-        set(
-            [
-                os.path.basename(os.path.dirname(path))
-                for path in input_files_path
-                if os.path.basename(os.path.dirname(path)).startswith("L")
-            ]
-        )
+    light_directories = collect_light_dirs(
+        input_files_path, os.path.join(input_path, data_foldername)
     )
 
     for light_dir in light_directories:
@@ -221,19 +293,10 @@ def main(parameters):
         # Configure integration parameters
         integration_params = parameters.get("hybrid", {}).get("integration", {})
         
-        integration_config = IntegrateRecursiveConfig(
-            initial_method=integration_params.get("initial_method", "zero"),
-            initial_noise=integration_params.get("initial_noise", 0.0),
-            max_level=integration_params.get("max_level", 30),
-            max_iter=integration_params.get("max_iter", 100000),
-            conv_tol=integration_params.get("conv_tol", 0.0000005),
-            # The FNI is written top-down while the C library assumes Y up;
-            # sy=-1 corrects the dZ/dY sign for Y-up lights/normals datasets.
-            slopes_scale=tuple(integration_params.get("slopes_scale", [1.0, -1.0])),
-            verbose=parameters["experiment"]["settings"]["debug"],
-            #report_step=integration_params.get("report_step", 1),
+        integration_config = build_integration_config(
+            integration_params, debug=parameters["experiment"]["settings"]["debug"]
         )
-        
+
         # Output directory for integration
         integration_output = os.path.join(output_path, "integration")
         
@@ -308,19 +371,15 @@ def main(parameters):
     logging.info("=" * 60)
 
 
-if __name__ == "__main__":
-    # Argument parser configuration
+def cli() -> None:
+    """Console entry point: ``--param_file <yaml>``."""
     parser = argparse.ArgumentParser(description="Executes the hybrid stereo method.")
     parser.add_argument(
         "--param_file", type=str, required=True, help="Path to the YAML parameter file."
     )
-
-    # Read arguments provided by the user
     args = parser.parse_args()
+    main(read_yaml_parameters(args.param_file))
 
-    # Read parameters from the YAML file
-    parameters = read_yaml_parameters(args.param_file)
 
-    # Execute the main function
-    main(parameters)
-
+if __name__ == "__main__":
+    cli()

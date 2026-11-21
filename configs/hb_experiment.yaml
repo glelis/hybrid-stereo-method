@@ -34,8 +34,13 @@ multifocus:
     interpolation: 'linear_interpolation'
     
     
-    # List of focal distances (Z coordinates) corresponding to each image in the stack
-    z_foc: [15.000, 25.000, 35.000, 45.000, 55.000, 65.000, 75.000, 85.000, 95.000, 105.000, 115.000, 125.000]
+    # Focal distances (Z coordinates) of each image in the stack.
+    # 'auto' parses them from the zf<value>* folder names of the dataset
+    # (e.g. lamb-gls: 7.2 … 288.8, step 25.6). An explicit list is validated
+    # against those names and the run aborts on mismatch — a list from another
+    # dataset puts zMos and the absolute integration hints in the wrong units.
+    # melon24: [15.0, 25.0, 35.0, 45.0, 55.0, 65.0, 75.0, 85.0, 95.0, 105.0, 115.0, 125.0]
+    z_foc: auto
 
   focus_measure:
     # Algorithm to measure focus
@@ -101,7 +106,9 @@ photometric:
     # Minimum intensity ratio to consider a pixel not shadowed
     shadow_threshold: 1.0e-3
     
-    # Number of brightest images to keep for argmax method
+    # Number of brightest images to keep — consumed ONLY by the plain argmax
+    # solver (estimate_normals_argmax). The hybrid pipeline uses the robust
+    # solver, which ignores it (sweep 2026-07-10: top_k is a no-op here).
     top_k: 3
     
     # Multiplier for residual standard deviation to identify outliers
@@ -115,6 +122,15 @@ hybrid:
     # Initial noise level
     initial_noise: 0.0
     
+    # Lateral size of one pixel in the SAME units as z_foc. The slopes are
+    # multiplied by it, so the integrated heights come out in z_foc units —
+    # commensurable with the absolute multifocus hints (zMos). If unset, heights
+    # stay in pixel units (incommensurable with the hints, INT-04/CONV-4) and a
+    # warning is logged when use_hints is true. Depends on the dataset/camera:
+    # melon24 was estimated empirically as 3.08 (investigation 2026-06-06, C3);
+    # lamb-gls has not been measured yet.
+    # pixel_size: 3.08
+
     # Whether to use the depth map from multifocus as hints
     use_hints: True
     
@@ -130,7 +146,8 @@ hybrid:
     # Convergence tolerance
     conv_tol: 0.0000005
 
-    # Scale factors [sx, sy] applied to dZ/dX and dZ/dY before integration.
+    # Axis signs [sx, sy] applied to dZ/dX and dZ/dY before integration
+    # (multiplied by pixel_size above).
     # The FNI files are written top-down (OpenCV row order) while the C
     # integrator assumes origin at the bottom-left with Y pointing up, so
     # sy must be -1.0 for datasets whose lights/normals follow the Y-up

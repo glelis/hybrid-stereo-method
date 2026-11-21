@@ -1,4 +1,7 @@
-"""Gera os 10 configs do sweep de parâmetros a partir do hb_experiment.yaml.
+"""Gera os configs do sweep de parâmetros a partir de configs/sweep/base.yaml.
+
+A base é congelada (não o hb_experiment.yaml, que evolui com os vencedores do
+sweep): regerar reproduz byte a byte os configs commitados.
 
 Estratégia: baseline + um fator por vez, focando nos elos fracos do run de
 2026-07-10 (profundidade multifocus r=0.35; normais já com 3° de erro médio):
@@ -6,7 +9,8 @@ Estratégia: baseline + um fator por vez, focando nos elos fracos do run de
 - eixo "medida de foco": método (fourier/laplacian/wavelet) e banda do fourier;
 - eixo "ruído do zMos": suavização/mediana espacial e janela do fuzzy argmax;
 - eixo "mosaico": interpolação quadrática;
-- eixo "fotométrico": top_k do solver robusto;
+- (o eixo "fotométrico" top_k foi removido: o solver robusto usado pelo
+  pipeline não lê top_k, então 09_photometric_top5 era idêntico ao baseline);
 - eixo "acoplamento": peso dos hints do multifocus na integração.
 
 Uso:  python configs/sweep/generate_configs.py
@@ -16,7 +20,7 @@ from pathlib import Path
 
 import yaml
 
-BASE = Path(__file__).resolve().parents[1] / "hb_experiment.yaml"
+BASE = Path(__file__).resolve().parent / "base.yaml"
 OUT_DIR = Path(__file__).resolve().parent
 SWEEP_OUTPUT = "/home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/hybrid_sweep"
 
@@ -56,10 +60,6 @@ CONFIGS = {
     "08_quadratic_interp": (
         "Interpolação quadrática no mosaico (zMos subframe mais suave)",
         {"multifocus.parameters.interpolation": "quadratic_interpolation"},
-    ),
-    "09_photometric_top5": (
-        "Solver fotométrico com top_k=5 imagens por pixel",
-        {"photometric.solver.top_k": 5},
     ),
     "10_strong_hints": (
         "Peso dos hints do multifocus na integração 0.1 -> 0.3",

@@ -70,6 +70,10 @@ python -m hybrid_stereo_method.evaluation.main --results_dir <pasta_timestamped>
 
 - O pipeline já copia `sharp/` para a pasta de resultados (`hybrid/main.py:221`),
   então o GT de altura/normais geralmente está dentro do próprio resultado.
+  > **Correção (2026-11-21, revisão de 80e3de3):** premissa falsa — nenhum
+  > código copia `sharp/`. O GT é sempre lido do dataset (`--data_dir` ou
+  > `experiment.paths` do `parameters.yaml`, com caminhos relativos resolvidos
+  > também a partir dos ancestrais da pasta de resultados).
 - `--data_dir` é necessário apenas para o GT por luz (`L*/sharp/sVal.png`) e a
   pilha `shrp` por zf (não copiados); ausente → essas avaliações são puladas com
   aviso.
@@ -140,6 +144,10 @@ pixels válidos** é sempre reportada.
 3. **Multifocus — mosaicos** (`L*/sMos.png` vs `L*/sharp/sVal.png`):
    PSNR e SSIM por luz + média e mínimo entre luzes (o mínimo aponta a pior luz,
    que degrada o fotométrico); tabela por luz no relatório.
+   > **Correção (2026-11-21):** o `sMos.png` é esticado por min-max por imagem e
+   > não é comparável ao GT. A avaliação usa o `sMos.npy` lossless, convertido
+   > para 0–255 com o MESMO fator do `sVal.png` (máximo do dtype do GT), em cinza;
+   > o PNG só é usado em runs antigos, com warning.
 4. **Fotométrico — normais** (`normal_map.npy` vs `sNrm.png` decodificado):
    erro angular em graus — média, mediana, p95. Máscara: exclui NaN do estimado
    e fundo do GT (norma ≈ 0 antes de renormalizar).

@@ -14,7 +14,7 @@ from hybrid_stereo_method.infrastructure.io.image_io import (
     read_yaml_parameters,
     save_image,
 )
-from hybrid_stereo_method.infrastructure.utils import convert_to_grayscale
+from hybrid_stereo_method.infrastructure.utils import convert_to_grayscale, resolve_z_foc
 from hybrid_stereo_method.multifocus.argmax_fuzzy import compute_argmax_fuzzy
 from hybrid_stereo_method.multifocus.indicators.applicator import focus_indicator
 from hybrid_stereo_method.multifocus.mosaic import mosaic
@@ -121,7 +121,6 @@ def main(parameters):
     )
 
     logging.info("... Calculating argmax fuzzy ...")
-    logging.info("... Calculating argmax fuzzy ...")
     # Calcula argmax fuzzy e confiança
     fuzzy_params = mf_params["optimization"]
     debug_mode = parameters["experiment"]["settings"]["debug"]
@@ -129,7 +128,8 @@ def main(parameters):
 
     logging.info("... Calculating mosaic ...")
     # Calcula o mosaico
-    zFoc = mf_params["parameters"]["z_foc"]
+    frame_paths = parameters.get("filtered_dir") if experiment_type == "hybrid" else images_paths
+    zFoc = resolve_z_foc(mf_params["parameters"].get("z_foc"), frame_paths)
     if len(zFoc) != image_stack.shape[0]:
         error_msg = f"Erro Crítico: A lista z_foc no arquivo YAML possui {len(zFoc)} elementos, mas a pasta contém {image_stack.shape[0]} imagens. Cada imagem deve possuir seu valor z_foc."
         logging.error(error_msg)
@@ -184,15 +184,15 @@ def main(parameters):
     return iSel, wSel, sMos, zMos
 
 
-if __name__ == "__main__":
+def cli() -> None:
+    """Console entry point: ``--param_file <yaml>``."""
     parser = argparse.ArgumentParser(description="Run multifocus stereo method.")
     parser.add_argument(
         "--param_file", type=str, required=True, help="Path to the YAML parameter file."
     )
-
     args = parser.parse_args()
+    main(read_yaml_parameters(args.param_file))
 
-    # Read parameters from the YAML file
-    parameters = read_yaml_parameters(args.param_file)
 
-    main(parameters)
+if __name__ == "__main__":
+    cli()

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Roda as 10 configurações do sweep sequencialmente.
+# Roda as configurações do sweep (configs/sweep/NN_*.yaml) sequencialmente.
 # Saídas em data/results/hybrid_sweep/<nome-da-config>/.
 # Depois compare com: python configs/sweep/summarize.py
 set -u
