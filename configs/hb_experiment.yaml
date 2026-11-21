@@ -63,6 +63,14 @@ multifocus:
       
       # Whether to apply spatial median filter (cv2.medianBlur) on the focus measure
       spatial_median_filter: True
+
+      # Aperture of the spatial median filter: 3 or 5 (cv2.medianBlur on
+      # float32 only supports these). Default 5.
+      median_ksize: 5
+
+      # Smoothing strength: null = 3x3 binomial kernel (historical default);
+      # a float = cv2.GaussianBlur with that sigma (e.g. 1.5).
+      smooth_sigma: null
       
       # Whether to zero out the borders to avoid artifacts
       zero_border: False

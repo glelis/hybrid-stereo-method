@@ -118,6 +118,8 @@ def main(parameters):
         preprocess_params["smooth"],
         preprocess_params.get("spatial_median_filter", False),
         preprocess_params["zero_border"],
+        median_ksize=int(preprocess_params.get("median_ksize", 5)),
+        smooth_sigma=preprocess_params.get("smooth_sigma"),
     )
 
     logging.info("... Calculating argmax fuzzy ...")
