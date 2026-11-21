@@ -180,8 +180,8 @@ def run_evaluation(
         }
     else:
         try:
-            z_gt, z_vals = load_shrp_z_gt(data_dir)
             z_cfg = load_configured_z_foc(results_dir)
+            z_gt, z_vals = load_shrp_z_gt(data_dir, z_allowed=z_cfg)
             if z_cfg is not None and (
                 len(z_cfg) != len(z_vals) or not np.allclose(z_cfg, z_vals, rtol=1e-3)
             ):

@@ -256,3 +256,16 @@ def test_find_smos_pairs_light_with_suffix(tmp_path):
     np.save(results / "multifocus_stereo" / light / "sMos.npy", np.zeros((4, 4)))
     pairs = find_smos_pairs(results, data)
     assert [p[0] for p in pairs] == [light]
+
+
+def test_load_shrp_z_gt_restricted_to_allowed_planes(tmp_path):
+    """stF-melon24: só a L000 tem o plano extra zf060; o run usa os 2 comuns."""
+    data = tmp_path / "data"
+    depth = np.full((4, 4), 60.0)
+    for zv in (56.25, 60.0, 63.75):
+        d = data / "L000-amb0.00-glo0.00" / f"zf{zv:08.4f}-df015.0000"
+        d.mkdir(parents=True)
+        cv2.imwrite(str(d / "shrp.png"), (np.exp(-np.abs(depth - zv)) * 65535.0).astype(np.uint16))
+    z_gt, vals = load_shrp_z_gt(data, z_allowed=[56.25, 63.75])
+    assert vals == [56.25, 63.75]
+    assert z_gt.shape == (4, 4)

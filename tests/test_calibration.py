@@ -77,3 +77,18 @@ def test_scale_band_rows_from_nominal_size_folder(tmp_path):
     plain = tmp_path / "synth" / "sharp"
     plain.mkdir(parents=True)
     assert scale_band_rows(plain, 422) == 0  # sem pasta WxH: não recorta
+
+
+def test_scale_band_rows_size_inside_folder_name(tmp_path):
+    """Pastas canônicas de data/raw/datasets: o WxH vem no MEIO do nome."""
+    from hybrid_stereo_method.evaluation.loaders import scale_band_rows
+
+    sharp = tmp_path / "stQ-melon14-amb0.00-glo0.00-0512x0384-hs01-kr07" / "L000" / "sharp"
+    sharp.mkdir(parents=True)
+    assert scale_band_rows(sharp, 422) == 38
+    stf = tmp_path / "stF-melon24-amb0.00-glo0.00-0512x0384-hs01-kr10" / "L000-amb0.00-glo0.00" / "sharp"
+    stf.mkdir(parents=True)
+    assert scale_band_rows(stf, 422) == 38
+    odd = tmp_path / "box2x3" / "sharp"  # 'x' entre dígitos colado a letras não é tamanho
+    odd.mkdir(parents=True)
+    assert scale_band_rows(odd, 422) == 0

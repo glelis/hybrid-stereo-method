@@ -118,7 +118,9 @@ def load_normals_gt(
     return n_unit, foreground
 
 
-_SIZE_RE = re.compile(r"(\d+)x(\d+)")
+# WxH no início do nome ("0512x0384-hs01-kr07") ou como campo separado por
+# "-"/"_" no meio dele ("stQ-melon14-…-0512x0384-hs01-kr07", data/raw/datasets).
+_SIZE_RE = re.compile(r"(?:^|[-_])(\d+)x(\d+)(?:$|[-_])")
 
 
 def scale_band_rows(sharp_dir: str | Path, image_height: int) -> int:
@@ -132,7 +134,7 @@ def scale_band_rows(sharp_dir: str | Path, image_height: int) -> int:
     ou 0 se não houver tal pasta ou a imagem não for mais alta que o nominal.
     """
     for part in Path(sharp_dir).resolve().parts[::-1]:
-        m = _SIZE_RE.match(part)
+        m = _SIZE_RE.search(part)
         if m:
             return max(0, int(image_height) - int(m.group(2)))
     return 0
@@ -181,7 +183,9 @@ def vertex_to_cell(z_vertex: np.ndarray) -> np.ndarray:
     return 0.25 * (z[:-1, :-1] + z[:-1, 1:] + z[1:, :-1] + z[1:, 1:])
 
 
-def load_shrp_z_gt(data_dir: str | Path) -> tuple[np.ndarray, list[float]]:
+def load_shrp_z_gt(
+    data_dir: str | Path, z_allowed: list[float] | None = None
+) -> tuple[np.ndarray, list[float]]:
     """GT de seleção de foco: z_gt = z_foc[argmax(pilha shrp)] por pixel.
 
     Os valores de z_foc são parseados dos NOMES das pastas zf* (ex.:
@@ -198,6 +202,13 @@ def load_shrp_z_gt(data_dir: str | Path) -> tuple[np.ndarray, list[float]]:
             )
     if not by_parent:
         raise MissingArtifactError(f"nenhuma pasta zf*/shrp.png encontrada sob {data_dir}")
+    if z_allowed is not None:
+        # só os planos que o run usou (ex.: stF-melon24, plano extra numa luz)
+        allowed = np.asarray(z_allowed, dtype=np.float64)
+        by_parent = {
+            p: [(z, path) for z, path in v if np.any(np.isclose(z, allowed, rtol=1e-3))]
+            for p, v in by_parent.items()
+        }
     parent = max(by_parent, key=lambda p: len(by_parent[p]))
     pairs = sorted(by_parent[parent])
     z_vals = [z for z, _ in pairs]

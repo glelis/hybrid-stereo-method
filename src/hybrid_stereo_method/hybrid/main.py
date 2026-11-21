@@ -62,6 +62,33 @@ def collect_light_dirs(files: list[str], data_path: str) -> list[str]:
     return natsorted(lights)
 
 
+def common_zf_dirs(files: list[str], data_path: str, light_dirs: list[str]) -> list[str]:
+    """Planos focais (pastas zf*) presentes em TODAS as luzes, em ordem natural.
+
+    Sem pastas de luz, todos os zf* encontrados. O stF-melon24 (2025-02-09)
+    tem um plano extra (zf060) só na L000: usá-lo daria pilhas de tamanhos
+    diferentes por luz e uma média "average" desse plano com uma luz só.
+    """
+    by_light: dict[str, set[str]] = {}
+    all_zf: set[str] = set()
+    for f in files:
+        parent = os.path.basename(os.path.dirname(f))
+        if not parent.startswith("zf"):
+            continue
+        all_zf.add(parent)
+        rel = os.path.relpath(f, data_path).split(os.sep)
+        for light in light_dirs:
+            if light in rel[:-2]:
+                by_light.setdefault(light, set()).add(parent)
+    if not light_dirs:
+        return natsorted(all_zf)
+    common = set.intersection(*(by_light.get(light, set()) for light in light_dirs))
+    dropped = natsorted(all_zf - common)
+    if dropped:
+        logging.warning("Planos focais ausentes em alguma luz, ignorados: %s", dropped)
+    return natsorted(common)
+
+
 def build_integration_config(integration_params: dict, debug: bool) -> IntegrateRecursiveConfig:
     """Build the solver config from the ``hybrid.integration`` YAML section.
 
@@ -182,14 +209,11 @@ def main(parameters):
     # required by mosaic.
     input_path = parameters["experiment"]["paths"]["input"]
     input_files_path = find_all_files(os.path.join(input_path, data_foldername))
-    zf_directories = natsorted(
-        set(
-            [
-                os.path.basename(os.path.dirname(path))
-                for path in input_files_path
-                if os.path.basename(os.path.dirname(path)).startswith("zf")
-            ]
-        )
+    light_directories = collect_light_dirs(
+        input_files_path, os.path.join(input_path, data_foldername)
+    )
+    zf_directories = common_zf_dirs(
+        input_files_path, os.path.join(input_path, data_foldername), light_directories
     )
 
     # Resolve z_foc against the zf* folder names BEFORE saving parameters.yaml,
@@ -249,16 +273,19 @@ def main(parameters):
     multifocus_stereo_main(parameters)
 
     # Process images for each light directory 'L'
-    light_directories = collect_light_dirs(
-        input_files_path, os.path.join(input_path, data_foldername)
-    )
 
     for light_dir in light_directories:
         logging.info(f"... Processing light directory: {light_dir} ...")
 
         # Filter relevant files in the directory
         filtered_files = natsorted(
-            [file for file in input_files_path if f"{light_dir}/zf" in file and "sVal.png" in file]
+            [
+                file
+                for file in input_files_path
+                if f"{light_dir}/zf" in file
+                and "sVal.png" in file
+                and os.path.basename(os.path.dirname(file)) in zf_directories
+            ]
         )
 
         # Update parameters for the current directory
