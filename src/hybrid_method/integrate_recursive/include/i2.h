@@ -1,1 +1,0 @@
-/home/lelis/Documents/Projetos/hybrid-stereo-method/src/hybrid_method/integrate_recursive/lib-src/i2.h

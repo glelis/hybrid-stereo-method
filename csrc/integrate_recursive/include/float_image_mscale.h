@@ -1,0 +1,1 @@
+../lib-src/float_image_mscale.h

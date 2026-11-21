@@ -1,0 +1,73 @@
+# Sweep 03_wavelet: Medida de foco wavelet no lugar de fourier
+# Gerado por generate_configs.py a partir de hb_experiment.yaml
+experiment:
+  type: hybrid
+  paths:
+    input: /home/lelis/Documents/Projetos/hybrid-stereo-method/data/raw/hybrid_stereo/
+    output: /home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/hybrid_sweep/03_wavelet/
+    data_folder: 2025-03-08-stQ-melon24-amb0.00-glo0.50
+  settings:
+    mask: false
+    gabaritos: false
+    debug: false
+multifocus:
+  parameters:
+    interpolation: linear_interpolation
+    z_foc:
+    - 15.0
+    - 25.0
+    - 35.0
+    - 45.0
+    - 55.0
+    - 65.0
+    - 75.0
+    - 85.0
+    - 95.0
+    - 105.0
+    - 115.0
+    - 125.0
+  focus_measure:
+    method: wavelet
+    parameters:
+      kernel_size: 31
+      radius: 0.1
+    preprocessing:
+      square: false
+      smooth: false
+      spatial_median_filter: false
+      zero_border: true
+  optimization:
+    r_max: 2
+    polyfit_epsilon: 1.0e-09
+  depth_refinement:
+    enabled: false
+    gaussian_size: 9
+    unary_scale: 44
+    pair_scale: 4096
+    n_iter: 5
+photometric:
+  parameters:
+    method: wodham_implementation_argmax
+    data_scale: 1.0
+    image_extension: png
+  solver:
+    epsilon: 1.0e-06
+    shadow_threshold: 0.001
+    top_k: 3
+    outlier_threshold_multiplier: 3
+hybrid:
+  integration:
+    initial_method: zero
+    initial_noise: 0.0
+    use_hints: true
+    hints_weight: 0.1
+    max_level: 30
+    max_iter: 1000
+    conv_tol: 5.0e-07
+    slopes_scale:
+    - 1.0
+    - -1.0
+evaluation:
+  enabled: true
+  hdev_mask: false
+  hdev_threshold: 0.1

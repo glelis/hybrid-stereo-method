@@ -24,3 +24,7 @@ data/processed/
 venv/
 src/hybrid_stereo_method.egg-info/
 
+
+# Build intermediates / coverage
+*.o
+.coverage

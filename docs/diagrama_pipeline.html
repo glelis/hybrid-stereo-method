@@ -1,0 +1,636 @@
+<title>Pipeline Híbrido — Diagrama Completo</title>
+<style>
+  :root {
+    --paper: #f5f7f8;
+    --card: #ffffff;
+    --ink: #1c2430;
+    --ink-soft: #4c5866;
+    --ink-faint: #7b8794;
+    --line: #d7dde3;
+    --mf: #0f7b7b;      /* multifocus — teal */
+    --mf-bg: #e4f2f1;
+    --ps: #a06a10;      /* fotométrico — âmbar */
+    --ps-bg: #f7eeda;
+    --it: #5352c4;      /* integração — índigo */
+    --it-bg: #e9e9f9;
+    --ev: #2e7d4f;      /* avaliação — verde */
+    --ev-bg: #e3f1e8;
+    --warn: #b4483e;    /* não consumido */
+    --warn-bg: #f8e8e6;
+    --file-bg: #eef1f4;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #14181e;
+      --card: #1c222b;
+      --ink: #e6eaf0;
+      --ink-soft: #aab5c2;
+      --ink-faint: #7c8896;
+      --line: #333d49;
+      --mf: #4cbdb8;   --mf-bg: #12343356;
+      --ps: #e0a83f;   --ps-bg: #3a2d0e56;
+      --it: #9a99f0;   --it-bg: #26265356;
+      --ev: #63c98a;   --ev-bg: #12341f56;
+      --warn: #e07a70; --warn-bg: #43201c56;
+      --file-bg: #232b35;
+    }
+  }
+  :root[data-theme="light"] {
+    --paper: #f5f7f8; --card: #ffffff; --ink: #1c2430; --ink-soft: #4c5866;
+    --ink-faint: #7b8794; --line: #d7dde3;
+    --mf: #0f7b7b; --mf-bg: #e4f2f1; --ps: #a06a10; --ps-bg: #f7eeda;
+    --it: #5352c4; --it-bg: #e9e9f9; --ev: #2e7d4f; --ev-bg: #e3f1e8;
+    --warn: #b4483e; --warn-bg: #f8e8e6; --file-bg: #eef1f4;
+  }
+  :root[data-theme="dark"] {
+    --paper: #14181e; --card: #1c222b; --ink: #e6eaf0; --ink-soft: #aab5c2;
+    --ink-faint: #7c8896; --line: #333d49;
+    --mf: #4cbdb8; --mf-bg: #12343356; --ps: #e0a83f; --ps-bg: #3a2d0e56;
+    --it: #9a99f0; --it-bg: #26265356; --ev: #63c98a; --ev-bg: #12341f56;
+    --warn: #e07a70; --warn-bg: #43201c56; --file-bg: #232b35;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.55;
+    margin: 0;
+    padding: 2.5rem 1.25rem 5rem;
+    font-size: 15px;
+  }
+  main { max-width: 1060px; margin: 0 auto; }
+
+  h1 { font-size: 1.9rem; letter-spacing: -0.02em; margin: 0 0 .3rem; text-wrap: balance; }
+  .subtitle { color: var(--ink-soft); margin: 0 0 1.5rem; max-width: 68ch; }
+
+  h2 { font-size: 1.28rem; letter-spacing: -0.01em; margin: 0; }
+  h3 { font-size: 1rem; margin: 1.4rem 0 .5rem; }
+
+  section {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1.4rem 1.6rem 1.6rem;
+    margin: 1.6rem 0;
+  }
+  .stage-head {
+    display: flex; align-items: baseline; gap: .8rem; flex-wrap: wrap;
+    padding-bottom: .8rem; border-bottom: 1px solid var(--line); margin-bottom: 1.1rem;
+  }
+  .stage-num {
+    font-family: var(--mono); font-size: .78rem; font-weight: 700;
+    padding: .15rem .55rem; border-radius: 4px; letter-spacing: .06em;
+  }
+  .s-mf .stage-num { background: var(--mf-bg); color: var(--mf); }
+  .s-ps .stage-num { background: var(--ps-bg); color: var(--ps); }
+  .s-it .stage-num { background: var(--it-bg); color: var(--it); }
+  .s-ev .stage-num { background: var(--ev-bg); color: var(--ev); }
+  .s-mf { border-top: 3px solid var(--mf); }
+  .s-ps { border-top: 3px solid var(--ps); }
+  .s-it { border-top: 3px solid var(--it); }
+  .s-ev { border-top: 3px solid var(--ev); }
+  .stage-head .goal { color: var(--ink-soft); font-size: .92rem; }
+
+  /* ---------- diagrama: blocos e setas ---------- */
+  .flow-v { display: flex; flex-direction: column; align-items: center; gap: 0; }
+  .arrow-v {
+    width: 2px; height: 22px; background: var(--ink-faint);
+    position: relative; margin: 2px 0;
+  }
+  .arrow-v::after {
+    content: ""; position: absolute; bottom: -1px; left: -4px;
+    border: 5px solid transparent; border-top: 7px solid var(--ink-faint); border-bottom: 0;
+  }
+  .arrow-label {
+    font-family: var(--mono); font-size: .72rem; color: var(--ink-soft);
+    background: var(--file-bg); border: 1px dashed var(--line);
+    padding: .1rem .5rem; border-radius: 4px; margin: 3px 0;
+  }
+  .node {
+    border: 1.5px solid var(--line); border-radius: 8px;
+    padding: .6rem 1rem; text-align: center; background: var(--card);
+    min-width: 200px; max-width: 620px;
+  }
+  .node b { display: block; font-size: .95rem; }
+  .node small { color: var(--ink-soft); display: block; margin-top: .1rem; }
+  .node.mf { border-color: var(--mf); background: var(--mf-bg); }
+  .node.ps { border-color: var(--ps); background: var(--ps-bg); }
+  .node.it { border-color: var(--it); background: var(--it-bg); }
+  .node.ev { border-color: var(--ev); background: var(--ev-bg); }
+  .node.data {
+    border-style: dashed; font-family: var(--mono); font-size: .82rem;
+    background: var(--file-bg);
+  }
+
+  .flow-h {
+    display: flex; align-items: stretch; gap: .5rem; flex-wrap: wrap;
+    justify-content: flex-start; margin: .6rem 0;
+  }
+  .flow-h .step {
+    flex: 1 1 150px; min-width: 150px;
+    border: 1px solid var(--line); border-left: 3px solid var(--ink-faint);
+    border-radius: 6px; padding: .55rem .75rem; background: var(--card);
+  }
+  .s-mf .flow-h .step { border-left-color: var(--mf); }
+  .s-ps .flow-h .step { border-left-color: var(--ps); }
+  .s-it .flow-h .step { border-left-color: var(--it); }
+  .s-ev .flow-h .step { border-left-color: var(--ev); }
+  .flow-h .step b { font-size: .88rem; display: block; margin-bottom: .15rem; }
+  .flow-h .step small { color: var(--ink-soft); font-size: .8rem; display: block; }
+  .flow-h .sep { align-self: center; color: var(--ink-faint); font-size: 1.1rem; flex: 0 0 auto; }
+
+  .branches { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: .8rem 0; }
+  @media (max-width: 720px) { .branches { grid-template-columns: 1fr; } }
+  .branch {
+    border: 1px dashed var(--line); border-radius: 8px; padding: .8rem 1rem;
+  }
+  .branch h4 { margin: 0 0 .4rem; font-size: .9rem; }
+
+  /* ---------- chips de parâmetro e arquivo ---------- */
+  code, .param, .file {
+    font-family: var(--mono); font-size: .82em;
+  }
+  code { background: var(--file-bg); padding: .08em .35em; border-radius: 4px; }
+  .param {
+    background: var(--file-bg); border: 1px solid var(--line);
+    padding: .05em .4em; border-radius: 4px; white-space: nowrap;
+  }
+  .s-mf .param, .p-mf { border-color: var(--mf); color: var(--mf); background: var(--mf-bg); }
+  .s-ps .param, .p-ps { border-color: var(--ps); color: var(--ps); background: var(--ps-bg); }
+  .s-it .param, .p-it { border-color: var(--it); color: var(--it); background: var(--it-bg); }
+  .s-ev .param, .p-ev { border-color: var(--ev); color: var(--ev); background: var(--ev-bg); }
+  .file {
+    background: var(--file-bg); border: 1px dashed var(--ink-faint);
+    padding: .05em .4em; border-radius: 4px; white-space: nowrap;
+  }
+  .dead {
+    background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn);
+    font-family: var(--mono); font-size: .72rem; padding: .05em .4em;
+    border-radius: 4px; white-space: nowrap;
+  }
+
+  /* ---------- tabelas ---------- */
+  .tbl-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: .86rem; }
+  th, td { text-align: left; padding: .45rem .65rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); }
+  td:first-child { font-family: var(--mono); font-size: .8rem; white-space: nowrap; }
+  tr.group td {
+    font-family: var(--sans); font-weight: 700; font-size: .8rem;
+    text-transform: uppercase; letter-spacing: .06em; padding-top: 1rem;
+  }
+  tr.group.g-mf td { color: var(--mf); }
+  tr.group.g-ps td { color: var(--ps); }
+  tr.group.g-it td { color: var(--it); }
+  tr.group.g-ev td { color: var(--ev); }
+  td .default { font-family: var(--mono); font-size: .78rem; color: var(--ink-soft); }
+  tbody tr:hover { background: color-mix(in srgb, var(--file-bg) 55%, transparent); }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* ---------- legenda ---------- */
+  .legend {
+    display: flex; gap: 1rem 1.6rem; flex-wrap: wrap; align-items: center;
+    font-size: .82rem; color: var(--ink-soft);
+    border: 1px solid var(--line); border-radius: 8px;
+    background: var(--card); padding: .7rem 1rem; margin: 1rem 0 0;
+  }
+  .legend .item { display: flex; align-items: center; gap: .45rem; }
+  .swatch { width: 14px; height: 14px; border-radius: 4px; flex: 0 0 auto; }
+
+  .note {
+    border-left: 3px solid var(--ink-faint); background: var(--file-bg);
+    padding: .6rem .9rem; border-radius: 0 6px 6px 0; margin: .8rem 0;
+    font-size: .88rem; color: var(--ink-soft);
+  }
+  .note.warn { border-left-color: var(--warn); background: var(--warn-bg); color: var(--ink); }
+  .note b:first-child { color: var(--ink); }
+
+  ul { padding-left: 1.2rem; margin: .4rem 0; }
+  li { margin: .2rem 0; }
+  pre {
+    background: var(--file-bg); border: 1px solid var(--line); border-radius: 8px;
+    padding: .8rem 1rem; overflow-x: auto; font-family: var(--mono); font-size: .8rem;
+    line-height: 1.6;
+  }
+  .tree { font-family: var(--mono); font-size: .8rem; line-height: 1.7; }
+  .tree .c { color: var(--ink-faint); }
+</style>
+
+<main>
+<h1>Método Estéreo Híbrido — mapa completo do pipeline</h1>
+<p class="subtitle">
+Fluxo de execução e todos os parâmetros do projeto <code>hybrid-stereo-method</code>, extraídos
+diretamente do código-fonte em 2026-07-11 (branch <code>bugfix/auditoria-2026-06-09</code>).
+O método combina <b>estéreo multifocal</b> (profundidade a partir da variação de foco) com
+<b>estéreo fotométrico</b> (normais a partir da variação de iluminação) e integra as normais
+em um mapa de altura, usando a profundidade multifocal como "dica" (hints).
+</p>
+
+<div class="legend">
+  <span class="item"><span class="swatch" style="background:var(--mf)"></span>Etapa 1 · Multifocal</span>
+  <span class="item"><span class="swatch" style="background:var(--ps)"></span>Etapa 2 · Fotométrico</span>
+  <span class="item"><span class="swatch" style="background:var(--it)"></span>Etapa 3 · Integração</span>
+  <span class="item"><span class="swatch" style="background:var(--ev)"></span>Etapa 4 · Avaliação</span>
+  <span class="item"><span class="file">arquivo / artefato</span></span>
+  <span class="item"><span class="param">parâmetro do YAML</span></span>
+  <span class="item"><span class="dead">não consumido</span> declarado no YAML mas ignorado pelo pipeline</span>
+</div>
+
+<!-- ================= VISÃO GERAL ================= -->
+<section>
+  <div class="stage-head"><h2>Visão geral do fluxo híbrido</h2>
+  <span class="goal">entry point: <code>python -m hybrid_stereo_method.hybrid.main --param_file configs/hb_experiment.yaml</code></span></div>
+
+  <div class="flow-v">
+    <div class="node data"><b>Dataset de entrada</b>
+      <small>N_luzes × N_focos imagens <code>sVal.png</code> (uint16) + <code>lights.npy</code> + GT em <code>sharp/</code></small>
+    </div>
+    <div class="arrow-v"></div>
+    <div class="node mf"><b>Etapa 1 — Estéreo Multifocal</b>
+      <small>executada 1 + N_luzes vezes: na pilha média ("average") e em cada pilha por luz (L000…L012).<br>
+      indicador de foco → argmax fuzzy → mosaico</small>
+    </div>
+    <div class="arrow-label">sMos.npy (all-in-focus por luz) &nbsp;·&nbsp; zMos_with_confidence.fni (average)</div>
+    <div class="arrow-v"></div>
+    <div class="node ps"><b>Etapa 2 — Estéreo Fotométrico</b>
+      <small>solver robusto por mínimos quadrados com rejeição de sombras e outliers<br>
+      (usa os sMos.npy por luz — a mesma cena, agora toda em foco, sob 13 iluminações)</small>
+    </div>
+    <div class="arrow-label">normal_map.npy + confidence_map.npy</div>
+    <div class="arrow-v"></div>
+    <div class="node it"><b>Etapa 3 — Integração de superfície</b>
+      <small>solver multigrid recursivo em C (<code>gus_integrate_recursive</code>)<br>
+      normais (+confiança como peso) → altura; zMos da average entra como <i>hints</i></small>
+    </div>
+    <div class="arrow-label">height_map.npy / height_map.png</div>
+    <div class="arrow-v"></div>
+    <div class="node ev"><b>Etapa 4 — Avaliação automática (opcional)</b>
+      <small>compara cada artefato com o ground truth de <code>sharp/</code> → metrics.json + report.md + mapas de erro</small>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>Ideia central do híbrido:</b> o multifocal fornece a forma <i>global</i> (baixa frequência,
+    mas com boa âncora absoluta de profundidade) enquanto o fotométrico fornece o detalhe
+    <i>local</i> (alta frequência das normais, mas com deriva global). A integração combina os dois:
+    as normais dominam o detalhe e o <span class="param p-it">hints_weight</span> controla o quanto
+    a profundidade multifocal ancora a solução. A métrica <code>hybrid_gain</code> da Etapa 4 mede
+    exatamente se essa combinação superou o multifocal sozinho.
+  </div>
+</section>
+
+<!-- ================= ENTRADA ================= -->
+<section>
+  <div class="stage-head"><h2>Entrada: estrutura do dataset</h2>
+  <span class="goal"><span class="param">experiment.paths.input</span> / <span class="param">experiment.paths.data_folder</span></span></div>
+
+  <div class="tree">
+data_folder/ <span class="c">(ex.: 2025-03-08-stQ-melon24-amb0.00-glo0.50)</span><br>
+├── <span class="c">…/</span>L000/ … L012/ <span class="c">— uma pasta por direção de luz</span><br>
+│&nbsp;&nbsp;&nbsp;└── zf015 … zf125/ <span class="c">— uma pasta por distância focal, cada uma com</span> sVal.png <span class="c">(uint16)</span><br>
+├── lights.npy <span class="c">— matriz (N_luzes × 3) com as direções de iluminação</span><br>
+└── sharp/ <span class="c">— ground truth (usado só na Etapa 4):</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;├── hAvg.png <span class="c">— altura GT</span>&nbsp;&nbsp; ├── hDev.png <span class="c">— incerteza do GT</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;├── sNrm.png <span class="c">— normais GT</span>&nbsp; ├── shrp.png <span class="c">— nitidez GT</span>&nbsp; └── sVal.png <span class="c">— imagem GT em foco</span>
+  </div>
+
+  <p style="color:var(--ink-soft); font-size:.88rem">
+  O <code>hybrid/main.py</code> descobre as pilhas varrendo os diretórios: pastas começando com
+  <code>zf</code> definem os frames focais e pastas começando com <code>L</code> definem as luzes
+  (ordenadas com <i>natsort</i>, preservando a correspondência posicional com
+  <span class="param">multifocus.parameters.z_foc</span>).
+  </p>
+
+  <h3>Configurações gerais do experimento</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>parâmetro</th><th>default</th><th>efeito</th></tr></thead>
+    <tbody>
+      <tr><td>experiment.type</td><td class="default">"hybrid"</td><td>Seleciona o modo: <code>hybrid</code> (pipeline completo), <code>multifocus</code> ou <code>photometric</code> (etapas isoladas, com descoberta de caminhos própria).</td></tr>
+      <tr><td>experiment.paths.input</td><td class="default">—</td><td>Diretório raiz dos datasets brutos.</td></tr>
+      <tr><td>experiment.paths.output</td><td class="default">—</td><td>Raiz dos resultados; cada execução cria <code>&lt;timestamp&gt;_&lt;data_folder&gt;/</code>.</td></tr>
+      <tr><td>experiment.paths.data_folder</td><td class="default">—</td><td>Nome da pasta do dataset a processar.</td></tr>
+      <tr><td>experiment.settings.debug</td><td class="default">False</td><td>Log verboso + salva <code>debug_data/debug.csv</code> com a regressão pixel a pixel do argmax fuzzy + verbose no integrador C.</td></tr>
+      <tr><td>experiment.settings.gabaritos</td><td class="default">False</td><td>Só no modo <code>multifocus</code> standalone: gera <code>error_image.png</code> contra a referência em <code>references/</code>.</td></tr>
+      <tr><td>experiment.settings.mask</td><td class="default">False</td><td><span class="dead">não consumido</span> nenhum entry point lê esta chave hoje.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ================= ETAPA 1 ================= -->
+<section class="s-mf">
+  <div class="stage-head">
+    <span class="stage-num">ETAPA 1</span><h2>Estéreo Multifocal</h2>
+    <span class="goal">profundidade e imagem all-in-focus a partir da pilha de focos · <code>multifocus/main.py</code></span>
+  </div>
+
+  <div class="branches">
+    <div class="branch">
+      <h4>Ramo A — pilha média ("average")</h4>
+      Para cada frame focal <code>zf*</code>, tira a <b>média das N_luzes imagens</b>
+      (preservando uint16, <code>normalize=False</code>) e roda o multifocal nessa pilha.
+      É dela que saem o <span class="file">zMos_with_confidence.fni</span> usado como
+      <i>hints</i> na Etapa 3 e a melhor estimativa de profundidade multifocal.
+    </div>
+    <div class="branch">
+      <h4>Ramo B — uma pilha por luz (L000…L012)</h4>
+      Roda o multifocal separadamente na pilha de cada luz. O produto que importa aqui é o
+      <span class="file">sMos.npy</span> (all-in-focus daquela luz, radiometria original),
+      que vira a entrada da Etapa 2. O mosaico da average é <b>excluído</b> da lista fotométrica.
+    </div>
+  </div>
+
+  <h3>Sub-pipeline (idêntico nos dois ramos)</h3>
+  <div class="flow-h">
+    <div class="step"><b>1 · Grayscale</b><small>converte a pilha para tons de cinza</small></div>
+    <span class="sep">→</span>
+    <div class="step"><b>2 · Indicador de foco</b><small>1 mapa por frame, método escolhido em <span class="param">focus_measure.method</span>; depois clip ≥ 0 e normalização global da pilha para [0, 1]</small></div>
+    <span class="sep">→</span>
+    <div class="step"><b>3 · Argmax fuzzy</b><small>por pixel: parábola ajustada em torno do pico da curva focal → índice sub-frame <code>iSel</code> + confiança <code>wSel</code></small></div>
+    <span class="sep">→</span>
+    <div class="step"><b>4 · Mosaico</b><small>interpola <span class="param">z_foc</span> e as intensidades no índice fuzzy → <code>zMos</code> (profundidade física) e <code>sMos</code> (all-in-focus)</small></div>
+  </div>
+
+  <h3>2a · Métodos de indicador de foco <span style="font-weight:400;color:var(--ink-soft)">(<span class="param">focus_measure.method</span>)</span></h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>método</th><th>como funciona</th><th>parâmetros próprios</th></tr></thead>
+    <tbody>
+      <tr><td>fourier</td><td>FFT 2D → máscara gaussiana elíptica passa-altas centrada no espectro → IFFT → |·|. Mede energia de alta frequência.</td><td><span class="param">parameters.radius</span> — raio da máscara como fração das dimensões. Menor = corta menos baixas frequências (passa-altas mais agressivo perto do centro); 0.05 (low-freq) foi o melhor no sweep de 2026-07-10.</td></tr>
+      <tr><td>laplacian</td><td><code>cv2.Laplacian</code> (2ª derivada) → |·|. Sensível a bordas/textura.</td><td><span class="param">parameters.kernel_size</span> — tamanho do kernel (ímpar obrigatório).</td></tr>
+      <tr><td>wavelet</td><td>DWT 2D (<code>pywt.wavedec2</code>) → magnitude √(cH²+cV²+cD²) do nível mais fino → resize de volta ao grid da imagem.</td><td>wavelet <code>haar</code> e <code>level=2</code> fixos no código (sem chave no YAML).</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>2b · Pré-processamento do indicador <span style="font-weight:400;color:var(--ink-soft)">(aplicado nesta ordem)</span></h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>parâmetro</th><th>default</th><th>efeito</th></tr></thead>
+    <tbody>
+      <tr><td>preprocessing.square</td><td class="default">False</td><td>Eleva o indicador ao quadrado (amplifica diferenças de foco).</td></tr>
+      <tr><td>preprocessing.smooth</td><td class="default">False</td><td>Convolui com kernel binomial 3×3 (/16) — suaviza ruído do indicador.</td></tr>
+      <tr><td>preprocessing.zero_border</td><td class="default">True</td><td>Zera uma moldura fixa de <b>40 px</b> do indicador (não da imagem) para eliminar artefatos de borda da FFT/convolução.</td></tr>
+      <tr><td>preprocessing.spatial_median_filter</td><td class="default">False</td><td><code>cv2.medianBlur</code> 5×5 no indicador — o "denoise" que melhorou o resultado no sweep.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>3 · Argmax fuzzy <span style="font-weight:400;color:var(--ink-soft)">(<code>argmax_fuzzy.py</code>, bloco <span class="param">multifocus.optimization</span>)</span></h3>
+  <ul>
+    <li>Acha <code>k_max</code> = frame com maior soma de 3 focos consecutivos; ajusta uma parábola <code>y = Ax² + Bx + C</code>
+        (<code>np.polyfit</code> ponderado — pesos proporcionais ao valor de foco) na janela <code>k_max ± r</code>.</li>
+    <li><span class="param">r_max</span> (default 2) — raio da janela de regressão, encolhido nas bordas da pilha.</li>
+    <li><span class="param">polyfit_epsilon</span> (default 1e-9) — se a parábola é convexa (A &gt; 0) ou |A| &lt; ε,
+        o pixel é marcado como degenerado: <code>iSel = n/2</code> (frame central) e confiança 0.</li>
+    <li>Caso normal: <code>iSel = −B/2A</code> (vértice, limitado a [0, n−1]) e confiança <code>wSel = |A| / f(iSel)</code>
+        — picos agudos e altos ⇒ mais confiança. <code>wSel</code> é normalizado para [0, 1] no final.</li>
+  </ul>
+
+  <h3>4 · Mosaico <span style="font-weight:400;color:var(--ink-soft)">(<code>mosaic.py</code>)</span></h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>parâmetro</th><th>opções</th><th>efeito</th></tr></thead>
+    <tbody>
+      <tr><td>parameters.interpolation</td><td class="default">linear_interpolation · quadratic_interpolation · crop</td>
+      <td><code>crop</code> pega o frame inteiro mais próximo; as interpolações avaliam <code>z_foc</code> e as intensidades no índice fracionário <code>iSel</code> (sub-frame). Fora do intervalo, usa o frame extremo.</td></tr>
+      <tr><td>parameters.z_foc</td><td class="default">lista de N floats</td>
+      <td>Distância focal física de cada frame, na mesma ordem (natsort) das pastas <code>zf*</code>. <b>Validação:</b> se o tamanho difere do nº de imagens, o pipeline aborta com erro.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Saídas por execução (average e cada L*)</h3>
+  <p>
+    <span class="file">iSel.png/.fni</span> índice fuzzy ·
+    <span class="file">wSel.png/.fni</span> confiança ·
+    <span class="file">sMos.png</span> visualização (normalizada!) ·
+    <span class="file">sMos.npy</span> <b>all-in-focus sem normalizar</b> (consumido pela Etapa 2) ·
+    <span class="file">zMos.png</span> ·
+    <span class="file">zMos.fni</span> profundidade em unidades físicas ·
+    <span class="file">zMos_with_confidence.fni</span> (z + wSel — vira hints da Etapa 3) ·
+    <span class="file">focus_indicator/*.png</span> ·
+    <span class="file">debug_data/debug.csv</span> (se debug)
+  </p>
+
+  <div class="note warn">
+    <b>Bloco declarado mas inativo:</b> <span class="param">multifocus.depth_refinement</span>
+    (<code>enabled, gaussian_size, unary_scale, pair_scale, n_iter</code>) — o módulo
+    <code>depth_refinement.py</code> (regularização por graph cut) existe, mas <b>nenhum entry point o
+    invoca</b>. O mesmo vale para <code>image_alignment.py</code> (alinhamento ECC da pilha).
+  </div>
+</section>
+
+<!-- ================= ETAPA 2 ================= -->
+<section class="s-ps">
+  <div class="stage-head">
+    <span class="stage-num">ETAPA 2</span><h2>Estéreo Fotométrico</h2>
+    <span class="goal">normais de superfície a partir da variação de iluminação · <code>photometric/main_wps.py</code> + <code>wps.py</code></span>
+  </div>
+
+  <div class="flow-v">
+    <div class="node data"><b>Entradas</b><small>13 × <code>sMos.npy</code> (um all-in-focus por luz, radiometria original, → grayscale) + <code>lights.npy</code> (L: N×3)</small></div>
+    <div class="arrow-v"></div>
+    <div class="node ps"><b>estimate_normals_argmax_lstsq_robust</b><small>resolve I = albedo·(L·n) por pixel, com rejeição de sombras e de outliers</small></div>
+    <div class="arrow-v"></div>
+    <div class="node data"><b>Saídas</b><small>normal_map.npy · confidence_map.npy · normal_map_with_residuals.fni · selected_areas/*.png · visualizações (normal_map.png, channels, 3D)</small></div>
+  </div>
+
+  <h3>Algoritmo robusto, por pixel</h3>
+  <div class="flow-h">
+    <div class="step"><b>1 · Rejeita sombras</b><small>descarta luzes com I/I_max ≤ <span class="param">shadow_threshold</span></small></div>
+    <span class="sep">→</span>
+    <div class="step"><b>2 · Checa dados</b><small>&lt; 3 luzes válidas ⇒ normal = NaN, confiança 0</small></div>
+    <span class="sep">→</span>
+    <div class="step"><b>3 · Mínimos quadrados</b><small><code>lstsq</code>: I = L·g</small></div>
+    <span class="sep">→</span>
+    <div class="step"><b>4 · Remove outliers</b><small>descarta equações com resíduo &gt; <span class="param">outlier_threshold_multiplier</span> × resíduo médio; repete 3–4 até estabilizar</small></div>
+    <span class="sep">→</span>
+    <div class="step"><b>5 · Resultado</b><small>albedo = |g|, normal = g/|g|, confiança = (N/M) · 1/(1+σ_resíduos)</small></div>
+  </div>
+
+  <h3>Parâmetros do solver <span style="font-weight:400;color:var(--ink-soft)">(bloco <span class="param">photometric.solver</span>)</span></h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>parâmetro</th><th>default</th><th>efeito</th></tr></thead>
+    <tbody>
+      <tr><td>epsilon</td><td class="default">1e-6</td><td>Somado a todas as intensidades para evitar divisão por zero.</td></tr>
+      <tr><td>shadow_threshold</td><td class="default">1e-3</td><td>Razão mínima I/I_max para a luz contar como não sombreada. Maior = mais agressivo contra sombras (e menos equações por pixel).</td></tr>
+      <tr><td>outlier_threshold_multiplier</td><td class="default">3</td><td>Multiplicador do resíduo médio para descartar equações (destaques especulares, inter-reflexões).</td></tr>
+      <tr><td>top_k</td><td class="default">3</td><td><span class="dead">no-op no fluxo híbrido</span> só é lido pelo solver simples <code>estimate_normals_argmax</code>, que não é chamado — confirmado no sweep de 2026-07-10.</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="note">
+    <b>Métodos alternativos:</b> <span class="param">photometric.parameters.method</span> aceita
+    <code>wodham_implementation_argmax</code> no fluxo híbrido (<code>main_wps.py</code>); qualquer outro
+    valor gera <i>warning</i> e cai no solver robusto. Os solvers <code>L2 / L1 / SBL / RPCA</code>
+    existem, mas apenas no entry point standalone <code>photometric/main.py</code> (classe RPS),
+    que também é o único que consome <span class="param">parameters.data_scale</span> e
+    <span class="param">parameters.image_extension</span> (e um <code>mask.png</code>/<code>gt_normal.npy</code> do dataset).
+  </div>
+
+  <div class="note warn">
+    <b>Radiometria importa:</b> a Etapa 2 lê os <span class="file">sMos.npy</span> — os
+    <span class="file">sMos.png</span> são min-max normalizados por imagem, o que destruiria as razões de
+    intensidade entre luzes exigidas pelo modelo I = L·n (correção do commit <code>16e0d19</code>/<code>09afd35</code>).
+  </div>
+</section>
+
+<!-- ================= ETAPA 3 ================= -->
+<section class="s-it">
+  <div class="stage-head">
+    <span class="stage-num">ETAPA 3</span><h2>Integração de Superfície</h2>
+    <span class="goal">normais → mapa de altura · <code>hybrid/integrate.py</code> + binário C <code>csrc/integrate_recursive/gus_integrate_recursive</code></span>
+  </div>
+
+  <div class="flow-v">
+    <div class="node data"><b>normal_map.npy (H×W×3)</b><small>+ confidence_map.npy anexado como 4º canal ⇒ peso por pixel de cada equação no sistema</small></div>
+    <div class="arrow-v"></div>
+    <div class="node it"><b>Conversão para FNI</b><small>height_normals.fni — as normais viram gradientes dZ/dX, dZ/dY escalados por <span class="param">slopes_scale</span></small></div>
+    <div class="arrow-v"></div>
+    <div class="node it"><b>gus_integrate_recursive (C, multigrid)</b>
+      <small>resolve o sistema de Poisson ponderado recursivamente em níveis de resolução;<br>
+      opcionalmente ancorado no <span class="file">zMos_with_confidence.fni</span> da average via <code>-hints</code></small></div>
+    <div class="arrow-v"></div>
+    <div class="node data"><b>height-00-end-Z.fni → height_map.npy / height_map.png</b><small>grade de vértices (H+1 × W+1)</small></div>
+  </div>
+
+  <h3>Parâmetros <span style="font-weight:400;color:var(--ink-soft)">(bloco <span class="param">hybrid.integration</span>)</span></h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>parâmetro</th><th>default</th><th>efeito</th></tr></thead>
+    <tbody>
+      <tr><td>initial_method</td><td class="default">"zero"</td><td>Chute inicial do solver: <code>zero</code>, <code>hints</code> (parte do mapa de dicas) ou <code>reference</code>.</td></tr>
+      <tr><td>initial_noise</td><td class="default">0.0</td><td>Perturbação aleatória adicionada ao chute inicial (0 = nenhuma).</td></tr>
+      <tr><td>use_hints</td><td class="default">True</td><td>Se True, procura <span class="file">multifocus_stereo/average/zMos_with_confidence.fni</span> e o passa ao C via <code>-hints</code>. É aqui que o multifocal ancora o fotométrico.</td></tr>
+      <tr><td>hints_weight</td><td class="default">0.1</td><td>Peso (0–1) das equações de dica vs. as equações de gradiente das normais. Alto = altura segue o zMos; baixo = segue as normais.</td></tr>
+      <tr><td>max_level</td><td class="default">30</td><td>Profundidade máxima da recursão multigrid (níveis de meia resolução).</td></tr>
+      <tr><td>max_iter</td><td class="default">1000 <span style="color:var(--ink-faint)">(YAML)</span> / 100000 <span style="color:var(--ink-faint)">(código)</span></td><td>Iterações máximas do solver por nível.</td></tr>
+      <tr><td>conv_tol</td><td class="default">5e-7</td><td>Tolerância de convergência por nível.</td></tr>
+      <tr><td>slopes_scale</td><td class="default">[1.0, -1.0]</td><td>Escala [sx, sy] aplicada a dZ/dX e dZ/dY. <b>sy = −1</b> corrige a convenção Y-up dos datasets Stolfi (melon24) vs. a ordem top-down do FNI.</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="note">
+    <b>Flags do código sem chave no YAML:</b> <code>sort_sys</code> (ordena equações por peso) e
+    <code>report_step</code> (dump de depuração por iteração) existem no
+    <code>IntegrateRecursiveConfig</code>, mas hoje só são acessíveis programaticamente;
+    <code>verbose</code> herda de <span class="param">experiment.settings.debug</span>.
+    Há também <code>integrate_slopes_to_height()</code> para integrar gradientes diretos (não usado no fluxo).
+  </div>
+</section>
+
+<!-- ================= ETAPA 4 ================= -->
+<section class="s-ev">
+  <div class="stage-head">
+    <span class="stage-num">ETAPA 4</span><h2>Avaliação Automática</h2>
+    <span class="goal">artefatos vs. ground truth · <code>evaluation/main.py</code> — também standalone: <code>python -m hybrid_stereo_method.evaluation.main --results_dir &lt;pasta&gt;</code></span>
+  </div>
+
+  <p style="color:var(--ink-soft); font-size:.9rem; max-width:75ch">
+  Cada bloco é avaliado de forma independente: artefato ou GT ausente gera status
+  <code>skipped: &lt;motivo&gt;</code> sem derrubar o resto (falha na avaliação nunca derruba um
+  experimento que já produziu resultados). Saídas em <span class="file">&lt;results&gt;/evaluation/</span>:
+  <span class="file">metrics.json</span>, <span class="file">report.md</span>, mapas de erro PNG e log.
+  </p>
+
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>bloco</th><th>compara</th><th>GT necessário</th><th>métricas principais</th></tr></thead>
+    <tbody>
+      <tr><td>multifocus_depth</td><td>zMos.fni vs altura GT</td><td>sharp/hAvg.png</td><td>rmse_affine, mae_affine (fit gt ≈ a·est + b), pearson_r, pearson/rmse <i>detrended</i> (removendo plano inclinado), valid_fraction</td></tr>
+      <tr><td>focus_selection</td><td>zMos vs z_foc[argmax(shrp)]</td><td>pilha shrp do dataset</td><td>erro em frames (mediana, média, p90), % acerto exato (≤0.5 frame), % dentro de 1 frame</td></tr>
+      <tr><td>mosaics</td><td>sMos por luz vs sVal GT</td><td>sVal por luz</td><td>PSNR e SSIM por luz + média/mín + pior luz</td></tr>
+      <tr><td>photometric_normals</td><td>normal_map vs normais GT</td><td>sharp/sNrm.png</td><td>erro angular em graus (média, mediana, p95), testado com y como está e y invertido (CONV-2) — vence a orientação de menor erro</td></tr>
+      <tr><td>integration_height</td><td>height_map (vértice→célula) vs altura GT</td><td>sharp/hAvg.png</td><td>mesmas métricas afim-invariantes de altura</td></tr>
+      <tr><td>hybrid_gain</td><td>rmse(zMos) / rmse(height_map) na interseção de pixels válidos</td><td>hAvg + ambos artefatos</td><td><b>gain &gt; 1 ⇒ o híbrido melhorou sobre o multifocal puro</b></td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Parâmetros <span style="font-weight:400;color:var(--ink-soft)">(bloco <span class="param">evaluation</span>)</span></h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>parâmetro</th><th>default</th><th>efeito</th></tr></thead>
+    <tbody>
+      <tr><td>enabled</td><td class="default">true</td><td>Roda a avaliação como Etapa 4 do pipeline híbrido.</td></tr>
+      <tr><td>hdev_mask</td><td class="default">false</td><td>Reporta também métricas de altura excluindo pixels onde o próprio GT é incerto (hDev.png alto).</td></tr>
+      <tr><td>hdev_threshold</td><td class="default">0.1</td><td>Fração do range normalizado do hDev acima da qual o pixel é excluído da máscara.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ================= TABELA MESTRE ================= -->
+<section>
+  <div class="stage-head"><h2>Referência rápida: todos os parâmetros do YAML</h2>
+  <span class="goal">valores atuais de <code>configs/hb_experiment.yaml</code></span></div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>chave</th><th>valor atual</th><th>opções / faixa</th><th>consumido?</th></tr></thead>
+    <tbody>
+      <tr class="group"><td colspan="4">experiment</td></tr>
+      <tr><td>type</td><td class="default">hybrid</td><td>multifocus · photometric · hybrid</td><td>✓</td></tr>
+      <tr><td>paths.input / output / data_folder</td><td class="default">data/raw · data/results · melon24…</td><td>caminhos</td><td>✓</td></tr>
+      <tr><td>settings.mask</td><td class="default">False</td><td>bool</td><td><span class="dead">não</span></td></tr>
+      <tr><td>settings.gabaritos</td><td class="default">False</td><td>bool</td><td>só no multifocus standalone</td></tr>
+      <tr><td>settings.debug</td><td class="default">False</td><td>bool</td><td>✓</td></tr>
+      <tr class="group g-mf"><td colspan="4">multifocus</td></tr>
+      <tr><td>parameters.interpolation</td><td class="default">linear_interpolation</td><td>linear · quadratic · crop</td><td>✓</td></tr>
+      <tr><td>parameters.z_foc</td><td class="default num">[15 … 125] (12 valores, passo 10)</td><td>lista, tamanho = nº de frames</td><td>✓ (validado)</td></tr>
+      <tr><td>focus_measure.method</td><td class="default">fourier</td><td>fourier · laplacian · wavelet</td><td>✓</td></tr>
+      <tr><td>focus_measure.parameters.kernel_size</td><td class="default num">31</td><td>ímpar ≥ 1 (só laplacian)</td><td>✓</td></tr>
+      <tr><td>focus_measure.parameters.radius</td><td class="default num">0.1</td><td>fração &gt; 0 (só fourier); 0.05 foi o melhor no sweep</td><td>✓</td></tr>
+      <tr><td>preprocessing.square</td><td class="default">False</td><td>bool</td><td>✓</td></tr>
+      <tr><td>preprocessing.smooth</td><td class="default">False</td><td>bool</td><td>✓</td></tr>
+      <tr><td>preprocessing.spatial_median_filter</td><td class="default">False</td><td>bool (medianBlur 5×5)</td><td>✓</td></tr>
+      <tr><td>preprocessing.zero_border</td><td class="default">True</td><td>bool (40 px fixos)</td><td>✓</td></tr>
+      <tr><td>optimization.r_max</td><td class="default num">2</td><td>int ≥ 1</td><td>✓</td></tr>
+      <tr><td>optimization.polyfit_epsilon</td><td class="default num">1e-9</td><td>float &gt; 0</td><td>✓</td></tr>
+      <tr><td>depth_refinement.* (5 chaves)</td><td class="default">enabled: False …</td><td>—</td><td><span class="dead">não</span></td></tr>
+      <tr class="group g-ps"><td colspan="4">photometric</td></tr>
+      <tr><td>parameters.method</td><td class="default">wodham_implementation_argmax</td><td>híbrido: só este · standalone RPS: L2, L1, SBL, RPCA</td><td>✓ (warning se outro)</td></tr>
+      <tr><td>parameters.data_scale</td><td class="default num">1.0</td><td>float</td><td>só no RPS standalone</td></tr>
+      <tr><td>parameters.image_extension</td><td class="default">png</td><td>png · npy · …</td><td>só no RPS standalone</td></tr>
+      <tr><td>solver.epsilon</td><td class="default num">1e-6</td><td>float &gt; 0</td><td>✓</td></tr>
+      <tr><td>solver.shadow_threshold</td><td class="default num">1e-3</td><td>razão 0–1</td><td>✓</td></tr>
+      <tr><td>solver.top_k</td><td class="default num">3</td><td>int</td><td><span class="dead">no-op</span> no fluxo híbrido</td></tr>
+      <tr><td>solver.outlier_threshold_multiplier</td><td class="default num">3</td><td>float &gt; 0</td><td>✓</td></tr>
+      <tr class="group g-it"><td colspan="4">hybrid.integration</td></tr>
+      <tr><td>initial_method</td><td class="default">zero</td><td>zero · hints · reference</td><td>✓</td></tr>
+      <tr><td>initial_noise</td><td class="default num">0.0</td><td>float ≥ 0</td><td>✓</td></tr>
+      <tr><td>use_hints</td><td class="default">True</td><td>bool</td><td>✓</td></tr>
+      <tr><td>hints_weight</td><td class="default num">0.1</td><td>0.0 – 1.0</td><td>✓</td></tr>
+      <tr><td>max_level</td><td class="default num">30</td><td>int ≥ 0</td><td>✓</td></tr>
+      <tr><td>max_iter</td><td class="default num">1000</td><td>int</td><td>✓</td></tr>
+      <tr><td>conv_tol</td><td class="default num">5e-7</td><td>float &gt; 0</td><td>✓</td></tr>
+      <tr><td>slopes_scale</td><td class="default num">[1.0, −1.0]</td><td>[sx, sy]</td><td>✓</td></tr>
+      <tr class="group g-ev"><td colspan="4">evaluation</td></tr>
+      <tr><td>enabled</td><td class="default">true</td><td>bool</td><td>✓</td></tr>
+      <tr><td>hdev_mask</td><td class="default">false</td><td>bool</td><td>✓</td></tr>
+      <tr><td>hdev_threshold</td><td class="default num">0.1</td><td>0.0 – 1.0</td><td>✓</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ================= EXECUÇÃO ================= -->
+<section>
+  <div class="stage-head"><h2>Como executar cada modo</h2></div>
+  <pre># Pipeline híbrido completo (Etapas 1→4)
+python -m hybrid_stereo_method.hybrid.main --param_file configs/hb_experiment.yaml
+
+# Etapas isoladas
+python -m hybrid_stereo_method.multifocus.main      --param_file configs/ms_experiment.yaml
+python -m hybrid_stereo_method.photometric.main_wps --param_file configs/wps_experiment.yaml  # solver robusto
+python -m hybrid_stereo_method.photometric.main     --param_file configs/ps_experiment.yaml   # RPS: L2/L1/SBL/RPCA
+
+# Avaliação standalone de um resultado já gerado
+python -m hybrid_stereo_method.evaluation.main --results_dir data/results/hybrid_stereo/&lt;pasta&gt; \
+       [--data_dir &lt;dataset&gt;] [--hdev_mask] [--hdev_threshold 0.1]
+
+# Sweep de parâmetros (15 configs prontas + geração + comparação)
+python configs/sweep/generate_configs.py   # gera os YAMLs numerados 01–15
+python configs/sweep/summarize.py          # tabela comparativa dos resultados
+
+# Binário C da integração (pré-requisito da Etapa 3)
+cd csrc/integrate_recursive &amp;&amp; make</pre>
+
+  <h3>Observações que valem dinheiro</h3>
+  <ul>
+    <li><b>Config resolvido é salvo</b> em <span class="file">parameters.yaml</span> dentro da pasta de resultado — a avaliação standalone o usa para redescobrir o <code>data_dir</code> sozinha.</li>
+    <li><b>Melhor configuração conhecida para melon24</b> (sweep 2026-07-10): fourier com <code>radius: 0.05</code> + <code>spatial_median_filter: true</code> + <code>zero_border: false</code>.</li>
+    <li><b>Nunca troque os .npy pelos .png</b> nos consumidores intermediários: os PNGs são normalizados por imagem, só para visualização.</li>
+    <li><b><code>sy = −1</code></b> em <span class="param">slopes_scale</span> é obrigatório para datasets com convenção Y-up (geradores Stolfi, ex. melon24).</li>
+  </ul>
+</section>
+</main>

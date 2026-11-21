@@ -1,0 +1,83 @@
+# Multifocus Stereo Experiment Configuration
+
+experiment:
+  # Experiment Type
+  # options: "multifocus", "photometric", "hybrid"
+  type: "multifocus"
+  
+  paths:
+    # Path to the directory containing the input dataset
+    input: 'data/raw/hybrid_stereo/2025-03-08-stQ-melon24-amb0.00-glo0.50/'
+    #input: 'data/raw/multifocus_stereo/'
+    
+    # Path to the directory where results will be saved
+    output: 'data/results/multifocus_stereo/'
+    
+    # Name of the specific data folder to process
+    data_folder: 'media_iluminacao'
+    #data_folder: 'obj_3'
+
+  settings:
+    # Whether to use a specific mask
+    # NOTE: not consumed by the pipeline yet (no entry point reads it)
+    mask: False
+    
+    # Whether ground truth (gabaritos) are available for error calculation
+    gabaritos: False
+    
+    # Enable debug mode for verbose logging and saving intermediate data
+    debug: False
+
+multifocus:
+  parameters:
+    # Method for interpolating focus values
+    # Options: 'linear_interpolation', 'quadratic_interpolation', 'crop'
+    interpolation: 'linear_interpolation'
+    
+    
+    # List of focal distances (Z coordinates) corresponding to each image in the stack
+    z_foc: [15.000, 25.000, 35.000, 45.000, 55.000, 65.000, 75.000, 85.000, 95.000, 105.000, 115.000, 125.000]
+
+  focus_measure:
+    # Algorithm to measure focus
+    # Options: 'fourier', 'laplacian', 'wavelet'
+    method: 'fourier'
+    
+    parameters:
+      # Size of the Laplacian kernel (if method is 'laplacian')
+      kernel_size: 5
+      
+      # Radius for Fourier transform frequency masking (if method is 'fourier')
+      radius: 0.05
+      
+    preprocessing:
+      # Whether to square the focus measure result
+      square: False
+      
+      # Whether to smooth the focus measure result
+      smooth: False
+
+      # Whether to apply spatial median filter (cv2.medianBlur) on the focus measure
+      spatial_median_filter: False
+      
+      # Whether to zero out the borders to avoid artifacts
+      zero_border: False
+
+  optimization:
+    # Parameters for the Fuzzy Argmax algorithm
+    
+    # Radius of influence for the fuzzy regression
+    r_max: 2
+    
+    # Epsilon value to determine if a curve is flat/convex for polyfit
+    polyfit_epsilon: 1.0e-9
+
+  # NOTE: this block is NOT consumed by the pipeline yet
+  # (depth_refinement.py is not invoked by any entry point).
+  depth_refinement:
+    # Use spatial uncertainty from fuzzy argmax to guide a graph cut regularizer
+    enabled: False
+    gaussian_size: 9
+    unary_scale: 44
+    pair_scale: 4096
+    n_iter: 5
