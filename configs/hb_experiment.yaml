@@ -127,9 +127,11 @@ hybrid:
     # commensurable with the absolute multifocus hints (zMos). If unset, heights
     # stay in pixel units (incommensurable with the hints, INT-04/CONV-4) and a
     # warning is logged when use_hints is true. Depends on the dataset/camera:
-    # melon24 was estimated empirically as 3.08 (investigation 2026-06-06, C3);
-    # lamb-gls has not been measured yet.
-    # pixel_size: 3.08
+    # melon24 was estimated empirically as 3.08 (investigation 2026-06-06, C3).
+    # lamb-gls: 1.78, measured 2026-11-21 with scripts/calibrate_dataset.py
+    # (shrp focus heights vs integrated GT normals: 1.75 direct, 1.81 via hAvg).
+    # Re-run the script when switching datasets.
+    pixel_size: 1.78
 
     # Whether to use the depth map from multifocus as hints
     use_hints: True
@@ -152,6 +154,9 @@ hybrid:
     # integrator assumes origin at the bottom-left with Y pointing up, so
     # sy must be -1.0 for datasets whose lights/normals follow the Y-up
     # convention (Stolfi generators, e.g. melon24).
+    # Verified for lamb-gls on 2026-11-21 (scripts/calibrate_dataset.py):
+    # GT normals integrated with sy=-1 correlate 0.72 with the GT height vs
+    # 0.17 with sy=+1; pipeline normals alone: 0.48 vs 0.09.
     slopes_scale: [1.0, -1.0]
 
 evaluation:
