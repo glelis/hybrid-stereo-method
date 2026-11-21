@@ -31,3 +31,5 @@ src/hybrid_stereo_method.egg-info/
 
 # Saídas de depuração do integrador C
 debug_output/
+.superpowers/
+configs/sweep_v2/generated/
