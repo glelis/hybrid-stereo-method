@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -19,6 +20,7 @@ import numpy as np
 from hybrid_stereo_method.infrastructure.io.image_io import (
     convert_image_array_to_fni,
     read_fni_to_image_array,
+    save_image,
 )
 
 logger = logging.getLogger(__name__)
@@ -42,7 +44,11 @@ class IntegrateRecursiveConfig:
         conv_tol: Convergence tolerance
         sort_sys: Whether to sort equations by weight
         verbose: Enable verbose output
-        report_step: Frequency for debug output (0 = disabled)
+        report_step: Write the intermediate height maps every ``report_step``
+            iterations of each level, plus every one of the first
+            ``report_step`` iterations (C solver ``-reportStep``; 0 = only the
+            start/end of each level). They land in ``{prefix}-iters/level-LL/``
+            (see organize_integration_outputs).
         slopes_scale: Scale factors for X/Y slopes. The default (1.0, 1.0) is
             right for normals in the numpy image frame (y = row index, growing
             down). Normals in a Y-up frame (lights.npy of the Stolfi generators,
@@ -59,6 +65,97 @@ class IntegrateRecursiveConfig:
     verbose: bool = False
     report_step: int = 0
     slopes_scale: tuple[float, float] = field(default_factory=lambda: (1.0, 1.0))
+
+
+# Per-level files the C solver writes flat in output_dir: {PREFIX}-{LL}-{beg|end}-{TAG}.{ext}
+_LEVEL_FILE_RE = re.compile(r"^-(\d{2})-(beg|end)-(.+)$")
+# Per-iteration files it writes in {PREFIX}-iters/ (prefix "it-" + "-{LL}"): it--{LL}-{ITER:09d}-{TAG}.{ext}
+_ITER_FILE_RE = re.compile(r"^it--(\d{2})-(\d{9})-(.+)$")
+
+
+def organize_integration_outputs(output_dir: str | Path, output_prefix: str) -> Path:
+    """Move the solver's per-level/per-iteration files into ``{prefix}-iters/``
+    and export every height map ``Z`` as ``.npy`` and ``.png``.
+
+    The C solver writes the per-level maps (``{prefix}-LL-beg-*``,
+    ``{prefix}-LL-end-*``) and the initial guess (``{prefix}-ini-Z.fni``) flat
+    in ``output_dir``, and the intermediate iterations (only with
+    ``-reportStep`` > 0) in ``{prefix}-iters/it--LL-NNNNNNNNN-*``. Resulting
+    layout::
+
+        {prefix}-iters/
+            ini-Z.{fni,npy,png}
+            level-LL/
+                beg-{G,H,R,SW}.fni, beg-S.txt     (system/data of level LL)
+                beg-Z.{fni,npy,png}               (start of level LL)
+                it-NNNNNNNNN-Z.{fni,npy,png}      (iteration NNNNNNNNN)
+                end-Z.{fni,npy,png}               (converged level LL)
+
+    The ``.npy`` holds the height channel (channel 0) unchanged; the ``.png``
+    is min-max normalized for visualization only.
+
+    Returns:
+        Path to the ``{prefix}-iters`` directory.
+    """
+    output_dir = Path(output_dir)
+    iters_dir = output_dir / f"{output_prefix}-iters"
+    iters_dir.mkdir(parents=True, exist_ok=True)
+
+    moves: list[tuple[Path, Path]] = []
+    for path in output_dir.iterdir():
+        if not path.is_file() or not path.name.startswith(output_prefix):
+            continue
+        rest = path.name[len(output_prefix):]
+        if rest == "-ini-Z.fni":
+            moves.append((path, iters_dir / "ini-Z.fni"))
+        elif m := _LEVEL_FILE_RE.match(rest):
+            level, stage, tail = m.groups()
+            moves.append((path, iters_dir / f"level-{level}" / f"{stage}-{tail}"))
+    for path in iters_dir.iterdir():
+        if path.is_file() and (m := _ITER_FILE_RE.match(path.name)):
+            level, iteration, tail = m.groups()
+            moves.append((path, iters_dir / f"level-{level}" / f"it-{iteration}-{tail}"))
+
+    for src, dest in moves:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        src.replace(dest)
+
+    n_exported = 0
+    for fni_path in sorted(iters_dir.rglob("*-Z.fni")):
+        z = read_fni_to_image_array(fni_path)
+        if z.ndim == 3:
+            z = z[:, :, 0]
+        np.save(fni_path.with_suffix(".npy"), z)
+        save_image(fni_path.parent, fni_path.with_suffix(".png").name, np.nan_to_num(z))
+        n_exported += 1
+    logger.info(
+        f"Organized integration outputs in {iters_dir} ({len(moves)} files moved, "
+        f"{n_exported} height maps exported to .npy/.png)"
+    )
+    return iters_dir
+
+
+def _read_final_height_and_organize(output_dir: Path, output_prefix: str) -> np.ndarray:
+    """Read the final level-0 height map, then tidy up the solver outputs."""
+    height_fni_path = output_dir / f"{output_prefix}-00-end-Z.fni"
+    if not height_fni_path.exists():
+        # Try alternative naming
+        height_fni_path = output_dir / f"{output_prefix}-ini-Z.fni"
+        if not height_fni_path.exists():
+            raise RuntimeError(
+                f"Height map output not found at: {height_fni_path}\n"
+                f"Check output directory: {output_dir}"
+            )
+
+    height_map = read_fni_to_image_array(height_fni_path)
+    logger.info(f"Read height map from: {height_fni_path}, shape: {height_map.shape}")
+
+    organize_integration_outputs(output_dir, output_prefix)
+
+    # Return only the height channel (first channel)
+    if len(height_map.shape) == 3:
+        return height_map[:, :, 0]
+    return height_map
 
 
 def integrate_normals_to_height(
@@ -193,26 +290,9 @@ def integrate_normals_to_height(
         logger.error(f"stdout: {e.stdout}")
         raise RuntimeError(f"Integration failed: {e.stderr}") from e
     
-    # Read the output height map
-    # Output is written to {PREFIX}-00-end-Z.fni for level 0 final result
-    height_fni_path = output_dir / f"{output_prefix}-00-end-Z.fni"
-    
-    if not height_fni_path.exists():
-        # Try alternative naming
-        height_fni_path = output_dir / f"{output_prefix}-ini-Z.fni"
-        if not height_fni_path.exists():
-            raise RuntimeError(
-                f"Height map output not found at: {height_fni_path}\n"
-                f"Check output directory: {output_dir}"
-            )
-    
-    height_map = read_fni_to_image_array(height_fni_path)
-    logger.info(f"Read height map from: {height_fni_path}, shape: {height_map.shape}")
-    
-    # Return only the height channel (first channel)
-    if len(height_map.shape) == 3:
-        return height_map[:, :, 0]
-    return height_map
+    # Read the output height map ({PREFIX}-00-end-Z.fni, level 0 final result)
+    # and move the per-level/per-iteration files into {PREFIX}-iters/.
+    return _read_final_height_and_organize(output_dir, output_prefix)
 
 
 def integrate_slopes_to_height(
@@ -332,14 +412,4 @@ def integrate_slopes_to_height(
         logger.error(f"Integration failed: {e.stderr}")
         raise RuntimeError(f"Integration failed: {e.stderr}") from e
     
-    height_fni_path = output_dir / f"{output_prefix}-00-end-Z.fni"
-    if not height_fni_path.exists():
-        height_fni_path = output_dir / f"{output_prefix}-ini-Z.fni"
-        if not height_fni_path.exists():
-            raise RuntimeError(f"Height map not found at: {height_fni_path}")
-    
-    height_map = read_fni_to_image_array(height_fni_path)
-    
-    if len(height_map.shape) == 3:
-        return height_map[:, :, 0]
-    return height_map
+    return _read_final_height_and_organize(output_dir, output_prefix)

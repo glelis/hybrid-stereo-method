@@ -150,6 +150,14 @@ hybrid:
     # Convergence tolerance
     conv_tol: 0.0000005
 
+    # Intermediate height maps: the solver writes the map every report_step
+    # iterations of each level AND each of the first report_step iterations
+    # (0 = only the start/end of each level). Every map Z (ini, beg, iterations,
+    # end) is saved as .fni/.npy/.png in integration/height-iters/level-LL/.
+    # Disk: ~10 MB per level-0 map at 512x512 (fni+npy+png) — small values
+    # with a slow-converging level 0 can produce thousands of files.
+    report_step: 100
+
     # Axis signs [sx, sy] applied to dZ/dX and dZ/dY before integration
     # (multiplied by pixel_size above).
     # The FNI files are written top-down (OpenCV row order) while the C

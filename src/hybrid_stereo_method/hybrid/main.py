@@ -97,6 +97,10 @@ def build_integration_config(integration_params: dict, debug: bool) -> Integrate
             "without a hints map the C solver aborts (INT-01)."
         )
 
+    report_step = int(integration_params.get("report_step", 0))
+    if report_step < 0:
+        raise ValueError(f"hybrid.integration.report_step must be >= 0, got {report_step}")
+
     sx, sy = (float(v) for v in integration_params.get("slopes_scale", [1.0, -1.0]))
     return IntegrateRecursiveConfig(
         initial_method=initial_method,
@@ -106,6 +110,7 @@ def build_integration_config(integration_params: dict, debug: bool) -> Integrate
         conv_tol=integration_params.get("conv_tol", 0.0000005),
         slopes_scale=(sx * pixel_size, sy * pixel_size),
         verbose=debug,
+        report_step=report_step,
     )
 
 
@@ -160,6 +165,10 @@ def main(parameters):
             ),  # File output
         ],
     )
+    # O root em DEBUG também captura o DEBUG interno de bibliotecas
+    # (findfont do matplotlib, chunks PNG do PIL) — silencia-as.
+    for noisy in ("matplotlib", "PIL"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
 
     # Initial log for the experiment
     logging.info("Starting Hybrid stereo experiment")
