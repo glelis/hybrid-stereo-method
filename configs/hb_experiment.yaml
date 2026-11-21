@@ -172,3 +172,8 @@ evaluation:
   # qual o pixel é excluído.
   hdev_mask: false
   hdev_threshold: 0.1
+
+  # Exclui a faixa de escala de cinza que a libmultifok grava no topo dos PNGs
+  # (linhas além do tamanho nominal WxH da pasta da cena, ex.: 38). false
+  # reproduz as métricas antigas (sweep 2026-07-10), que a incluíam.
+  exclude_scale_band: true
