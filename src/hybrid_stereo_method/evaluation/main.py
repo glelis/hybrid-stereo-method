@@ -58,6 +58,7 @@ ERROR_MAP_FILES = {
     "focus_selection": "multifocus_focus_selection_error.png",
     "photometric_normals": "photometric_angular_error.png",
     "integration_height": "integration_height_error.png",
+    "integration_height_object": "integration_height_object_error.png",
 }
 
 
@@ -130,6 +131,30 @@ def run_evaluation(
     if gt_valid is not None:
         gt_valid = gt_valid[band:]
 
+    # Máscara do objeto (frente do GT, de sNrm): métrica principal do sweep v2.
+    # O fundo tem hAvg sem significado e arrasta as métricas da imagem toda.
+    # Só a AVALIAÇÃO usa o GT; o pipeline não vê esta máscara.
+    object_mask: np.ndarray | None = None
+    object_reason = ""
+    use_object = bool(config.get("object_mask", True))
+    if use_object and gt_height is not None:
+        try:
+            _, fg = load_normals_gt(sharp_dir)
+            object_mask = fg[band:]
+            if gt_valid is not None:
+                object_mask = object_mask & gt_valid
+            metrics["meta"]["object_fraction"] = float(object_mask.mean())
+        except _LOAD_ERRORS as exc:
+            object_reason = str(exc)
+            logging.warning("Máscara do objeto indisponível: %s", object_reason)
+    elif use_object:
+        object_reason = gt_reason
+
+    def _object_block(fn, *args) -> dict[str, Any]:
+        if object_mask is None:
+            return {"status": f"skipped: máscara do objeto indisponível ({object_reason})"}
+        return fn(*args, object_mask)
+
     # --- 1. multifocus: profundidade ----------------------------------------
     zmos: np.ndarray | None = None
     try:
@@ -141,6 +166,8 @@ def run_evaluation(
             metrics["multifocus_depth"] = {"status": f"skipped: {gt_reason}"}
         else:
             metrics["multifocus_depth"] = evaluate_height(zmos, gt_height)
+            if use_object:
+                metrics["multifocus_depth_object"] = _object_block(evaluate_height, zmos, gt_height)
             if gt_valid is not None:
                 metrics["multifocus_depth_hdev_masked"] = evaluate_height(zmos, gt_height, gt_valid)
 
@@ -214,6 +241,10 @@ def run_evaluation(
             metrics["integration_height"] = {"status": f"skipped: {gt_reason}"}
         else:
             metrics["integration_height"] = evaluate_height(height_cell, gt_height)
+            if use_object:
+                metrics["integration_height_object"] = _object_block(
+                    evaluate_height, height_cell, gt_height
+                )
             if gt_valid is not None:
                 metrics["integration_height_hdev_masked"] = evaluate_height(
                     height_cell, gt_height, gt_valid
@@ -226,6 +257,10 @@ def run_evaluation(
         }
     else:
         metrics["hybrid_gain"] = evaluate_hybrid_gain(zmos, height_cell, gt_height, gt_valid)
+        if use_object:
+            metrics["hybrid_gain_object"] = _object_block(
+                evaluate_hybrid_gain, zmos, height_cell, gt_height
+            )
 
     # --- saídas ---------------------------------------------------------------
     error_map_files: dict[str, str] = {}
