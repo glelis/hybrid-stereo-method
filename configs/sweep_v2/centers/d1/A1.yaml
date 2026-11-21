@@ -1,0 +1,36 @@
+stage: A1
+promoted_at: '2026-11-21T22:48:58'
+how: regra de empate
+winner:
+  name: fourier_r0.05_sm1_med1_zb0
+  overrides: &id001
+    multifocus.focus_measure.method: fourier
+    multifocus.focus_measure.parameters.radius: 0.05
+    multifocus.focus_measure.preprocessing.smooth: true
+    multifocus.focus_measure.preprocessing.spatial_median_filter: true
+    multifocus.focus_measure.preprocessing.zero_border: false
+  run_dir: /home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/sweep_v2/A1/d1/fourier_r0.05_sm1_med1_zb0/20261121_2017_stQ-melon14-amb0.00-glo0.00-0512x0384-hs01-kr07
+  integration_height_object.pearson_r: 0.9704732944165574
+top:
+- name: fourier_r0.05_sm1_med1_zb0
+  overrides: *id001
+  run_dir: /home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/sweep_v2/A1/d1/fourier_r0.05_sm1_med1_zb0/20261121_2017_stQ-melon14-amb0.00-glo0.00-0512x0384-hs01-kr07
+  integration_height_object.pearson_r: 0.9704732944165574
+- name: fourier_r0.02_sm1_med1_zb0
+  overrides:
+    multifocus.focus_measure.method: fourier
+    multifocus.focus_measure.parameters.radius: 0.02
+    multifocus.focus_measure.preprocessing.smooth: true
+    multifocus.focus_measure.preprocessing.spatial_median_filter: true
+    multifocus.focus_measure.preprocessing.zero_border: false
+  run_dir: /home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/sweep_v2/A1/d1/fourier_r0.02_sm1_med1_zb0/20261121_1953_stQ-melon14-amb0.00-glo0.00-0512x0384-hs01-kr07
+  integration_height_object.pearson_r: 0.9696016657256903
+- name: fourier_r0.03_sm1_med1_zb0
+  overrides:
+    multifocus.focus_measure.method: fourier
+    multifocus.focus_measure.parameters.radius: 0.03
+    multifocus.focus_measure.preprocessing.smooth: true
+    multifocus.focus_measure.preprocessing.spatial_median_filter: true
+    multifocus.focus_measure.preprocessing.zero_border: false
+  run_dir: /home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/sweep_v2/A1/d1/fourier_r0.03_sm1_med1_zb0/20261121_2000_stQ-melon14-amb0.00-glo0.00-0512x0384-hs01-kr07
+  integration_height_object.pearson_r: 0.9695247415569013
