@@ -26,8 +26,11 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import stages  # noqa: E402
 
-# Arquivos de multifocus_stereo/<luz|average>/ que a avaliação e o rerun leem.
+# PNGs de multifocus_stereo/<luz|average>/ que ficam (visualização leve).
 _KEEP_PREFIXES = ("sMos", "zMos")
+# FNIs que a avaliação (average/zMos.fni) e os hints (average/zMos_with_confidence.fni)
+# leem. O fotométrico lê os sMos.npy por luz, que nunca são apagados.
+_KEEP_AVERAGE_FNI = ("zMos.fni", "zMos_with_confidence.fni")
 
 
 def latest_done_run(config_dir: Path) -> Path | None:
@@ -43,8 +46,8 @@ def latest_done_run(config_dir: Path) -> Path | None:
 def prune(run_dir: Path) -> int:
     """Apaga o que é pesado e não é lido depois; nunca segue symlinks.
 
-    Remove integration/height-iters/ e os PNGs de multifocus_stereo/*/ exceto
-    sMos*/zMos*. Devolve os bytes liberados.
+    Remove integration/height-iters/, os PNGs de multifocus_stereo/*/ exceto
+    sMos*/zMos* e os FNIs exceto average/zMos*.fni. Devolve os bytes liberados.
     """
     run_dir = Path(run_dir)
     freed = 0
@@ -59,7 +62,15 @@ def prune(run_dir: Path) -> int:
         dirs[:] = [d for d in dirs if not os.path.islink(os.path.join(root, d))]
         for name in files:
             path = os.path.join(root, name)
-            if os.path.islink(path) or not name.endswith(".png") or name.startswith(_KEEP_PREFIXES):
+            if os.path.islink(path):
+                continue
+            if name.endswith(".png"):
+                if name.startswith(_KEEP_PREFIXES):
+                    continue
+            elif name.endswith(".fni"):
+                if os.path.basename(root) == "average" and name in _KEEP_AVERAGE_FNI:
+                    continue
+            else:
                 continue
             freed += os.path.getsize(path)
             os.remove(path)

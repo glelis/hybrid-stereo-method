@@ -168,9 +168,9 @@ def _fake_run(root):
     for light in ("L000", "average"):
         d = run / "multifocus_stereo" / light
         d.mkdir(parents=True)
-        for f in ("sMos.npy", "sMos.png", "zMos.png", "focus_00.png", "iSel.png"):
+        for f in ("sMos.npy", "sMos.png", "zMos.png", "focus_00.png", "iSel.png",
+                  "iSel.fni", "wSel.fni", "sMos.fni", "zMos.fni", "zMos_with_confidence.fni"):
             (d / f).write_bytes(b"x")
-    (run / "multifocus_stereo" / "average" / "zMos_with_confidence.fni").write_bytes(b"x")
     hi = run / "integration" / "height-iters" / "level-00"
     hi.mkdir(parents=True)
     (hi / "z.fni").write_bytes(b"x")
@@ -201,6 +201,12 @@ def test_prune_keeps_required_files(tmp_path):
     assert not (mf / "L000" / "focus_00.png").exists()
     assert not (mf / "average" / "iSel.png").exists()
     assert not (run / "integration" / "height-iters").exists()
+    # FNIs: só os do average que a avaliação (zMos) e os hints leem ficam
+    assert (mf / "average" / "zMos.fni").exists()
+    for gone in ("iSel.fni", "wSel.fni", "sMos.fni"):
+        assert not (mf / "average" / gone).exists(), gone
+    for gone in ("iSel.fni", "wSel.fni", "sMos.fni", "zMos.fni", "zMos_with_confidence.fni"):
+        assert not (mf / "L000" / gone).exists(), gone
 
 
 def test_prune_does_not_follow_symlinks(tmp_path):
