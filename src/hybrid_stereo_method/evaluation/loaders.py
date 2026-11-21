@@ -118,6 +118,26 @@ def load_normals_gt(
     return n_unit, foreground
 
 
+_SIZE_RE = re.compile(r"(\d+)x(\d+)")
+
+
+def scale_band_rows(sharp_dir: str | Path, image_height: int) -> int:
+    """Número de linhas da faixa de escala de cinza no topo dos PNGs da libmultifok.
+
+    A libmultifok grava imagens W×(H+38): a pasta da cena diz o tamanho nominal
+    (ex.: ``0512x0384-hs01-kr07``) e as linhas excedentes, no topo, são uma
+    escala de cinza que não pertence à cena. Ela decodifica como "normais"
+    válidas e alturas de 0 a 65535, então precisa sair de qualquer ajuste.
+    Devolve ``image_height - H`` do primeiro ancestral com padrão WxH no nome,
+    ou 0 se não houver tal pasta ou a imagem não for mais alta que o nominal.
+    """
+    for part in Path(sharp_dir).resolve().parts[::-1]:
+        m = _SIZE_RE.match(part)
+        if m:
+            return max(0, int(image_height) - int(m.group(2)))
+    return 0
+
+
 # --- artefatos do pipeline ---------------------------------------------------
 
 _LIGHT_RE = re.compile(r"L\d+")

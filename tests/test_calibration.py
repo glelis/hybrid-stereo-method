@@ -64,3 +64,16 @@ def test_sign_and_pixel_size_on_synthetic_y_up_scene(tmp_path):
     # suficiente para escolher a escala, não é uma medida de precisão fina.
     assert out["pixel_size_via_havg"] == pytest.approx(PIX, rel=0.1)
     assert out["pixel_size_direct"] == pytest.approx(PIX, rel=0.1)
+
+
+def test_scale_band_rows_from_nominal_size_folder(tmp_path):
+    """PNGs da libmultifok têm H+38 linhas: a faixa de escala no topo sai da calibração."""
+    from hybrid_stereo_method.evaluation.loaders import scale_band_rows
+
+    sharp = tmp_path / "0512x0384-hs01-kr07" / "L000" / "sharp"
+    sharp.mkdir(parents=True)
+    assert scale_band_rows(sharp, 422) == 38
+    assert scale_band_rows(sharp, 384) == 0  # sem faixa
+    plain = tmp_path / "synth" / "sharp"
+    plain.mkdir(parents=True)
+    assert scale_band_rows(plain, 422) == 0  # sem pasta WxH: não recorta

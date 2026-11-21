@@ -103,7 +103,9 @@ def integrate_normals_to_height(
     if executable_path is None:
         executable_path = DEFAULT_EXECUTABLE
     
-    executable_path = Path(executable_path)
+    # Resolved now: subprocess.run(cwd=output_dir) would look up a relative
+    # executable inside output_dir, not from the caller's CWD.
+    executable_path = Path(executable_path).resolve()
     if not executable_path.exists():
         raise FileNotFoundError(
             f"Integration executable not found at: {executable_path}\n"
@@ -249,7 +251,9 @@ def integrate_slopes_to_height(
     if executable_path is None:
         executable_path = DEFAULT_EXECUTABLE
     
-    executable_path = Path(executable_path)
+    # Resolved now: subprocess.run(cwd=output_dir) would look up a relative
+    # executable inside output_dir, not from the caller's CWD.
+    executable_path = Path(executable_path).resolve()
     if not executable_path.exists():
         raise FileNotFoundError(f"Integration executable not found at: {executable_path}")
     
