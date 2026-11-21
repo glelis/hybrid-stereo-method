@@ -5,13 +5,14 @@ import os
 import re
 from datetime import datetime
 
-import numpy as np
 import yaml
 from natsort import natsorted
 
-from hybrid_stereo_method.hybrid.integrate import (
-    IntegrateRecursiveConfig,
-    integrate_normals_to_height,
+from hybrid_stereo_method.hybrid.integrate import IntegrateRecursiveConfig
+from hybrid_stereo_method.hybrid.stages import (
+    run_evaluation_stage,
+    run_integration_stage,
+    run_photometric_stage,
 )
 from hybrid_stereo_method.infrastructure.io.image_io import (
     find_all_files,
@@ -25,7 +26,6 @@ from hybrid_stereo_method.infrastructure.utils import (
     resolve_z_foc,
 )
 from hybrid_stereo_method.multifocus.main import main as multifocus_stereo_main
-from hybrid_stereo_method.photometric.main_wps import main as photometric_stereo_main
 
 
 def select_per_light_smos(files):
@@ -277,20 +277,7 @@ def main(parameters):
     logging.info("STEP 2: Photometric Stereo")
     logging.info("=" * 60)
     
-    # Configure parameters for the photometric stereo method
-    output_files = find_all_files(output_path)
-    # Use the lossless sMos.npy files: the PNGs are min-max normalized per
-    # image, which destroys the inter-light intensity ratios that the
-    # photometric solver depends on.
-    parameters["sMos_path_list"] = select_per_light_smos(output_files)
-    parameters["output_path_photometric"] = os.path.join(output_path, "photometric_stereo")
-    parameters["lights_path"] = [file for file in input_files_path if "lights.npy" in file][0]
-
-    # Log the path of the lights file
-    logging.info(f"Path to lights file: {parameters['lights_path']}")
-
-    # Execute the photometric stereo method
-    photometric_stereo_main(parameters)
+    run_photometric_stage(parameters, output_path, input_files_path)
 
     # =========================================================================
     # Step 3: Surface Integration
@@ -298,103 +285,12 @@ def main(parameters):
     logging.info("=" * 60)
     logging.info("STEP 3: Surface Integration (Normal to Height)")
     logging.info("=" * 60)
-    
-    # Load the normal map from photometric stereo output
-    normal_map_path = os.path.join(
-        parameters["output_path_photometric"], "normal_map.npy"
-    )
-    
-    if os.path.exists(normal_map_path):
-        logging.info(f"Loading normal map from: {normal_map_path}")
-        normal_map = np.load(normal_map_path)
-
-        # Attach the photometric confidence as the 4th channel: the C solver
-        # uses it as the per-pixel reliability weight of each equation.
-        # Without it every non-NaN normal enters the system with weight 1.
-        confidence_map_path = os.path.join(
-            parameters["output_path_photometric"], "confidence_map.npy"
-        )
-        if os.path.exists(confidence_map_path):
-            confidence_map = np.load(confidence_map_path)
-            normal_map = np.concatenate(
-                (normal_map, confidence_map[..., np.newaxis]), axis=-1
-            )
-            logging.info("Using photometric confidence as integration weights")
-        else:
-            logging.warning(
-                f"Confidence map not found at: {confidence_map_path}; "
-                "all normals will be weighted equally"
-            )
-
-        # Output directory for integration
-        integration_output = os.path.join(output_path, "integration")
-        
-        hints_fni_path = None
-        hints_weight = integration_params.get("hints_weight", 0.1)
-        
-        if integration_params.get("use_hints", False):
-            # Locate zMos_with_confidence.fni inside multifocus_stereo/average
-            hints_file = os.path.join(output_path, "multifocus_stereo", "average", "zMos_with_confidence.fni")
-            if os.path.exists(hints_file):
-                hints_fni_path = hints_file
-                logging.info(f"Found hints map: {hints_fni_path}")
-            else:
-                logging.warning(f"Hints map requested but not found at: {hints_file}")
-
-        integration_config = fallback_without_hints(integration_config, hints_fni_path)
-        
-        logging.info("Running surface integration...")
-        try:
-            height_map = integrate_normals_to_height(
-                normal_map=normal_map,
-                output_dir=integration_output,
-                output_prefix="height",
-                config=integration_config,
-                hints_fni_path=hints_fni_path,
-                hints_weight=hints_weight,
-            )
-            
-            # Save the height map as numpy array
-            height_npy_path = os.path.join(integration_output, "height_map.npy")
-            np.save(height_npy_path, height_map)
-            logging.info(f"Height map saved to: {height_npy_path}")
-            
-            # Save as image for visualization
-            save_image(integration_output, "height_map.png", height_map)
-            logging.info(f"Height map visualization saved")
-            
-            logging.info(f"Height map shape: {height_map.shape}")
-            logging.info(f"Height map range: [{height_map.min():.4f}, {height_map.max():.4f}]")
-            
-        except FileNotFoundError as e:
-            logging.error(f"Integration executable not found: {e}")
-            logging.error("Please build the C code: cd csrc/integrate_recursive && make")
-        except Exception as e:
-            logging.error(f"Integration failed: {e}")
-    else:
-        logging.warning(f"Normal map not found at: {normal_map_path}")
-        logging.warning("Skipping surface integration step")
+    run_integration_stage(output_path, parameters)
 
     # =========================================================================
     # Step 4 (opcional): Avaliação automática contra ground truth
     # =========================================================================
-    eval_config = parameters.get("evaluation") or {}
-    if eval_config.get("enabled", False):
-        logging.info("=" * 60)
-        logging.info("STEP 4: Automated Evaluation")
-        logging.info("=" * 60)
-        try:
-            from hybrid_stereo_method.evaluation.main import run_evaluation
-
-            run_evaluation(
-                output_path,
-                data_dir=os.path.join(input_path, data_foldername),
-                config=eval_config,
-            )
-        except Exception:
-            # Falha na avaliação NUNCA derruba um experimento que já produziu
-            # resultados (spec 2026-06-06): registre e siga.
-            logging.exception("Avaliação automática falhou — resultados preservados")
+    run_evaluation_stage(output_path, parameters, os.path.join(input_path, data_foldername))
 
     logging.info("=" * 60)
     logging.info("Hybrid stereo pipeline complete!")
