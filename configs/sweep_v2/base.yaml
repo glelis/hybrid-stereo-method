@@ -56,7 +56,7 @@ hybrid:
     use_hints: true
     hints_weight: 0.1
     max_level: 30
-    max_iter: 10000
+    max_iter: 5000
     conv_tol: 5.0e-07
     report_step: 0
     slopes_scale:
