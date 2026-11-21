@@ -1,23 +1,24 @@
 # Registro de datasets do sweep v2. pixel_size medido com
-# scripts/calibrate_dataset.py (sy = -1 em todos; ver Task 5 / relatório S0).
+# scripts/calibrate_dataset.py em 2026-11-21, faixa de escala excluída
+# (sy = -1 em todos; ver docs/relatorios/sweep_v2/S0.md).
 # role: dev = usado para escolher parâmetros (A1–C); test = só na validação (V).
 d1:
   input: data/raw/datasets/hybrid
   data_folder: stQ-melon14-amb0.00-glo0.00-0512x0384-hs01-kr07
-  pixel_size: 1.80
+  pixel_size: 1.80  # 1.766 direto, 1.831 via hAvg; sy=-1: 0.818 vs 0.133
   role: dev
 d2:
   input: data/raw/datasets/hybrid
   data_folder: stQ-melon14-amb0.00-glo0.50-0512x0384-hs01-kr10
-  pixel_size: 1.13
+  pixel_size: 1.13  # 1.104 direto, 1.154 via hAvg; sy=-1: 0.821 vs 0.127
   role: dev
 d3:
   input: data/raw/datasets/hybrid
   data_folder: stF-melon24-amb0.00-glo0.00-0512x0384-hs01-kr10
-  pixel_size: null
+  pixel_size: 1.14  # 1.086 direto, 1.193 via hAvg; sy=-1: 0.870 vs -0.001
   role: test
 d4:
   input: data/raw/datasets/hybrid
   data_folder: stQ-white01-amb0.00-glo0.00-0512x0384-hs02-kr07
-  pixel_size: null
+  pixel_size: 1.81  # 1.776 direto, 1.838 via hAvg; sy=-1: 0.818 vs 0.133
   role: test
