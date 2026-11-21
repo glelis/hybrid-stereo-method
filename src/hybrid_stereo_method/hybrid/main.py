@@ -57,7 +57,7 @@ def collect_light_dirs(files: list[str], data_path: str) -> list[str]:
         if rel.startswith(os.pardir):
             continue
         for part in rel.split(os.sep)[:-1]:  # exclude the filename itself
-            if re.fullmatch(r"L\d+", part):
+            if re.fullmatch(r"L\d+(?:-.+)?", part):  # L000 ou L000-amb0.00-glo0.00
                 lights.add(part)
     return natsorted(lights)
 

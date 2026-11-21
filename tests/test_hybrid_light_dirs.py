@@ -21,3 +21,11 @@ def test_nested_layout_and_non_light_names_ignored():
         "/elsewhere/L005/zf0/sVal.png",  # fora do data_path
     ]
     assert collect_light_dirs(files, root) == ["L000", "L001"]
+
+
+def test_light_dirs_with_suffix():
+    """stF-melon24 (2025-02-09): pastas de luz L000-amb0.00-glo0.00."""
+    root = "/d/stF"
+    files = [os.path.join(root, f"L{i:03d}-amb0.00-glo0.00", "zf026.2500-df015.0000", "sVal.png") for i in (1, 0)]
+    files.append(os.path.join(root, "Lights", "x.txt"))
+    assert collect_light_dirs(files, root) == ["L000-amb0.00-glo0.00", "L001-amb0.00-glo0.00"]

@@ -140,7 +140,8 @@ def scale_band_rows(sharp_dir: str | Path, image_height: int) -> int:
 
 # --- artefatos do pipeline ---------------------------------------------------
 
-_LIGHT_RE = re.compile(r"L\d+")
+# Pasta de luz: L000, ou com sufixo (stF-melon24 de 2025-02-09: L000-amb0.00-glo0.00).
+_LIGHT_RE = re.compile(r"L\d+(?:-.+)?")
 _ZF_RE = re.compile(r"zf(\d+(?:\.\d+)?)")
 
 

@@ -235,3 +235,24 @@ def test_load_normals_gt_decodes_uint16(tmp_path):
     assert fg.mean() > 0.99  # quase tudo é frente válida
     err = np.linalg.norm(n[fg] - normals[fg], axis=-1)
     assert err.max() < 1e-3  # quantização de 16 bits é ~256x mais fina que 8
+
+
+def test_find_sharp_dir_nested_light_with_suffix(tmp_path):
+    data = tmp_path / "stF"
+    for light in ("L001-amb0.00-glo0.00", "L000-amb0.00-glo0.00"):
+        d = data / light / "sharp"
+        d.mkdir(parents=True)
+        cv2.imwrite(str(d / "hAvg.png"), np.zeros((4, 4), np.uint16))
+    assert find_sharp_dir(tmp_path / "results", data) == data / "L000-amb0.00-glo0.00" / "sharp"
+
+
+def test_find_smos_pairs_light_with_suffix(tmp_path):
+    data = tmp_path / "data"
+    results = tmp_path / "results"
+    light = "L000-amb0.00-glo0.00"
+    (data / light / "sharp").mkdir(parents=True)
+    cv2.imwrite(str(data / light / "sharp" / "sVal.png"), np.zeros((4, 4), np.uint8))
+    (results / "multifocus_stereo" / light).mkdir(parents=True)
+    np.save(results / "multifocus_stereo" / light / "sMos.npy", np.zeros((4, 4)))
+    pairs = find_smos_pairs(results, data)
+    assert [p[0] for p in pairs] == [light]
