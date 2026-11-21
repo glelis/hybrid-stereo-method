@@ -127,11 +127,13 @@ hybrid:
     # commensurable with the absolute multifocus hints (zMos). If unset, heights
     # stay in pixel units (incommensurable with the hints, INT-04/CONV-4) and a
     # warning is logged when use_hints is true. Depends on the dataset/camera:
-    # melon24 was estimated empirically as 3.08 (investigation 2026-06-06, C3).
-    # lamb-gls: 1.78, measured 2026-11-21 with scripts/calibrate_dataset.py
-    # (shrp focus heights vs integrated GT normals: 1.75 direct, 1.81 via hAvg).
+    # Measured 2026-11-21 with scripts/calibrate_dataset.py (shrp focus heights
+    # vs integrated GT normals, with the libmultifok gray-scale band excluded):
+    #   lamb-gls: 1.80 (1.77 direct, 1.83 via hAvg)
+    #   melon24:  1.13 (1.10 direct, 1.15 via hAvg); the 3.08 from the
+    #             2026-06-06 investigation (C3) was an empirical guess.
     # Re-run the script when switching datasets.
-    pixel_size: 1.78
+    pixel_size: 1.80
 
     # Whether to use the depth map from multifocus as hints
     use_hints: True
@@ -170,3 +172,8 @@ evaluation:
   # qual o pixel é excluído.
   hdev_mask: false
   hdev_threshold: 0.1
+
+  # Exclui a faixa de escala de cinza que a libmultifok grava no topo dos PNGs
+  # (linhas além do tamanho nominal WxH da pasta da cena, ex.: 38). false
+  # reproduz as métricas antigas (sweep 2026-07-10), que a incluíam.
+  exclude_scale_band: true

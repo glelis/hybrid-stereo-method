@@ -157,3 +157,58 @@ def test_run_evaluation_corrupt_artifact_skips_only_that_stage(synthetic_run):
     assert metrics["photometric_normals"]["status"] == "ok"
     assert metrics["integration_height"]["status"] == "ok"
     assert metrics["mosaics"]["status"] == "ok"
+
+
+BAND = 4
+
+
+def _add_scale_band(path, band_rows):
+    """Prepende `band_rows` linhas de "escala" (rampa 0..max) a uma imagem/array."""
+    if path.suffix == ".png":
+        img = cv2.imread(str(path), cv2.IMREAD_UNCHANGED)
+        top = np.zeros((BAND,) + img.shape[1:], img.dtype)
+        top[:] = np.linspace(0, np.iinfo(img.dtype).max, img.shape[1]).astype(img.dtype).reshape(
+            (1, -1) + (1,) * (img.ndim - 2)
+        )
+        cv2.imwrite(str(path), np.concatenate([top, img]))
+    else:
+        arr = np.load(path)
+        np.save(path, np.concatenate([band_rows(arr), arr]))
+
+
+def test_run_evaluation_excludes_libmultifok_scale_band(synthetic_run, tmp_path):
+    """PNGs da libmultifok têm H+38 linhas: a faixa de escala no topo não é cena e
+    não pode entrar nas métricas (hAvg 0..65535 ali, sNrm decodifica como frente)."""
+    import shutil
+
+    results, data, z = synthetic_run
+    scene = tmp_path / f"{SIZE:04d}x{SIZE:04d}-hs01"  # nominal; imagens terão SIZE + BAND linhas
+    shutil.move(str(results), scene / "results")
+    results = scene / "results"
+    rng = np.random.default_rng(0)
+    for png in (results / "sharp").glob("*.png"):
+        _add_scale_band(png, None)
+    _add_scale_band(results / "photometric_stereo" / "normal_map.npy",
+                    lambda a: np.tile(np.float32([0.6, 0.0, 0.8]), (BAND, a.shape[1], 1)))
+    _add_scale_band(results / "integration" / "height_map.npy",
+                    lambda a: rng.uniform(-50, 50, (BAND, a.shape[1])).astype(a.dtype))
+    from hybrid_stereo_method.infrastructure.io.image_io import read_fni_to_image_array
+
+    fni = results / "multifocus_stereo" / "average" / "zMos.fni"
+    zmos = read_fni_to_image_array(fni)
+    zmos = zmos[..., 0] if zmos.ndim == 3 else zmos
+    convert_image_array_to_fni(
+        np.concatenate([rng.uniform(-50, 50, (BAND, SIZE)), zmos]).astype(np.float32), fni
+    )
+
+    with_band = run_evaluation(results, config={"exclude_scale_band": False})
+    m = run_evaluation(results)
+    assert with_band["meta"]["scale_band_rows"] == 0
+    assert m["meta"]["scale_band_rows"] == BAND
+    assert m["multifocus_depth"]["pearson_r"] > 0.999
+    assert with_band["multifocus_depth"]["pearson_r"] < 0.9
+    assert m["integration_height"]["pearson_r"] > 0.99
+    assert m["photometric_normals"]["y_as_is"]["mean_deg"] < 1.0
+    # a rampa de sNrm só passa no teste de norma em poucos pixels, mas eles pesam
+    assert (with_band["photometric_normals"]["y_as_is"]["mean_deg"]
+            > m["photometric_normals"]["y_as_is"]["mean_deg"])

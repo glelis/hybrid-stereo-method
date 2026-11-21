@@ -33,6 +33,7 @@ from hybrid_stereo_method.evaluation.loaders import (
     load_height_gt,
     load_normals_gt,
     load_shrp_z_gt,
+    scale_band_rows,
     vertex_to_cell,
 )
 from hybrid_stereo_method.evaluation.metrics import pearson_r
@@ -118,9 +119,20 @@ def calibrate(
     sharp = find_sharp_dir(results_dir or data_dir, data_dir)
     height_gt = load_height_gt(sharp)
     normals_gt, fg = load_normals_gt(sharp)
-    logging.info("GT de %s: %d px de primeiro plano", sharp, int(fg.sum()))
+    # A faixa de escala da libmultifok passa no teste de norma de sNrm e tem
+    # hAvg de 0 a 65535 com shrp constante: fora dela, senão enviesa os ajustes.
+    band = scale_band_rows(sharp, fg.shape[0])
+    fg[:band] = False
+    logging.info(
+        "GT de %s: %d px de primeiro plano (%d linhas de escala excluídas)",
+        sharp, int(fg.sum()), band,
+    )
 
-    report: dict[str, Any] = {"data_dir": str(data_dir), "sharp_dir": str(sharp)}
+    report: dict[str, Any] = {
+        "data_dir": str(data_dir),
+        "sharp_dir": str(sharp),
+        "scale_band_rows": band,
+    }
     gt_sign = sign_test(normals_with_weight(normals_gt, fg), height_gt, fg, workdir, "gt")
     report["sign_gt"] = {k: v for k, v in gt_sign.items() if k != "heights"}
 

@@ -1,4 +1,5 @@
 import argparse
+import dataclasses
 import logging
 import os
 import re
@@ -108,6 +109,24 @@ def build_integration_config(integration_params: dict, debug: bool) -> Integrate
     )
 
 
+def fallback_without_hints(
+    config: IntegrateRecursiveConfig, hints_fni_path: str | None
+) -> IntegrateRecursiveConfig:
+    """INT-01: '-initial hints' without '-hints' aborts the C solver.
+
+    build_integration_config only sees the use_hints flag; when the hints file
+    itself is missing (the multifocus did not write it), fall back to a zero
+    start with a warning instead of letting the integration crash.
+    """
+    if config.initial_method == "hints" and hints_fni_path is None:
+        logging.warning(
+            "initial_method='hints' but no hints map is available; "
+            "falling back to initial_method='zero'"
+        )
+        return dataclasses.replace(config, initial_method="zero")
+    return config
+
+
 def main(parameters):
     """
     Main function to execute the hybrid stereo method.
@@ -177,6 +196,14 @@ def main(parameters):
     with open(os.path.join(output_path, "parameters.yaml"), "w") as f:
         yaml.safe_dump(parameters, f, sort_keys=False, allow_unicode=True)
     logging.info("Resolved parameters saved to: %s", os.path.join(output_path, "parameters.yaml"))
+
+    # Validate the integration config up front: an invalid hybrid.integration
+    # (pixel_size <= 0, initial_method='hints' without use_hints) must fail now,
+    # not after the multifocus and photometric steps have run.
+    integration_params = parameters.get("hybrid", {}).get("integration", {})
+    integration_config = build_integration_config(
+        integration_params, debug=parameters["experiment"]["settings"]["debug"]
+    )
 
     # =========================================================================
     # Step 1: Multifocus Stereo
@@ -290,13 +317,6 @@ def main(parameters):
                 "all normals will be weighted equally"
             )
 
-        # Configure integration parameters
-        integration_params = parameters.get("hybrid", {}).get("integration", {})
-        
-        integration_config = build_integration_config(
-            integration_params, debug=parameters["experiment"]["settings"]["debug"]
-        )
-
         # Output directory for integration
         integration_output = os.path.join(output_path, "integration")
         
@@ -311,6 +331,8 @@ def main(parameters):
                 logging.info(f"Found hints map: {hints_fni_path}")
             else:
                 logging.warning(f"Hints map requested but not found at: {hints_file}")
+
+        integration_config = fallback_without_hints(integration_config, hints_fni_path)
         
         logging.info("Running surface integration...")
         try:

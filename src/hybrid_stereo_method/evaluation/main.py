@@ -43,6 +43,7 @@ from hybrid_stereo_method.evaluation.loaders import (
     load_shrp_z_gt,
     load_smos_pair,
     load_zmos,
+    scale_band_rows,
     resolve_data_dir,
     vertex_to_cell,
 )
@@ -115,10 +116,24 @@ def run_evaluation(
         gt_reason = str(exc)
         logging.warning("GT de altura indisponível: %s", gt_reason)
 
+    # Faixa de escala de cinza da libmultifok (linhas excedentes no topo dos PNGs,
+    # ex.: 422 vs 0512x0384 → 38). Não é cena: o GT tem altura 0..65535 ali e a
+    # máscara de sNrm a aceita como frente. Todas as etapas avaliam sem ela.
+    band = 0
+    if gt_height is not None and config.get("exclude_scale_band", True):
+        band = scale_band_rows(sharp_dir, gt_height.shape[0])
+    metrics["meta"]["scale_band_rows"] = band
+    if band:
+        logging.info("Excluindo %d linhas de escala no topo das imagens", band)
+    if gt_height is not None:
+        gt_height = gt_height[band:]
+    if gt_valid is not None:
+        gt_valid = gt_valid[band:]
+
     # --- 1. multifocus: profundidade ----------------------------------------
     zmos: np.ndarray | None = None
     try:
-        zmos = load_zmos(results_dir)
+        zmos = load_zmos(results_dir)[band:]
     except _LOAD_ERRORS as exc:
         metrics["multifocus_depth"] = {"status": f"skipped: {exc}"}
     if zmos is not None:
@@ -149,7 +164,7 @@ def run_evaluation(
                     "status": f"skipped: z_foc do run {z_cfg} difere das pastas zf* {z_vals}"
                 }
             else:
-                metrics["focus_selection"] = evaluate_focus_selection(zmos, z_gt, z_vals)
+                metrics["focus_selection"] = evaluate_focus_selection(zmos, z_gt[band:], z_vals)
         except _LOAD_ERRORS as exc:
             metrics["focus_selection"] = {"status": f"skipped: {exc}"}
 
@@ -167,7 +182,7 @@ def run_evaluation(
             except _LOAD_ERRORS as exc:
                 logging.warning("mosaico ilegível para %s — pulado (%s)", light, exc)
                 continue
-            loaded_pairs.append((light, est, gt_img))
+            loaded_pairs.append((light, est[band:], gt_img[band:]))
         metrics["mosaics"] = evaluate_mosaics(loaded_pairs)
 
     # --- 4. fotométrico: normais --------------------------------------------
@@ -179,7 +194,9 @@ def run_evaluation(
             }
         else:
             n_gt, fg = load_normals_gt(sharp_dir)
-            metrics["photometric_normals"] = evaluate_normals(n_est, n_gt, fg)
+            metrics["photometric_normals"] = evaluate_normals(
+                n_est[band:], n_gt[band:], fg[band:]
+            )
     except _LOAD_ERRORS as exc:
         metrics["photometric_normals"] = {"status": f"skipped: {exc}"}
 
@@ -189,7 +206,7 @@ def run_evaluation(
         height_vertex = load_height_map(results_dir)
         if height_vertex.ndim == 3:
             height_vertex = height_vertex[..., 0]
-        height_cell = vertex_to_cell(height_vertex)
+        height_cell = vertex_to_cell(height_vertex)[band:]
     except _LOAD_ERRORS as exc:
         metrics["integration_height"] = {"status": f"skipped: {exc}"}
     if height_cell is not None:

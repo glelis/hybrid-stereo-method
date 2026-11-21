@@ -152,3 +152,68 @@ def test_relative_output_dir_and_hints_path(tmp_path, monkeypatch):
         hints_fni_path="rel/hints.fni", hints_weight=0.1,
     )
     assert z.shape == (SIZE + 1, SIZE + 1)
+
+
+# --- revisão de 7ef1af5 ---------------------------------------------------------
+
+
+@needs_binary
+def test_relative_executable_path_is_resolved_before_cwd_change(tmp_path, monkeypatch):
+    """O exists() via o caminho a partir do CWD, mas subprocess.run(cwd=output_dir)
+    procurava o executável relativo dentro de output_dir (FileNotFoundError)."""
+    import os
+
+    repo_root = DEFAULT_EXECUTABLE.parents[2]
+    monkeypatch.chdir(repo_root)
+    rel_exe = os.path.relpath(DEFAULT_EXECUTABLE, repo_root)
+    z = integrate_normals_to_height(
+        constant_normals(SIZE, AX, AY), tmp_path / "out", "h",
+        config=build_integration_config(NUMPY_FRAME, debug=False),
+        executable_path=rel_exe,
+    )
+    assert z.shape == (SIZE + 1, SIZE + 1)
+
+
+def test_initial_hints_without_hints_file_falls_back_to_zero(caplog):
+    """INT-01: use_hints=True mas sem zMos_with_confidence.fni → '-initial hints'
+    sem '-hints' abortava o C. Agora cai para 'zero' com aviso."""
+    from hybrid_stereo_method.hybrid.main import fallback_without_hints
+
+    cfg = build_integration_config(
+        {"initial_method": "hints", "use_hints": True, "pixel_size": 1.0}, debug=False
+    )
+    with caplog.at_level(logging.WARNING):
+        out = fallback_without_hints(cfg, None)
+    assert out.initial_method == "zero"
+    assert "falling back" in caplog.text
+    assert fallback_without_hints(cfg, "hints.fni").initial_method == "hints"
+
+
+def test_invalid_integration_config_fails_before_multifocus(tmp_path, monkeypatch):
+    """Config inválida da integração deve falhar antes do Step 1, não depois de
+    rodar multifocus + fotométrico inteiros."""
+    import cv2
+
+    import hybrid_stereo_method.hybrid.main as hybrid_main_mod
+
+    def must_not_run(*args, **kwargs):
+        raise AssertionError("multifocus rodou antes da validação da integração")
+
+    monkeypatch.setattr(hybrid_main_mod, "multifocus_stereo_main", must_not_run)
+    frame = tmp_path / "raw" / "synth" / "L0" / "zf0"
+    frame.mkdir(parents=True)
+    cv2.imwrite(str(frame / "sVal.png"), np.zeros((8, 8, 3), np.uint8))
+    parameters = {
+        "experiment": {
+            "paths": {
+                "input": str(tmp_path / "raw"),
+                "data_folder": "synth",
+                "output": str(tmp_path / "results"),
+            },
+            "settings": {"debug": False},
+        },
+        "multifocus": {"parameters": {"z_foc": [0.0]}},
+        "hybrid": {"integration": {"initial_method": "hints", "use_hints": False}},
+    }
+    with pytest.raises(ValueError, match="initial_method='hints'"):
+        hybrid_main_mod.main(parameters)
