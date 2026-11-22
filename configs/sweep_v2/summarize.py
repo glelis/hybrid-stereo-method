@@ -40,6 +40,7 @@ METRICS = [
     "focus_selection.within_1_frame_pct",
     "photometric_normals.mean_deg",
     "photometric_normals.p95_deg",
+    "photometric_normals.valid_fraction",
     "hybrid_gain_object.gain",
     "meta.object_fraction",
 ]

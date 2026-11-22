@@ -296,8 +296,33 @@ def stage_vhints(ds: str, ctx: StageContext) -> list[RunSpec]:
     center = ctx.winner("V")
     deltas = [{f"{INT}.use_hints": False, f"{INT}.initial_method": "zero"},
               {f"{INT}.use_hints": True, f"{INT}.hints_weight": 0.03},
-              {f"{INT}.use_hints": True, f"{INT}.hints_weight": 0.1}]
+              {f"{INT}.use_hints": True, f"{INT}.hints_weight": 0.1},
+              # extensão: 0.1 venceu na borda em d3
+              {f"{INT}.use_hints": True, f"{INT}.hints_weight": 0.2},
+              {f"{INT}.use_hints": True, f"{INT}.hints_weight": 0.3},
+              {f"{INT}.use_hints": True, f"{INT}.hints_weight": 0.5},
+              {f"{INT}.use_hints": True, f"{INT}.hints_weight": 1.0},
+              {f"{INT}.use_hints": True, f"{INT}.hints_weight": 2.0},
+              {f"{INT}.use_hints": True, f"{INT}.hints_weight": 5.0}]
     return [_spec("Vhints", ds, d, "integration", center["overrides"], center["run_dir"]) for d in deltas]
+
+
+VFINAL_CANDS = ["legacy13", "fourier_ss3.5", "lap9_ss3.5", "fourier_ss3.5_om2", "lap9_ss3.5_om2"]
+
+
+def stage_vfinal(ds: str, ctx: StageContext) -> list[RunSpec]:
+    """Reconfirma a escolha de V com o hints_weight vencedor do Vhints (1.0): rerun de
+    integração sobre os runs de V de cada candidato sem o solver de B."""
+    cands = yaml.safe_load((SWEEP_DIR / "candidates.yaml").read_text()) or {}
+    delta = {f"{INT}.use_hints": True, f"{INT}.hints_weight": 1.0}
+    specs = []
+    for name in VFINAL_CANDS:
+        src = _latest_done(RESULTS / "V" / ds / name)
+        if src is None:
+            continue
+        ov = {**dict(cands.get(name) or {}), **delta}
+        specs.append(RunSpec("Vfinal", ds, f"{name}_hw1", ov, "integration", str(src), delta))
+    return specs
 
 
 STAGES: dict[str, Callable[[str, StageContext], list[RunSpec]]] = {
@@ -311,6 +336,7 @@ STAGES: dict[str, Callable[[str, StageContext], list[RunSpec]]] = {
     "C3": stage_c3,
     "V": stage_v,
     "Vhints": stage_vhints,
+    "Vfinal": stage_vfinal,
 }
 
 

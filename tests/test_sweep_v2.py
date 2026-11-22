@@ -262,3 +262,20 @@ def test_c3_uses_a2_sigma_run_with_b_solver(tmp_path, monkeypatch):
     assert specs[0].overrides[solver] == 0.05
     assert specs[1].source_run == "/a1/y"  # sem run de A2: cai no de A1
     assert f"{pre}.smooth_sigma" not in specs[1].overrides
+
+
+def test_vfinal_reruns_v_candidates_with_hw1(tmp_path, monkeypatch):
+    monkeypatch.setattr(stages, "RESULTS", tmp_path)
+    sweep = tmp_path / "sweep"
+    sweep.mkdir()
+    (sweep / "candidates.yaml").write_text("lap9_ss3.5:\n  multifocus.focus_measure.parameters.kernel_size: 9\n")
+    monkeypatch.setattr(stages, "SWEEP_DIR", sweep)
+    run = tmp_path / "V" / "d1" / "lap9_ss3.5" / "20261122_1000_ds1"
+    (run / "evaluation").mkdir(parents=True)
+    (run / "evaluation" / "metrics.json").write_text("{}")
+    specs = stages.stage_vfinal("d1", stages.StageContext(DATASETS, {}))
+    assert [s.name for s in specs] == ["lap9_ss3.5_hw1"]  # candidatos sem run de V são pulados
+    s = specs[0]
+    assert s.mode == "integration" and s.source_run == str(run)
+    assert s.overrides["hybrid.integration.hints_weight"] == 1.0
+    assert s.overrides["multifocus.focus_measure.parameters.kernel_size"] == 9
