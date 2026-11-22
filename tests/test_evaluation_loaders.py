@@ -235,3 +235,37 @@ def test_load_normals_gt_decodes_uint16(tmp_path):
     assert fg.mean() > 0.99  # quase tudo é frente válida
     err = np.linalg.norm(n[fg] - normals[fg], axis=-1)
     assert err.max() < 1e-3  # quantização de 16 bits é ~256x mais fina que 8
+
+
+def test_find_sharp_dir_nested_light_with_suffix(tmp_path):
+    data = tmp_path / "stF"
+    for light in ("L001-amb0.00-glo0.00", "L000-amb0.00-glo0.00"):
+        d = data / light / "sharp"
+        d.mkdir(parents=True)
+        cv2.imwrite(str(d / "hAvg.png"), np.zeros((4, 4), np.uint16))
+    assert find_sharp_dir(tmp_path / "results", data) == data / "L000-amb0.00-glo0.00" / "sharp"
+
+
+def test_find_smos_pairs_light_with_suffix(tmp_path):
+    data = tmp_path / "data"
+    results = tmp_path / "results"
+    light = "L000-amb0.00-glo0.00"
+    (data / light / "sharp").mkdir(parents=True)
+    cv2.imwrite(str(data / light / "sharp" / "sVal.png"), np.zeros((4, 4), np.uint8))
+    (results / "multifocus_stereo" / light).mkdir(parents=True)
+    np.save(results / "multifocus_stereo" / light / "sMos.npy", np.zeros((4, 4)))
+    pairs = find_smos_pairs(results, data)
+    assert [p[0] for p in pairs] == [light]
+
+
+def test_load_shrp_z_gt_restricted_to_allowed_planes(tmp_path):
+    """stF-melon24: só a L000 tem o plano extra zf060; o run usa os 2 comuns."""
+    data = tmp_path / "data"
+    depth = np.full((4, 4), 60.0)
+    for zv in (56.25, 60.0, 63.75):
+        d = data / "L000-amb0.00-glo0.00" / f"zf{zv:08.4f}-df015.0000"
+        d.mkdir(parents=True)
+        cv2.imwrite(str(d / "shrp.png"), (np.exp(-np.abs(depth - zv)) * 65535.0).astype(np.uint16))
+    z_gt, vals = load_shrp_z_gt(data, z_allowed=[56.25, 63.75])
+    assert vals == [56.25, 63.75]
+    assert z_gt.shape == (4, 4)

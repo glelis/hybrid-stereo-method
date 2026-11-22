@@ -194,6 +194,32 @@ def write_report_md(
             metrics["integration_height_hdev_masked"],
         )
 
+    object_rows = [
+        ("multifocus (zMos)", "multifocus_depth"),
+        ("integração (altura final)", "integration_height"),
+    ]
+    if any(f"{key}_object" in metrics for _, key in object_rows):
+        lines += [
+            "## Objeto vs imagem toda",
+            "",
+            f"Objeto = frente do GT (sNrm), {_fmt(meta.get('object_fraction'), 3)} da imagem "
+            "avaliada. É a métrica principal: o fundo tem hAvg sem significado.",
+            "",
+            "| etapa | r objeto | RMSE objeto | r imagem toda | RMSE imagem toda |",
+            "|---|---|---|---|---|",
+        ]
+        for label, key in object_rows:
+            obj = metrics.get(f"{key}_object", {})
+            full = metrics.get(key, {})
+            lines.append(
+                f"| {label} | {_fmt(obj.get('pearson_r'))} | {_fmt(obj.get('rmse_affine'))} "
+                f"| {_fmt(full.get('pearson_r'))} | {_fmt(full.get('rmse_affine'))} |"
+            )
+        hgo = metrics.get("hybrid_gain_object", {})
+        if hgo.get("status") == "ok":
+            lines += ["", f"Ganho do híbrido no objeto: **{_fmt(hgo['gain'], 2)}**."]
+        lines.append("")
+
     hg = metrics.get("hybrid_gain")
     if hg is not None:
         lines += ["## Síntese — ganho do híbrido", ""]

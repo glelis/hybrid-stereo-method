@@ -1,0 +1,16 @@
+stage: B
+promoted_at: '2026-11-22T09:25:25'
+how: manual (--pick)
+winner:
+  name: sh0.05_om1.5
+  overrides:
+    multifocus.focus_measure.method: fourier
+    multifocus.focus_measure.parameters.radius: 0.05
+    multifocus.focus_measure.preprocessing.smooth: true
+    multifocus.focus_measure.preprocessing.spatial_median_filter: true
+    multifocus.focus_measure.preprocessing.zero_border: false
+    multifocus.focus_measure.preprocessing.smooth_sigma: 3.5
+    photometric.solver.shadow_threshold: 0.05
+    photometric.solver.outlier_threshold_multiplier: 1.5
+  run_dir: /home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/sweep_v2/B/d1/sh0.05_om1.5/20261122_091719_stQ-melon14-amb0.00-glo0.00-0512x0384-hs01-kr07
+  integration_height_object.pearson_r: 0.9836052680902746

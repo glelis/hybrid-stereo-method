@@ -1,0 +1,8 @@
+stage: S0
+promoted_at: '2026-11-21T19:39:15'
+how: manual (--pick)
+winner:
+  name: base
+  overrides: {}
+  run_dir: /home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/sweep_v2/S0/d4/base/20261121_1930_stQ-white01-amb0.00-glo0.00-0512x0384-hs02-kr07
+  integration_height_object.pearson_r: 0.04036677615102536

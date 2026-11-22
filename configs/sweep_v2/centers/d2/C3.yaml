@@ -1,0 +1,16 @@
+stage: C3
+promoted_at: '2026-11-22T09:38:42'
+how: regra de empate
+winner:
+  name: sh0.05_om1.5
+  overrides:
+    multifocus.focus_measure.method: laplacian
+    multifocus.focus_measure.parameters.kernel_size: 5
+    multifocus.focus_measure.preprocessing.smooth: true
+    multifocus.focus_measure.preprocessing.spatial_median_filter: true
+    multifocus.focus_measure.preprocessing.zero_border: false
+    multifocus.focus_measure.preprocessing.smooth_sigma: 3.5
+    photometric.solver.shadow_threshold: 0.05
+    photometric.solver.outlier_threshold_multiplier: 1.5
+  run_dir: /home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/sweep_v2/B/d2/sh0.05_om1.5/20261122_092006_stQ-melon14-amb0.00-glo0.50-0512x0384-hs01-kr10
+  integration_height_object.pearson_r: 0.9849030646554604

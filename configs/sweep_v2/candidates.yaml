@@ -1,0 +1,44 @@
+# Candidatos da validação V (Task 10). Deltas sobre base.yaml (= legacy13 = hb_experiment atual,
+# a menos de max_iter, que não muda nada; por isso o hb_experiment não entra como candidato separado).
+legacy13: {}
+legacy13_B:          # só o solver de B, sem mexer no multifocus (isola o ganho de B)
+  photometric.solver.shadow_threshold: 0.05
+  photometric.solver.outlier_threshold_multiplier: 1.5
+fourier_ss2.5_B:     # σ mais conservador (2.5 empatava com 3.5 em A2)
+  multifocus.focus_measure.preprocessing.smooth_sigma: 2.5
+  photometric.solver.shadow_threshold: 0.05
+  photometric.solver.outlier_threshold_multiplier: 1.5
+d1_final:            # vencedor de d1 = fourier r0.05 + σ 3.5 + solver B (empata no d2 em C3)
+  multifocus.focus_measure.preprocessing.smooth_sigma: 3.5
+  photometric.solver.shadow_threshold: 0.05
+  photometric.solver.outlier_threshold_multiplier: 1.5
+d2_final:            # vencedor de d2 = laplaciano k5 + σ 3.5 + solver B
+  multifocus.focus_measure.method: laplacian
+  multifocus.focus_measure.parameters.kernel_size: 5
+  multifocus.focus_measure.preprocessing.smooth_sigma: 3.5
+  photometric.solver.shadow_threshold: 0.05
+  photometric.solver.outlier_threshold_multiplier: 1.5
+lap9_ss3.5_B:        # melhor de d2 em C3 (0.9851)
+  multifocus.focus_measure.method: laplacian
+  multifocus.focus_measure.parameters.kernel_size: 9
+  multifocus.focus_measure.preprocessing.smooth_sigma: 3.5
+  photometric.solver.shadow_threshold: 0.05
+  photometric.solver.outlier_threshold_multiplier: 1.5
+# --- 2ª rodada (após achar que om 1.5 invalida ~15–18% das normais): σ 3.5 sem o solver de B,
+# e com o solver "seguro" (om 2: normais 100% válidas em d1/d2)
+fourier_ss3.5:
+  multifocus.focus_measure.preprocessing.smooth_sigma: 3.5
+lap9_ss3.5:
+  multifocus.focus_measure.method: laplacian
+  multifocus.focus_measure.parameters.kernel_size: 9
+  multifocus.focus_measure.preprocessing.smooth_sigma: 3.5
+fourier_ss3.5_om2:
+  multifocus.focus_measure.preprocessing.smooth_sigma: 3.5
+  photometric.solver.shadow_threshold: 0.05
+  photometric.solver.outlier_threshold_multiplier: 2
+lap9_ss3.5_om2:
+  multifocus.focus_measure.method: laplacian
+  multifocus.focus_measure.parameters.kernel_size: 9
+  multifocus.focus_measure.preprocessing.smooth_sigma: 3.5
+  photometric.solver.shadow_threshold: 0.05
+  photometric.solver.outlier_threshold_multiplier: 2

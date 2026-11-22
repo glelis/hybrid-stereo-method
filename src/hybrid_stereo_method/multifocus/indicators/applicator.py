@@ -20,7 +20,13 @@ def focus_indicator(
     zero_border=False,
     mask=False,
     mask_img=None,
+    median_ksize=5,
+    smooth_sigma=None,
 ) -> np.ndarray:
+    """median_ksize: abertura do medianBlur (3 ou 5; float32 só aceita esses).
+    smooth_sigma: None = kernel binomial 3x3; float = GaussianBlur com esse sigma."""
+    if median_ksize not in (3, 5):
+        raise ValueError(f"median_ksize must be 3 or 5 (cv2.medianBlur on float32), got {median_ksize!r}")
     logging.debug(
         f"Calculating focus indicator ({focus_indicator_type}) shape: {image_stack.shape}, min_all: {np.min(image_stack)}, max_all: {np.max(image_stack)}"
     )
@@ -49,8 +55,11 @@ def focus_indicator(
             focus_indicator = focus_indicator**2
         if smooth:
             # Apply smoothing kernel
-            kernel = np.array([[1, 2, 1], [2, 4, 2], [1, 2, 1]]) / 16
-            focus_indicator = cv2.filter2D(focus_indicator, -1, kernel)
+            if smooth_sigma is None:
+                kernel = np.array([[1, 2, 1], [2, 4, 2], [1, 2, 1]]) / 16
+                focus_indicator = cv2.filter2D(focus_indicator, -1, kernel)
+            else:
+                focus_indicator = cv2.GaussianBlur(focus_indicator, (0, 0), float(smooth_sigma))
         if zero_border:
             # Zero out borders of the computed INDICATOR (removes edge
             # artifacts). Zeroing the input image instead would create a sharp
@@ -65,7 +74,7 @@ def focus_indicator(
             focus_indicator = np.float32(focus_indicator)
             # median blur requires a bit specific formats or we can use generic scipy median filter
             # Since cv2 medianBlur natively supports float32
-            focus_indicator = cv2.medianBlur(focus_indicator, 5)
+            focus_indicator = cv2.medianBlur(focus_indicator, median_ksize)
 
         if mask:
             focus_indicator = focus_indicator * mask_img

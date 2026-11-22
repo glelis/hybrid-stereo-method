@@ -1,0 +1,11 @@
+stage: V
+promoted_at: '2026-11-22T10:30:46'
+how: manual (--pick)
+winner:
+  name: lap9_ss3.5
+  overrides:
+    multifocus.focus_measure.method: laplacian
+    multifocus.focus_measure.parameters.kernel_size: 9
+    multifocus.focus_measure.preprocessing.smooth_sigma: 3.5
+  run_dir: /home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/sweep_v2/V/d4/lap9_ss3.5/20261122_1022_stQ-white01-amb0.00-glo0.00-0512x0384-hs02-kr07
+  integration_height_object.pearson_r: 0.09337947059980733
