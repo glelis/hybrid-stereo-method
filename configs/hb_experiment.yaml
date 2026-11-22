@@ -45,11 +45,14 @@ multifocus:
   focus_measure:
     # Algorithm to measure focus
     # Options: 'fourier', 'laplacian', 'wavelet'
-    method: 'fourier'
+    # Sweep v2 (2026-11-22, docs/relatorios/2026-11-22-sweep-v2.md): laplacian k9 +
+    # smooth_sigma 3.5 + hints_weight 1.0 — d1 0.984, d2 0.986, d3 0.959 (legacy13:
+    # 0.971 / 0.975 / 0.944). fourier 0.05 + sigma 3.5 is within 0.008 on all three.
+    method: 'laplacian'
     
     parameters:
       # Size of the Laplacian kernel (if method is 'laplacian')
-      kernel_size: 31
+      kernel_size: 9  # sweep v2; was 31 (unused while method was fourier)
       
       # Radius for Fourier transform frequency masking (if method is 'fourier')
       radius: 0.05  # sweep 2026-07-10 winner (13_lowfreq_denoise_noborder); was 0.1
@@ -70,7 +73,9 @@ multifocus:
 
       # Smoothing strength: null = 3x3 binomial kernel (historical default);
       # a float = cv2.GaussianBlur with that sigma (e.g. 1.5).
-      smooth_sigma: null
+      # Sweep v2: 3.5 is the peak (0.75 < 1.5 < 2.5 < 3.5 > 5.0 on every center);
+      # multifocus r on d1 0.61 -> 0.93.
+      smooth_sigma: 3.5
       
       # Whether to zero out the borders to avoid artifacts
       zero_border: False
@@ -119,7 +124,10 @@ photometric:
     # solver, which ignores it (sweep 2026-07-10: top_k is a no-op here).
     top_k: 3
     
-    # Multiplier for residual standard deviation to identify outliers
+    # Multiplier for residual standard deviation to identify outliers.
+    # Sweep v2: values below 2 turn pixels left with < 3 lights into NaN normals
+    # (1.5 invalidates 15-18% of the image) — looked better on melon14, broke
+    # melon24. Keep >= 2.
     outlier_threshold_multiplier: 3
 
 hybrid:
@@ -140,20 +148,27 @@ hybrid:
     #   lamb-gls: 1.80 (1.77 direct, 1.83 via hAvg)
     #   melon24:  1.13 (1.10 direct, 1.15 via hAvg); the 3.08 from the
     #             2026-06-06 investigation (C3) was an empirical guess.
+    #   sweep v2 datasets: configs/sweep_v2/datasets.yaml (stQ-melon14 glo0 1.80,
+    #   glo0.5 1.13, stF-melon24 1.14, stQ-white01 1.81). r is insensitive to
+    #   +-25% here (sweep v2, C2).
     # Re-run the script when switching datasets.
     pixel_size: 1.80
 
-    # Whether to use the depth map from multifocus as hints
+    # Whether to use the depth map from multifocus as hints.
+    # Textureless scenes (sweep v2, white01): set False — the focus stack carries
+    # no depth there and any hints weight wrecks the result (0.81 off vs 0.09 at 0.1).
     use_hints: True
     
-    # Weight for the hints map (0.0 to 1.0)
-    hints_weight: 0.1
+    # Weight for the hints map. Sweep v2: 1.0 is the peak on textured scenes
+    # (0.1 -> 1.0: d3 0.941 -> 0.959); was 0.1. With the sharper zMos of
+    # smooth_sigma 3.5 the hints deserve more weight.
+    hints_weight: 1.0
     
     # Maximum recursion level for the integration algorithm
     max_level: 30
     
     # Maximum iterations for the solver
-    max_iter: 10000
+    max_iter: 5000  # sweep v2 S0conv: 2000-20000 within 1e-4 on d1/d2
     
     # Convergence tolerance
     conv_tol: 0.0000005

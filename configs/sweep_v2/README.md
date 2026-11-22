@@ -41,7 +41,11 @@ python configs/sweep_v2/summarize.py --stage A1 --datasets d1,d2 --promote --top
 | C2 | C1 | integration | pixel_size ×{0,8; 0,9; 1,1; 1,25} (sensibilidade; não promover) |
 | C3 | top-3 de A1 + B + C1 | photometric | interação multifocus × hints |
 | V | `candidates.yaml` | full | candidatos nos 4 datasets (`--aggregate`) |
-| Vhints | V | integration | hints nos datasets de teste |
+| Vhints | V | integration | `hints_weight` 0–5 (estendido; rodado em d1–d4) |
+| Vfinal | V | integration | candidatos V sem B com `hints_weight` 1,0 (reconfirmação) |
+
+Resultado e recomendação: `docs/relatorios/2026-11-22-sweep-v2.md`.
 
 Métrica primária: `integration_height_object.pearson_r`. Empate: |Δr| < 0,005 e
-Δrmse < 2 %; no empate vence quem tem menos overrides.
+Δrmse < 2 %; no empate vence quem tem menos overrides. Ao comparar solvers fotométricos, conferir
+`photometric_normals.valid_fraction` (≥ 0,99): om < 2 gera normais NaN que inflam o ranking.
