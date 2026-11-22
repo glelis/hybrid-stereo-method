@@ -219,6 +219,10 @@ def stage_b(ds: str, ctx: StageContext) -> list[RunSpec]:
     center = ctx.winner("A2")
     deltas = grid({f"{SOLVER}.shadow_threshold": [1e-4, 1e-3, 1e-2, 5e-2],
                    f"{SOLVER}.outlier_threshold_multiplier": [2, 2.5, 3, 4, 1e9]})
+    # extensão: a 1ª rodada venceu no canto (sh 0.05, om 2) nos dois datasets
+    ext = grid({f"{SOLVER}.shadow_threshold": [5e-2, 0.1, 0.2],
+                f"{SOLVER}.outlier_threshold_multiplier": [1.25, 1.5, 1.75, 2]})
+    deltas += [d for d in ext if d not in deltas]
     return [_spec("B", ds, d, "photometric", center["overrides"], center["run_dir"]) for d in deltas]
 
 
