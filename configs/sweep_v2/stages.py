@@ -251,20 +251,35 @@ def stage_c2(ds: str, ctx: StageContext) -> list[RunSpec]:
 
 
 def stage_c3(ds: str, ctx: StageContext) -> list[RunSpec]:
-    """Interação: top-3 de A1 com o fotométrico de B e {hints vencedor, 0.1}."""
+    """Interação: cada um dos top-3 de A1, já com o smooth_sigma vencedor de A2, sob o
+    fotométrico de B e a integração de C1. Responde se a escolha da medida de foco muda
+    depois de B/C1. (Redesenho: o C1 manteve hints_weight 0.1 = referência, então o par
+    {vencedor, 0.1} do plano seria duplicado; e os top-3 de A1 sem o sigma de A2 perderiam
+    por construção.)"""
     c1 = ctx.winner("C1")["overrides"]
-    b = ctx.winner("B")["overrides"]
-    solver = {k: v for k, v in b.items() if k.startswith(SOLVER)}
-    integ_win = {k: v for k, v in c1.items() if k.startswith(INT)}
-    integ_ref = {f"{INT}.use_hints": True, f"{INT}.hints_weight": 0.1, f"{INT}.initial_method": "zero"}
-    variants = [("win", integ_win)] + ([("ref", integ_ref)] if integ_win != integ_ref else [])
+    a2 = ctx.winner("A2")["overrides"]
+    solver = {k: v for k, v in c1.items() if k.startswith(SOLVER)}
+    integ = {k: v for k, v in c1.items() if k.startswith(INT)}
+    sigma_key = f"{PRE}.smooth_sigma"
+    sigma = a2.get(sigma_key)
     specs = []
     for i, center in enumerate(ctx.top("A1")):
-        for tag, integ in variants:
-            delta = {**solver, **integ}
-            ov = {**center["overrides"], **delta}
-            specs.append(RunSpec("C3", ds, f"a1top{i}_{tag}", ov, "photometric", center["run_dir"], delta))
+        name = f"c{i}_" + config_name({sigma_key: sigma}) if sigma is not None else None
+        src_cfg = RESULTS / "A2" / ds / name if name else None
+        src = _latest_done(src_cfg) if src_cfg else None
+        if src is None:  # sem o run de A2 correspondente: usa o próprio run de A1
+            base_ov, src = dict(center["overrides"]), center["run_dir"]
+        else:
+            base_ov = {**center["overrides"], sigma_key: sigma}
+        delta = {**solver, **integ}
+        specs.append(RunSpec("C3", ds, f"a1top{i}", {**base_ov, **delta}, "photometric", str(src), delta))
     return specs
+
+
+def _latest_done(cfg_dir: Path) -> Path | None:
+    runs = sorted(p for p in cfg_dir.glob("2*") if (p / "evaluation" / "metrics.json").exists()) \
+        if cfg_dir.is_dir() else []
+    return runs[-1] if runs else None
 
 
 def stage_v(ds: str, ctx: StageContext) -> list[RunSpec]:

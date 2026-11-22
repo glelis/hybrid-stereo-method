@@ -239,3 +239,26 @@ def test_runner_skips_done(tmp_path, capsys, monkeypatch):
     out = capsys.readouterr().out
     assert "skip  S0/d1/base" in out
     assert "run   S0/d1/legacy15" in out
+
+
+def test_c3_uses_a2_sigma_run_with_b_solver(tmp_path, monkeypatch):
+    monkeypatch.setattr(stages, "RESULTS", tmp_path)
+    a2run = tmp_path / "A2" / "d1" / "c0_ss3.5" / "20261122_0800_ds1"
+    (a2run / "evaluation").mkdir(parents=True)
+    (a2run / "evaluation" / "metrics.json").write_text("{}")
+    pre = "multifocus.focus_measure.preprocessing"
+    solver = "photometric.solver.shadow_threshold"
+    centers = {
+        "A1": {"top": [{"name": "x", "overrides": {f"{pre}.smooth": True}, "run_dir": "/a1/x"},
+                       {"name": "y", "overrides": {f"{pre}.smooth": True}, "run_dir": "/a1/y"}]},
+        "A2": {"winner": {"overrides": {f"{pre}.smooth_sigma": 3.5}}},
+        "C1": {"winner": {"overrides": {solver: 0.05}}},
+    }
+    monkeypatch.setattr(stages, "SOLVER", "photometric.solver")
+    specs = stages.stage_c3("d1", stages.StageContext(DATASETS, centers))
+    assert [s.name for s in specs] == ["a1top0", "a1top1"]
+    assert specs[0].source_run == str(a2run)
+    assert specs[0].overrides[f"{pre}.smooth_sigma"] == 3.5
+    assert specs[0].overrides[solver] == 0.05
+    assert specs[1].source_run == "/a1/y"  # sem run de A2: cai no de A1
+    assert f"{pre}.smooth_sigma" not in specs[1].overrides
