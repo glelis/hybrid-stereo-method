@@ -159,8 +159,8 @@ hybrid:
     # no depth there and any hints weight wrecks the result (0.81 off vs 0.09 at 0.1).
     use_hints: True
     
-    # Weight for the hints map. Sweep v2: 1.0 is the peak on textured scenes
-    # (0.1 -> 1.0: d3 0.941 -> 0.959); was 0.1. With the sharper zMos of
+    # Weight for the hints map. Sweep v2: plateau at 1.0-2.0 on textured scenes
+    # (ties; 1.0 chosen; 0.1 -> 1.0: d3 0.941 -> 0.959); was 0.1. With the sharper zMos of
     # smooth_sigma 3.5 the hints deserve more weight.
     hints_weight: 1.0
     

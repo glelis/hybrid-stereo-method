@@ -1,6 +1,6 @@
 # Sweep v2: V, validação multi-dataset (d1–d4; 2026-11-22)
 
-Tabelas: `V.md` (agregado d1–d3), `Vhints.md` e `Vfinal.md` (com os `.csv`). São 40 runs de V, 30 de
+Tabelas: `V.md|csv` (d1–d4), `V-agregado-d1d3.md`, `Vhints.md` e `Vfinal.md` (com os `.csv`). São 40 runs de V, 30 de
 Vhints e 15 de Vfinal. Nenhum falhou.
 
 ## 1. O vencedor de B não generaliza: artefato de normais inválidas
@@ -45,12 +45,13 @@ Laplaciano k9 + σ 3,5, solver original (sh 0,001, om 3):
 | config (hints 1,0) | d1 | d2 | d3 | média | mín |
 |---|---|---|---|---|---|
 | **lap9 + σ 3,5** | **0,9840** | 0,9856 | **0,9588** | **0,9761** | **0,9588** |
-| lap9 + σ 3,5 + sh 0,05/om 2 | 0,9839 | 0,9857 | 0,9552 | 0,9750 | 0,9552 |
+| lap9 + σ 3,5 + sh 0,05 / om 2 (duas mudanças) | 0,9839 | 0,9857 | 0,9552 | 0,9750 | 0,9552 |
 | fourier 0,05 + σ 3,5 + om 2 | 0,9831 | 0,9851 | 0,9524 | 0,9735 | 0,9524 |
 | fourier 0,05 + σ 3,5 | 0,9835 | 0,9851 | 0,9512 | 0,9733 | 0,9512 |
 | legacy13 | 0,9598 | 0,9785 | 0,9508 | 0,9630 | 0,9508 |
 
-O solver "seguro" (om 2) não acrescenta nada com hints 1,0. O solver original fica.
+O solver "seguro" (sh 0,05 + om 2) não acrescenta nada com hints 1,0: empata em d1/d2 e perde em d3. O solver original fica.
+O peso 1–2 é um platô (d3: 2,0 → 0,9596, empate com 1,0); escolhido 1,0.
 
 ## Config recomendada
 

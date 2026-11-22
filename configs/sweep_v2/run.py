@@ -33,14 +33,7 @@ _KEEP_PREFIXES = ("sMos", "zMos")
 _KEEP_AVERAGE_FNI = ("zMos.fni", "zMos_with_confidence.fni")
 
 
-def latest_done_run(config_dir: Path) -> Path | None:
-    """Run mais recente da config com evaluation/metrics.json (ou None)."""
-    if not config_dir.is_dir():
-        return None
-    for run in sorted((d for d in config_dir.iterdir() if d.is_dir() and not d.name.startswith("_")), reverse=True):
-        if (run / "evaluation" / "metrics.json").exists():
-            return run
-    return None
+latest_done_run = stages.latest_done_run  # implementação única (stages.py)
 
 
 def prune(run_dir: Path) -> int:
@@ -149,6 +142,9 @@ def main(argv: list[str] | None = None) -> None:
             if extra:
                 spec.overrides = {**spec.overrides, **extra}
                 spec.delta = {**spec.delta, **extra}
+                # pasta própria: sem isso o run original contaria como feito (skip) ou,
+                # com --force-new, o spec.json da config seria sobrescrito
+                spec.name = f"{spec.name}_{stages.config_name(extra)}"
             label = f"{spec.stage}/{spec.dataset}/{spec.name}"
             if not args.force_new and latest_done_run(spec.out_dir()) is not None:
                 print(f"skip  {label}")

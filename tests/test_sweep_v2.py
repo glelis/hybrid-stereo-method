@@ -147,7 +147,8 @@ def test_collect_rows_reads_spec_and_metrics(tmp_path):
     (run / "evaluation").mkdir(parents=True)
     (cfg / "spec.json").write_text(json.dumps({"name": "cfgA", "dataset": "d1", "delta": {"k": 1}, "overrides": {"k": 1}}))
     (run / "evaluation" / "metrics.json").write_text(
-        json.dumps({"integration_height_object": {"status": "ok", "pearson_r": 0.9, "rmse_affine": 3.0}})
+        json.dumps({"integration_height": {"status": "ok", "pearson_r": 0.9},
+                    "integration_height_object": {"status": "ok", "pearson_r": 0.9, "rmse_affine": 3.0}})
     )
     missing = tmp_path / "A1" / "d1" / "cfgB"
     missing.mkdir()
@@ -223,7 +224,7 @@ def test_latest_run_with_metrics(tmp_path):
     old = cfg / "20261121_1200_ds"
     new = cfg / "20261121_1300_ds"
     (old / "evaluation").mkdir(parents=True)
-    (old / "evaluation" / "metrics.json").write_text("{}")
+    (old / "evaluation" / "metrics.json").write_text(_OK)
     new.mkdir()  # run interrompido: sem metrics
     assert sweep_run.latest_done_run(cfg) == old
     assert sweep_run.latest_done_run(tmp_path / "nope") is None
@@ -234,7 +235,7 @@ def test_runner_skips_done(tmp_path, capsys, monkeypatch):
     monkeypatch.setattr(stages, "load_datasets", lambda: DATASETS)
     done = tmp_path / "S0" / "d1" / "base" / "20261121_1200_ds1" / "evaluation"
     done.mkdir(parents=True)
-    (done / "metrics.json").write_text("{}")
+    (done / "metrics.json").write_text(_OK)
     sweep_run.main(["--stage", "S0", "--datasets", "d1", "--dry-run"])
     out = capsys.readouterr().out
     assert "skip  S0/d1/base" in out
@@ -245,7 +246,7 @@ def test_c3_uses_a2_sigma_run_with_b_solver(tmp_path, monkeypatch):
     monkeypatch.setattr(stages, "RESULTS", tmp_path)
     a2run = tmp_path / "A2" / "d1" / "c0_ss3.5" / "20261122_0800_ds1"
     (a2run / "evaluation").mkdir(parents=True)
-    (a2run / "evaluation" / "metrics.json").write_text("{}")
+    (a2run / "evaluation" / "metrics.json").write_text(_OK)
     pre = "multifocus.focus_measure.preprocessing"
     solver = "photometric.solver.shadow_threshold"
     centers = {
@@ -272,10 +273,35 @@ def test_vfinal_reruns_v_candidates_with_hw1(tmp_path, monkeypatch):
     monkeypatch.setattr(stages, "SWEEP_DIR", sweep)
     run = tmp_path / "V" / "d1" / "lap9_ss3.5" / "20261122_1000_ds1"
     (run / "evaluation").mkdir(parents=True)
-    (run / "evaluation" / "metrics.json").write_text("{}")
+    (run / "evaluation" / "metrics.json").write_text(_OK)
     specs = stages.stage_vfinal("d1", stages.StageContext(DATASETS, {}))
     assert [s.name for s in specs] == ["lap9_ss3.5_hw1"]  # candidatos sem run de V são pulados
     s = specs[0]
     assert s.mode == "integration" and s.source_run == str(run)
     assert s.overrides["hybrid.integration.hints_weight"] == 1.0
     assert s.overrides["multifocus.focus_measure.parameters.kernel_size"] == 9
+
+
+_OK = json.dumps({"integration_height": {"status": "ok", "pearson_r": 0.9}})
+
+
+def test_failed_integration_is_not_done(tmp_path):
+    cfg = tmp_path / "cfg"
+    run = cfg / "20261122_1200_ds" / "evaluation"
+    run.mkdir(parents=True)
+    (run / "metrics.json").write_text(json.dumps({"integration_height": {"status": "skipped", "reason": "x"}}))
+    assert sweep_run.latest_done_run(cfg) is None
+    assert stages.latest_done_run(cfg) is None  # uma única implementação, usada por run/stages/summarize
+
+
+def test_set_override_gets_its_own_config_dir(tmp_path, capsys, monkeypatch):
+    monkeypatch.setattr(stages, "RESULTS", tmp_path)
+    monkeypatch.setattr(stages, "load_datasets", lambda: DATASETS)
+    done = tmp_path / "S0" / "d1" / "base" / "20261121_1200_ds1" / "evaluation"
+    done.mkdir(parents=True)
+    (done / "metrics.json").write_text(_OK)
+    sweep_run.main(["--stage", "S0", "--datasets", "d1", "--dry-run", "--only", "base",
+                    "--set", "hybrid.integration.hints_weight=0.5"])
+    out = capsys.readouterr().out
+    assert "skip  S0/d1/base" not in out
+    assert "run   S0/d1/base_hw0.5" in out

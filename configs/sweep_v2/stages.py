@@ -266,7 +266,7 @@ def stage_c3(ds: str, ctx: StageContext) -> list[RunSpec]:
     for i, center in enumerate(ctx.top("A1")):
         name = f"c{i}_" + config_name({sigma_key: sigma}) if sigma is not None else None
         src_cfg = RESULTS / "A2" / ds / name if name else None
-        src = _latest_done(src_cfg) if src_cfg else None
+        src = latest_done_run(src_cfg) if src_cfg else None
         if src is None:  # sem o run de A2 correspondente: usa o próprio run de A1
             base_ov, src = dict(center["overrides"]), center["run_dir"]
         else:
@@ -274,12 +274,6 @@ def stage_c3(ds: str, ctx: StageContext) -> list[RunSpec]:
         delta = {**solver, **integ}
         specs.append(RunSpec("C3", ds, f"a1top{i}", {**base_ov, **delta}, "photometric", str(src), delta))
     return specs
-
-
-def _latest_done(cfg_dir: Path) -> Path | None:
-    runs = sorted(p for p in cfg_dir.glob("2*") if (p / "evaluation" / "metrics.json").exists()) \
-        if cfg_dir.is_dir() else []
-    return runs[-1] if runs else None
 
 
 def stage_v(ds: str, ctx: StageContext) -> list[RunSpec]:
@@ -317,7 +311,7 @@ def stage_vfinal(ds: str, ctx: StageContext) -> list[RunSpec]:
     delta = {f"{INT}.use_hints": True, f"{INT}.hints_weight": 1.0}
     specs = []
     for name in VFINAL_CANDS:
-        src = _latest_done(RESULTS / "V" / ds / name)
+        src = latest_done_run(RESULTS / "V" / ds / name)
         if src is None:
             continue
         ov = {**dict(cands.get(name) or {}), **delta}
@@ -341,6 +335,28 @@ STAGES: dict[str, Callable[[str, StageContext], list[RunSpec]]] = {
 
 
 # --- I/O ---------------------------------------------------------------------
+
+
+def latest_done_run(config_dir: Path) -> Path | None:
+    """Run mais recente da config cuja avaliação existe E cuja integração deu certo.
+
+    Um run cuja integração falhou (binário ausente, crash: o pipeline segue e grava
+    metrics.json com integration_height 'skipped') não conta como feito, para que o
+    runner o refaça.
+    """
+    if not config_dir.is_dir():
+        return None
+    for run in sorted((d for d in config_dir.iterdir() if d.is_dir() and not d.name.startswith("_")), reverse=True):
+        mfile = run / "evaluation" / "metrics.json"
+        if not mfile.exists():
+            continue
+        try:
+            status = json.loads(mfile.read_text()).get("integration_height", {}).get("status")
+        except (json.JSONDecodeError, AttributeError):
+            continue
+        if status == "ok":
+            return run
+    return None
 
 
 def load_base() -> dict:
