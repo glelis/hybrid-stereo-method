@@ -1,0 +1,14 @@
+stage: A2
+promoted_at: '2026-11-22T09:04:32'
+how: regra de empate
+winner:
+  name: c1_ss3.5
+  overrides:
+    multifocus.focus_measure.method: laplacian
+    multifocus.focus_measure.parameters.kernel_size: 5
+    multifocus.focus_measure.preprocessing.smooth: true
+    multifocus.focus_measure.preprocessing.spatial_median_filter: true
+    multifocus.focus_measure.preprocessing.zero_border: false
+    multifocus.focus_measure.preprocessing.smooth_sigma: 3.5
+  run_dir: /home/lelis/Documents/Projetos/hybrid-stereo-method/data/results/sweep_v2/A2/d2/c1_ss3.5/20261122_0848_stQ-melon14-amb0.00-glo0.50-0512x0384-hs01-kr10
+  integration_height_object.pearson_r: 0.9809747627829356

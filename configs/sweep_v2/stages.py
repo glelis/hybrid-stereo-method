@@ -205,9 +205,13 @@ def stage_a2(ds: str, ctx: StageContext) -> list[RunSpec]:
         if cv[f"{PRE}.spatial_median_filter"]:
             axes[f"{PRE}.median_ksize"] = [3]
         if cv[f"{PRE}.smooth"]:
-            axes[f"{PRE}.smooth_sigma"] = [0.75, 1.5, 2.5]
+            axes[f"{PRE}.smooth_sigma"] = [0.75, 1.5, 2.5, 3.5, 5.0]  # 3.5/5.0: extensão (2.5 venceu na borda)
         for d in ofat(axes, cv):
             specs.append(_spec("A2", ds, d, "full", ov, prefix=f"c{i}_"))
+        if cv[f"{PRE}.smooth"] and not cv[f"{PRE}.square"]:
+            # combinação dos dois melhores efeitos do OFAT (adicionada após a 1ª rodada)
+            combo = {f"{PRE}.smooth_sigma": 3.5, f"{PRE}.square": True}
+            specs.append(_spec("A2", ds, combo, "full", ov, prefix=f"c{i}_"))
     return specs
 
 
